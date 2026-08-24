@@ -1,43 +1,23 @@
 # PHARMFLOW CURRENT CHECKPOINT
-
-Date: 23 August 2026
-Version: Phase 2C.11.4.12 — Auth Gate Atomic Reveal Root Fix
+Date: 25 August 2026
+Environment: B / pharmflow-dev
+Version: DEVISO3 — Authentication Boundary Root Fix
 Status: READY FOR TEST
 
-## DIAGNOSTIC UPDATE
-The flash persisted even after Reset Current Order.
-This disproved the remaining-workspace-persistence explanation for the visible
-frame itself.
+Verified before this patch:
+- DEV001 created and active.
+- DEV001 Admin login works.
+- Global GTIN readable and no Admin update control shown.
 
-## FULL SOURCE TRACE — CONFIRMED ROOT CAUSE
-Sign-in flow was:
+Failed before this patch:
+- Hard isolation: Test 01 rendered its own Orders/Receiving workspace on B.
 
-1. authenticate;
-2. loadMyAppContext();
-3. renderAuthState();
-4. renderAuthState() saw valid application access and immediately executed:
-      authGate.classList.remove("visible")
-5. only after that, unlockApplicationAfterAuth() started/continued the async
-   server-authoritative workspace hydration;
-6. the already-mounted Dashboard DOM was exposed between steps 4 and 5/6.
+Root fix:
+Non-DEV pharmacy context is rejected before AppState assignment,
+auth:context-ready publication, cloud hydration, or application rendering.
 
-Therefore the flash could survive even when Current Workspace was reset.
-It was a UI reveal race in auth.js.
+Authorized tenant:
+DEV001 / ffcac9ca-dfca-4344-9490-a77dcdba9d01
 
-2C.11.4.9 attempted to keep the gate until hydration, but renderAuthState()
-was independently removing the gate first.
-
-## ROOT FIX
-- renderAuthState() no longer hides authGate for an authenticated user.
-- unlockApplicationAfterAuth() is the ONLY reveal authority.
-- It already waits for server-authoritative hydration, then removes authGate.
-- No state, persistence, Receiving, Finalize, Archive, Expiry, GTIN or database
-  logic changed.
-
-## EXACT TEST
-1. Hard refresh once after deployment.
-2. Sign Out.
-3. Sign In.
-4. The login/auth screen may remain visible briefly while synchronization runs.
-5. Dashboard must appear once in its final authoritative state.
-6. No previous Order/statistics frame may be visible.
+Exact next action:
+Deploy the three modified runtime files and retest Test 01 on B.

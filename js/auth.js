@@ -860,6 +860,42 @@ async function loadMyAppContext(){
 
         AuthState.context = row || null;
 
+        /*
+           DEVISO3 AUTHENTICATION BOUNDARY HOOK
+
+           Development B is allowed to authenticate against the shared
+           Supabase project, but it must NEVER hydrate/render another
+           pharmacy workspace.  The environment hook is evaluated here,
+           before AppState receives the account and before auth:context-ready
+           can wake cloud/workspace listeners.
+        */
+        if(
+            typeof window.pharmFlowDevValidateAuthenticatedContext === "function" &&
+            window.pharmFlowDevValidateAuthenticatedContext(row) !== true
+        ){
+            AuthState.lastContextScope="";
+
+            if(typeof AppState !== "undefined"){
+                if(typeof createEmptyAccountContext === "function"){
+                    AppState.account=createEmptyAccountContext();
+                }
+                if(typeof createEmptyWorkspace === "function"){
+                    AppState.workspace=createEmptyWorkspace();
+                }
+                if(typeof createEmptySession === "function"){
+                    AppState.session=createEmptySession();
+                }
+                if(AppState.archive){
+                    AppState.archive.orders=[];
+                    AppState.archive.transactions=[];
+                }
+                resetStatistics?.();
+                rebuildStateIndexes?.();
+            }
+
+            return row;
+        }
+
         if(typeof AppState !== "undefined"){
             AppState.account = normalizeAccountContext(row);
         }
@@ -900,7 +936,21 @@ function normalizeAccountContext(row){
 }
 
 function hasApplicationAccess(){
-    return !!(AuthState.context && AuthState.context.pharmacy_id);
+    const baseAccess=!!(AuthState.context && AuthState.context.pharmacy_id);
+
+    if(!baseAccess){
+        return false;
+    }
+
+    /*
+       B-only environment policy may further restrict application access.
+       Production A has no hook, so its behavior is unchanged.
+    */
+    if(typeof window.pharmFlowDevValidateAuthenticatedContext === "function"){
+        return window.pharmFlowDevValidateAuthenticatedContext(AuthState.context) === true;
+    }
+
+    return true;
 }
 
 
@@ -1430,6 +1480,24 @@ function renderAuthState(){
     const accessPanel = document.getElementById("authAccessPanel");
     const formsPanel = document.getElementById("authFormsPanel");
     const account = AuthState.context;
+
+    /*
+       DEVISO3: allow the development environment to render an explicit
+       fail-closed access screen instead of exposing another tenant or
+       mislabeling it as an unassigned pharmacy account.
+    */
+    if(
+        AuthState.session &&
+        account &&
+        typeof window.pharmFlowDevRenderAccessBoundary === "function" &&
+        window.pharmFlowDevRenderAccessBoundary(account) === true
+    ){
+        return;
+    }
+
+    if(typeof window.pharmFlowDevHideAccessBoundary === "function"){
+        window.pharmFlowDevHideAccessBoundary();
+    }
 
     // Authenticated session exists, but pharmacy/role context is still loading.
     // Keep the current auth gate state unchanged rather than showing

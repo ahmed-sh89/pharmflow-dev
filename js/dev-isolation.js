@@ -42,6 +42,108 @@ function pharmFlowDevTenantMatches(){
     return !!ctx && String(ctx.pharmacy_id||"").toLowerCase() === PHARMFLOW_DEV_ENV.pharmacyId;
 }
 
+function pharmFlowDevValidateAuthenticatedContext(context){
+    const ctx=context || pharmFlowDevContext();
+
+    if(!ctx || !ctx.pharmacy_id){
+        return false;
+    }
+
+    return String(ctx.pharmacy_id||"").toLowerCase() ===
+        String(PHARMFLOW_DEV_ENV.pharmacyId||"").toLowerCase();
+}
+
+function pharmFlowDevClearRuntimeForBlockedTenant(){
+    try{
+        if(typeof cancelPendingCloudWorkspaceSave==="function"){
+            cancelPendingCloudWorkspaceSave();
+        }
+    }catch(_){}
+
+    try{
+        if(typeof AppState!=="undefined"){
+            if(typeof createEmptyAccountContext==="function"){
+                AppState.account=createEmptyAccountContext();
+            }
+            if(typeof createEmptyWorkspace==="function"){
+                AppState.workspace=createEmptyWorkspace();
+            }
+            if(typeof createEmptySession==="function"){
+                AppState.session=createEmptySession();
+            }
+            if(AppState.archive){
+                AppState.archive.orders=[];
+                AppState.archive.transactions=[];
+            }
+            resetStatistics?.();
+            rebuildStateIndexes?.();
+        }
+    }catch(_){}
+}
+
+function pharmFlowDevEnsureAccessBlock(){
+    let block=document.getElementById("devEnvironmentAccessBlock");
+    if(block){ return block; }
+
+    const gate=document.getElementById("authGate");
+    const inner=gate?.querySelector?.(".authFormPanelInner");
+    if(!inner){ return null; }
+
+    block=document.createElement("div");
+    block.id="devEnvironmentAccessBlock";
+    block.hidden=true;
+    block.innerHTML=
+        '<span class="authEyebrow">DEVELOPMENT ENVIRONMENT</span>'+
+        '<h2>DEV Safety Block</h2>'+
+        '<p class="authLead">This site is isolated to <strong>PharmFlow Dev (DEV001)</strong>.</p>'+
+        '<div class="authInfoBox">'+
+            'The signed-in account belongs to another pharmacy. No Orders, Receiving, Archive, Expiry or other tenant data were loaded into this development workspace.'+
+        '</div>'+
+        '<button id="btnDevEnvironmentSignOut" class="authPrimaryButton" type="button">Sign out and use DEV001</button>';
+
+    const authMessage=document.getElementById("authMessage");
+    if(authMessage && authMessage.parentNode===inner){
+        inner.insertBefore(block,authMessage);
+    }else{
+        inner.appendChild(block);
+    }
+
+    block.querySelector("#btnDevEnvironmentSignOut")?.addEventListener("click",()=>{
+        if(typeof signOutCurrentUser==="function"){
+            signOutCurrentUser();
+        }
+    });
+
+    return block;
+}
+
+function pharmFlowDevRenderAccessBoundary(context){
+    if(pharmFlowDevValidateAuthenticatedContext(context)){
+        pharmFlowDevHideAccessBoundary();
+        return false;
+    }
+
+    pharmFlowDevClearRuntimeForBlockedTenant();
+
+    const overlay=document.getElementById("authGate");
+    const forms=document.getElementById("authFormsPanel");
+    const access=document.getElementById("authAccessPanel");
+    const block=pharmFlowDevEnsureAccessBlock();
+
+    document.body.classList.add("authLocked");
+    if(overlay){ overlay.classList.add("visible"); }
+    if(forms){ forms.hidden=true; }
+    if(access){ access.hidden=true; }
+    if(block){ block.hidden=false; }
+
+    return true;
+}
+
+function pharmFlowDevHideAccessBoundary(){
+    const block=document.getElementById("devEnvironmentAccessBlock");
+    if(block){ block.hidden=true; }
+}
+
 function pharmFlowDevAssertTenant(operation="write"){
     const ctx=pharmFlowDevContext();
     if(!ctx || !ctx.pharmacy_id){
@@ -118,6 +220,9 @@ function pharmFlowDevGuardAuthRpc(name){
 
     window.PHARMFLOW_DEV_ENV=PHARMFLOW_DEV_ENV;
     window.pharmFlowDevTenantMatches=pharmFlowDevTenantMatches;
+    window.pharmFlowDevValidateAuthenticatedContext=pharmFlowDevValidateAuthenticatedContext;
+    window.pharmFlowDevRenderAccessBoundary=pharmFlowDevRenderAccessBoundary;
+    window.pharmFlowDevHideAccessBoundary=pharmFlowDevHideAccessBoundary;
     window.pharmFlowDevAssertTenant=pharmFlowDevAssertTenant;
 
     document.addEventListener("DOMContentLoaded",()=>{
