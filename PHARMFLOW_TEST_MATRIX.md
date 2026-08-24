@@ -8,3 +8,13 @@
 | REG-BATCH | Consecutive Batch Qty | Preserved | USER VERIFIED |
 | REG-CLEAR | Top Clear Screen | Preserved | USER VERIFIED |
 | REG-UNDO | Undo quantity | Preserved | USER VERIFIED |
+
+## DEV Environment Isolation — DEVISO1
+| Test | Expected | Status |
+|---|---|---|
+| B + DEV001 login | Workspace opens | READY FOR TEST |
+| B + DEV001 tenant write | Write affects DEV001 only | READY FOR TEST |
+| B + non-DEV tenant mutation | DEV SAFETY BLOCK; no write | READY FOR TEST |
+| B Global GTIN read | Existing master can be read/used | READY FOR TEST |
+| B Global GTIN update/delete | Blocked | READY FOR TEST |
+| Production A regression | No source change / behavior unchanged | READY FOR TEST |

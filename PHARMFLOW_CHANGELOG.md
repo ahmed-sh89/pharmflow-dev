@@ -4,3 +4,9 @@
 - Removed Handheld-only GS1 post-processing.
 - Kept normal FNC1 parsing primary.
 - No Receiving or database changes.
+
+## 2026-08-25 — DEVISO1
+- Added dedicated DEV001 client safety boundary to repository B.
+- Blocked cross-tenant mutations from the development deployment.
+- Made system-wide Global GTIN cloud master read-only in B.
+- Blocked legacy non-tenant-scoped shared-session writes in B.

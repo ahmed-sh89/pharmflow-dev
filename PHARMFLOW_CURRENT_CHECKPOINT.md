@@ -59,3 +59,21 @@ Conestal:
 3. Handheld Conestal -> unchanged correct values.
 4. Handheld Dompy -> CL0117 / 2073835044260 / Oct 2028.
 5. One additional known-good medicine on each device.
+
+## 2026-08-25 — DEV Environment Isolation (B)
+Status: READY FOR TEST
+
+- Repository B (`pharmflow-dev`) is designated Development/Test only.
+- Dedicated tenant: PharmFlow Dev / DEV001.
+- DEV pharmacy UUID: `ffcac9ca-dfca-4344-9490-a77dcdba9d01`.
+- Added `js/dev-isolation.js` as a fail-closed client safety boundary.
+- Authenticated mutation RPCs are allowed only when the active tenant is DEV001.
+- Global GTIN cloud reads remain available; Global GTIN import/commit/delete writes are blocked in B.
+- Legacy unscoped shared-session cloud writes are blocked in B to prevent Production session contamination.
+- Production repository A and its source files were not modified by this package.
+
+Verification required before DONE:
+1. Sign into B as dev001@gmail.com: normal DEV001 workspace opens and tenant-scoped writes work.
+2. Sign into B with Health House or Test 01: reads/login may occur, but any mutation must fail with DEV SAFETY BLOCK.
+3. In B Settings, Global GTIN update control is unavailable; Global GTIN lookup/read still works.
+4. Confirm A continues operating unchanged.
