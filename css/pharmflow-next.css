@@ -2281,3 +2281,242 @@ body.pfnScanFlashError #page-dashboard .scanBox{
   box-shadow:0 0 0 4px rgba(226,67,79,.18) !important;
   border-color:#D94A55 !important;
 }
+
+
+/* =============================================================
+   PHARMFLOW B9 — LAST SCAN FLASH + KPI ICON ALIGNMENT + ORDER PICKER
+   Visual-only refinement for DEV B.
+   No receiving / scanning / order business logic changes.
+============================================================= */
+
+@media (min-width:901px){
+
+  /* ---------- KPI ICONS: DIRECTLY BESIDE VALUE, NOT FAR RIGHT ---------- */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard{
+    padding:10px 12px !important;
+    min-height:82px !important;
+    overflow:hidden !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard::before{
+    left:12px !important;
+    right:auto !important;
+    top:47px !important;
+    transform:translateY(-50%) !important;
+    width:32px !important;
+    height:32px !important;
+    border-radius:50% !important;
+    z-index:0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard::after{
+    left:12px !important;
+    right:auto !important;
+    top:47px !important;
+    transform:translateY(-50%) !important;
+    width:32px !important;
+    height:32px !important;
+    padding:0 !important;
+    margin:0 !important;
+    text-align:center !important;
+    line-height:32px !important;
+    font-size:17px !important;
+    z-index:1 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCardLabel{
+    margin:0 0 8px !important;
+    padding:0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard strong{
+    display:block !important;
+    margin:0 0 0 43px !important;
+    padding:0 !important;
+    font-size:28px !important;
+    line-height:32px !important;
+    min-height:32px !important;
+  }
+
+  /* ---------- ORDER PICKER: FULL BLUE/NAVY DESIGN + BIGGER TEXT ---------- */
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPicker{
+    width:190px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerButton{
+    min-height:42px !important;
+    padding:8px 10px 8px 12px !important;
+    border:1px solid #BDD3E9 !important;
+    border-radius:11px !important;
+    background:#F8FBFF !important;
+    box-shadow:none !important;
+    color:#0B376B !important;
+    font-size:13px !important;
+    font-weight:800 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerButton:hover{
+    background:#EDF6FF !important;
+    border-color:#6FA7DD !important;
+    box-shadow:0 4px 12px rgba(23,105,210,.08) !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerChevron{
+    width:27px !important;
+    height:27px !important;
+    border-radius:8px !important;
+    background:#E5F1FF !important;
+    color:#0B4D8C !important;
+    font-size:17px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerMenu{
+    width:330px !important;
+    padding:11px !important;
+    border:1px solid #BFD5EA !important;
+    border-radius:14px !important;
+    background:#F9FCFF !important;
+    box-shadow:0 16px 38px rgba(24,68,110,.16) !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerTitle{
+    gap:3px !important;
+    padding:6px 7px 11px !important;
+    border-bottom:1px solid #D6E5F3 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerTitle strong{
+    font-size:15px !important;
+    color:#0B376B !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerTitle span{
+    font-size:10px !important;
+    color:#68839E !important;
+    font-weight:650 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerOptions{
+    max-height:270px !important;
+    padding:8px 0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckOption{
+    gap:10px !important;
+    padding:10px 9px !important;
+    margin:3px 0 !important;
+    border-radius:10px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckOption:hover{
+    background:#EDF6FF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckBox{
+    width:19px !important;
+    height:19px !important;
+    flex:0 0 19px !important;
+    border:1.5px solid #8FB7DE !important;
+    border-radius:5px !important;
+    background:#FFFFFF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckOption input:checked + .headerOrderCheckBox{
+    background:#1769D2 !important;
+    border-color:#1769D2 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckText strong{
+    font-size:13px !important;
+    color:#0B376B !important;
+    font-weight:800 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderCheckText small{
+    margin-top:2px !important;
+    font-size:10px !important;
+    color:#6B859F !important;
+    font-weight:600 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerActions{
+    gap:7px !important;
+    padding-top:10px !important;
+    border-top:1px solid #D6E5F3 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerActions button{
+    min-height:36px !important;
+    border:1px solid #BFD5EA !important;
+    border-radius:8px !important;
+    background:#FFFFFF !important;
+    color:#0B376B !important;
+    font-size:12px !important;
+    font-weight:800 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerActions button:hover{
+    background:#EDF6FF !important;
+    border-color:#6FA7DD !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerActions .headerOrderPickerOk{
+    background:#1769D2 !important;
+    border-color:#1769D2 !important;
+    color:#FFFFFF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) .headerOrderPickerActions .headerOrderPickerOk:hover{
+    background:#0F58B2 !important;
+  }
+}
+
+/* ---------- LAST SCAN FULL-CARD FLASH ---------- */
+/* B9 moves scan feedback from the whole screen to Last Scan only. */
+#pfnScanFlashOverlay{
+  display:none !important;
+}
+
+#lastScanCard{
+  transition:
+    background-color .12s ease,
+    border-color .12s ease,
+    box-shadow .12s ease !important;
+}
+
+#lastScanCard.pfnLastScanFlashSuccess{
+  background:#EAF9F1 !important;
+  border-color:#28A968 !important;
+  box-shadow:
+    0 0 0 4px rgba(40,169,104,.14),
+    0 8px 24px rgba(40,169,104,.08) !important;
+}
+
+#lastScanCard.pfnLastScanFlashError{
+  background:#FFF0F2 !important;
+  border-color:#D94A55 !important;
+  box-shadow:
+    0 0 0 4px rgba(217,74,85,.14),
+    0 8px 24px rgba(217,74,85,.08) !important;
+}
+
+#lastScanCard.pfnLastScanFlashSuccess .lastScanHero,
+#lastScanCard.pfnLastScanFlashSuccess .lastScanMetaItem,
+#lastScanCard.pfnLastScanFlashSuccess .lastScanMetric{
+  background:#F7FFFA !important;
+  border-color:#BFE5D1 !important;
+}
+
+#lastScanCard.pfnLastScanFlashError .lastScanHero,
+#lastScanCard.pfnLastScanFlashError .lastScanMetaItem,
+#lastScanCard.pfnLastScanFlashError .lastScanMetric{
+  background:#FFF9FA !important;
+  border-color:#F0C7CD !important;
+}
+
+/* Remove B8 body/scan-box flash so feedback is localized to Last Scan. */
+body.pfnScanFlashSuccess #page-dashboard .scanBox,
+body.pfnScanFlashError #page-dashboard .scanBox{
+  box-shadow:none !important;
+  border-color:#8CB9E6 !important;
+}
