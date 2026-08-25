@@ -972,3 +972,136 @@ body.authLocked{
     overflow:visible !important;
   }
 }
+
+
+/* =============================================================
+   PHARMFLOW B4 — APPROVED OPERATIONAL WORKFLOW
+   Orders    = upload / validation
+   Dashboard = live receiving audit / scan workspace
+   Receiving = reconciliation / discrepancies / finalize / exports
+
+   IMPORTANT:
+   This is presentation/workflow routing only.
+   Existing receiving/scanning/order business logic is preserved.
+============================================================= */
+
+/* B4 restores the existing operational Dashboard that was already in
+   the production code. B1/B2's informational dashboard is retired. */
+body:not(.zebraMode) #page-dashboard > *{
+  display:revert !important;
+}
+body:not(.zebraMode) #page-dashboard > #pfNextDashboard{
+  display:none !important;
+}
+
+/* Operational Dashboard — blue identity, compact desktop workspace. */
+body:not(.zebraMode) #page-dashboard.active{
+  display:block !important;
+  height:100% !important;
+  min-height:0 !important;
+  overflow:auto !important;
+  padding-bottom:4px !important;
+}
+body:not(.zebraMode) #page-dashboard .statisticsGrid{
+  gap:8px !important;
+  margin-bottom:8px !important;
+}
+body:not(.zebraMode) #page-dashboard .statCard{
+  min-height:64px !important;
+  padding:9px 10px !important;
+  background:#F9FCFF !important;
+  border:1px solid #CADDF1 !important;
+  border-radius:12px !important;
+  box-shadow:none !important;
+}
+body:not(.zebraMode) #page-dashboard .statCard strong{
+  font-size:21px !important;
+}
+body:not(.zebraMode) #page-dashboard .statCardLabel,
+body:not(.zebraMode) #page-dashboard .statCardLabel span{
+  font-size:10.5px !important;
+  color:#365F88 !important;
+}
+
+/* Scanner remains the main live-audit action on Dashboard. */
+body:not(.zebraMode) #page-dashboard .scanSection,
+body:not(.zebraMode) #page-dashboard .scannerSection,
+body:not(.zebraMode) #page-dashboard .scanCard{
+  margin-bottom:8px !important;
+  padding:10px 12px !important;
+  background:#F9FCFF !important;
+  border-color:#CADDF1 !important;
+  box-shadow:none !important;
+}
+body:not(.zebraMode) #page-dashboard .scanSection h2,
+body:not(.zebraMode) #page-dashboard .scannerSection h2{
+  color:#0B376B !important;
+  font-size:17px !important;
+}
+body:not(.zebraMode) #page-dashboard #scanInput{
+  min-height:44px !important;
+  font-size:14px !important;
+  background:#FFFFFF !important;
+  border-color:#BFD5EB !important;
+}
+
+/* Last Scan stays directly below scan/search with all quantity controls. */
+body:not(.zebraMode) #page-dashboard .lastScanCard,
+body:not(.zebraMode) #page-dashboard .lastScanSection{
+  margin-bottom:8px !important;
+  padding:10px 12px !important;
+  background:#F9FCFF !important;
+  border-color:#CADDF1 !important;
+  box-shadow:none !important;
+}
+body:not(.zebraMode) #page-dashboard .lastScanCard h2,
+body:not(.zebraMode) #page-dashboard .lastScanSection h2{
+  color:#0B376B !important;
+  font-size:17px !important;
+}
+
+/* Existing action row is preserved: Search Item, Needs Review,
+   Received Items, Order Items, Receiving Report. */
+body:not(.zebraMode) #page-dashboard .dashboardActions,
+body:not(.zebraMode) #page-dashboard .quickActions,
+body:not(.zebraMode) #page-dashboard .receivingActions{
+  gap:8px !important;
+  margin:6px 0 8px !important;
+}
+body:not(.zebraMode) #page-dashboard .dashboardActions button,
+body:not(.zebraMode) #page-dashboard .quickActions button,
+body:not(.zebraMode) #page-dashboard .receivingActions button{
+  min-height:36px !important;
+}
+
+/* Receiving Progress remains on the live Dashboard. */
+body:not(.zebraMode) #page-dashboard .progressSection,
+body:not(.zebraMode) #page-dashboard .receivingProgressCard{
+  padding:9px 12px !important;
+  background:#F9FCFF !important;
+  border-color:#CADDF1 !important;
+  box-shadow:none !important;
+}
+
+/* Receiving remains the reconciliation/finalization workspace.
+   No scanner is moved into this page in B4. */
+body:not(.zebraMode) #page-receiving .receivingSummaryPanel,
+body:not(.zebraMode) #page-receiving .contentCard,
+body:not(.zebraMode) #page-receiving .receivingWorkspace{
+  background:#F9FCFF !important;
+  border-color:#CADDF1 !important;
+}
+
+/* Desktop target: keep operational chrome in one viewport. Data tables
+   may scroll internally when the order itself exceeds screen height. */
+@media (min-width:901px){
+  body:not(.zebraMode) #page-dashboard.active{
+    overflow:hidden !important;
+  }
+  body:not(.zebraMode) #page-dashboard .orderItemsTable,
+  body:not(.zebraMode) #page-dashboard .receivedItemsTable,
+  body:not(.zebraMode) #page-receiving .tableContainer,
+  body:not(.zebraMode) #page-receiving .receivingTableContainer{
+    overflow:auto !important;
+  }
+}
