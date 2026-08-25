@@ -1974,3 +1974,310 @@ body:not(.zebraMode):not(.zebraDevice) #page-dashboard .progressDetails{
     font-size:12px !important;
   }
 }
+
+
+/* =============================================================
+   PHARMFLOW B8 — KPI ICONS + PROGRESS VISIBILITY + SCAN FLASH
+   Visual-only root fix for DEV B.
+   Receiving/scanning business logic remains untouched.
+============================================================= */
+
+@media (min-width:901px){
+
+  /* ---------- KPI ICONS RESTORED WITHOUT OVERLAP ---------- */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard{
+    position:relative !important;
+    padding:11px 54px 11px 13px !important;
+    min-height:78px !important;
+    overflow:hidden !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard::before{
+    content:"" !important;
+    display:block !important;
+    position:absolute !important;
+    right:12px !important;
+    top:50% !important;
+    transform:translateY(-50%) !important;
+    width:34px !important;
+    height:34px !important;
+    border-radius:50% !important;
+    background:#E7F2FD !important;
+    border:1px solid #C8DCF0 !important;
+    box-shadow:none !important;
+    z-index:0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard::after{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    position:absolute !important;
+    right:12px !important;
+    top:50% !important;
+    transform:translateY(-50%) !important;
+    width:34px !important;
+    height:34px !important;
+    font-size:18px !important;
+    line-height:1 !important;
+    font-weight:900 !important;
+    z-index:1 !important;
+    color:#1769D2 !important;
+    background:transparent !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="total"]::after{
+    content:"◇" !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="completed"]::before{
+    background:#E9F8F1 !important;
+    border-color:#C9E8D8 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="completed"]::after{
+    content:"✓" !important;
+    color:#16935B !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="remaining"]::before{
+    background:#FFF6E6 !important;
+    border-color:#F1D9A8 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="remaining"]::after{
+    content:"◷" !important;
+    color:#D9850B !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="over"]::before{
+    background:#FFF0F2 !important;
+    border-color:#F0CDD2 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="over"]::after{
+    content:"↗" !important;
+    color:#D94A55 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="manual"]::before{
+    background:#F4EFFF !important;
+    border-color:#DDD0F6 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="manual"]::after{
+    content:"○" !important;
+    color:#7454C7 !important;
+  }
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard[data-kpi="scans"]::after{
+    content:"▥" !important;
+    color:#2778C9 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCardLabel,
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard strong{
+    position:relative !important;
+    z-index:2 !important;
+  }
+
+  /* ---------- REMOVE THE REAL DUPLICATE LAST-SCAN GRID ---------- */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #lastScanCard .legacyLastScanGrid{
+    display:none !important;
+  }
+
+  /* Professional Last Scan is the single visible source. */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #professionalLastScanLayout{
+    display:block !important;
+    margin:0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .professionalLastScanLayout{
+    display:block !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanHero{
+    padding:8px 10px !important;
+    min-height:58px !important;
+    border:1px solid #D1E1F0 !important;
+    border-radius:10px !important;
+    background:#FFFFFF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetaRow{
+    display:grid !important;
+    grid-template-columns:1fr 1.45fr 1.1fr !important;
+    gap:8px !important;
+    margin-top:6px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetaItem{
+    min-height:42px !important;
+    padding:6px 9px !important;
+    border:1px solid #D6E4F1 !important;
+    border-radius:8px !important;
+    background:#FBFDFF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetrics{
+    display:grid !important;
+    grid-template-columns:repeat(4,minmax(0,1fr)) !important;
+    gap:8px !important;
+    margin-top:8px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetric{
+    min-height:50px !important;
+    padding:7px 10px !important;
+    border:1px solid #D4E3F1 !important;
+    border-radius:9px !important;
+    background:#FBFDFF !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #lastScanCard{
+    padding:10px 12px !important;
+    margin:0 !important;
+  }
+
+  /* ---------- ACTION ROW ALWAYS VISIBLE ---------- */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .scanPanelFooter{
+    min-height:40px !important;
+    margin:7px 0 0 !important;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    overflow:visible !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #btnReceivingNeedsReview{
+    display:inline-flex !important;
+    visibility:visible !important;
+    opacity:1 !important;
+  }
+
+  /* ---------- RECEIVING PROGRESS ALWAYS INSIDE VIEWPORT ---------- */
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard.active{
+    display:flex !important;
+    flex-direction:column !important;
+    gap:7px !important;
+    height:100% !important;
+    overflow:hidden !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statisticsGrid,
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .scanPanel,
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #lastScanCard{
+    flex:0 0 auto !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard > .contentCard:not(#lastScanCard){
+    flex:0 0 auto !important;
+    min-height:78px !important;
+    padding:9px 12px !important;
+    margin:0 !important;
+    overflow:visible !important;
+    background:#F9FCFF !important;
+    border:1px solid #C8DCF0 !important;
+    border-radius:12px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard > .contentCard:not(#lastScanCard) .cardHeader{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:space-between !important;
+    min-height:22px !important;
+    margin:0 0 6px !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard > .contentCard:not(#lastScanCard) h3{
+    margin:0 !important;
+    font-size:16px !important;
+    line-height:1 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #progressLabel{
+    position:static !important;
+    font-size:18px !important;
+    line-height:1 !important;
+    margin:0 !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .progressTrack{
+    height:9px !important;
+    margin:0 !important;
+    background:#DCEAF8 !important;
+    border-radius:999px !important;
+    overflow:hidden !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard #progressBar{
+    height:100% !important;
+    min-width:0 !important;
+    border-radius:inherit !important;
+    background:linear-gradient(90deg,#1769D2,#4A97E8) !important;
+  }
+
+  body:not(.zebraMode):not(.zebraDevice) #page-dashboard .progressDetails{
+    display:flex !important;
+    justify-content:space-between !important;
+    align-items:center !important;
+    width:100% !important;
+    margin:5px 0 0 !important;
+    font-size:10.5px !important;
+    line-height:1 !important;
+  }
+
+  /* Short PC screens: reduce Last Scan vertical footprint before
+     ever allowing Progress to disappear. */
+  @media (max-height:760px){
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard .statCard{
+      min-height:68px !important;
+      padding-top:8px !important;
+      padding-bottom:8px !important;
+    }
+
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard .scanPanel{
+      padding-top:8px !important;
+      padding-bottom:8px !important;
+    }
+
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard #lastScanCard{
+      padding-top:8px !important;
+      padding-bottom:8px !important;
+    }
+
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanHero{
+      min-height:48px !important;
+    }
+
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetaItem{
+      min-height:36px !important;
+    }
+
+    body:not(.zebraMode):not(.zebraDevice) #page-dashboard .lastScanMetric{
+      min-height:42px !important;
+    }
+  }
+}
+
+/* ---------- SCAN SUCCESS / FAILURE FLASH ---------- */
+#pfnScanFlashOverlay{
+  position:fixed !important;
+  inset:0 !important;
+  z-index:99998 !important;
+  pointer-events:none !important;
+  opacity:0 !important;
+  transition:opacity .08s ease-out !important;
+}
+
+#pfnScanFlashOverlay.success{
+  background:rgba(31,181,105,.18) !important;
+}
+
+#pfnScanFlashOverlay.error{
+  background:rgba(226,67,79,.18) !important;
+}
+
+#pfnScanFlashOverlay.active{
+  opacity:1 !important;
+}
+
+body.pfnScanFlashSuccess #page-dashboard .scanBox{
+  box-shadow:0 0 0 4px rgba(31,181,105,.18) !important;
+  border-color:#22A866 !important;
+}
+
+body.pfnScanFlashError #page-dashboard .scanBox{
+  box-shadow:0 0 0 4px rgba(226,67,79,.18) !important;
+  border-color:#D94A55 !important;
+}
