@@ -1,5 +1,5 @@
 "use strict";
-const PharmFlowNext={version:"B10R2",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
+const PharmFlowNext={version:"B10R2.1",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
 window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",()=>PharmFlowNext.init());
 
 
@@ -165,26 +165,26 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     if(dashboard){
       dashboard.classList.add("pfnPrimaryReceivingNav");
       const label=dashboard.querySelector("span:last-child");
-      if(label) label.textContent="Receiving";
+      if(label && label.textContent!=="Receiving") label.textContent="Receiving";
     }
     oldReceiving?.classList.add("pfnLegacyNavHidden");
     orders?.classList.add("pfnLegacyNavHidden");
 
     const subtitle=document.getElementById("pageSubtitle");
-    if(subtitle && /Receiving Dashboard|Receiving Workspace/.test(subtitle.textContent.trim())) subtitle.textContent="Receiving Workspace";
+    if(subtitle && /Receiving Dashboard|Receiving Workspace/.test(subtitle.textContent.trim()) && subtitle.textContent!=="Receiving Workspace") subtitle.textContent="Receiving Workspace";
 
     const scanPanel=document.querySelector("#page-dashboard .scanPanel");
     const scanTitle=scanPanel?.querySelector("h2");
     const scanHelp=scanPanel?.querySelector(".scanPanelHeader p");
     const input=document.getElementById("barcodeInput");
-    if(scanTitle) scanTitle.textContent="Scan / Search";
-    if(scanHelp) scanHelp.textContent="Scan Barcode / GS1 or search by Item Number / Item Name.";
-    if(input) input.placeholder="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME";
+    if(scanTitle && scanTitle.textContent!=="Scan / Search") scanTitle.textContent="Scan / Search";
+    if(scanHelp && scanHelp.textContent!=="Scan Barcode / GS1 or search by Item Number / Item Name.") scanHelp.textContent="Scan Barcode / GS1 or search by Item Number / Item Name.";
+    if(input && input.placeholder!=="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME") input.placeholder="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME";
 
     document.getElementById("btnQuickSearch")?.classList.add("pfnControlRemoved");
     document.getElementById("btnOrderItemsPriority")?.classList.add("pfnControlRemoved");
     const clear=document.getElementById("btnPcClearLastScan");
-    if(clear){ clear.classList.add("pfnClearScreenButton"); clear.innerHTML='<span aria-hidden="true">⌫</span><span>Clear Screen</span>'; }
+    if(clear){ clear.classList.add("pfnClearScreenButton"); const markup='<span aria-hidden="true">⌫</span><span>Clear Screen</span>'; if(clear.innerHTML!==markup) clear.innerHTML=markup; }
   }
 
   function openOrders(){
@@ -434,7 +434,19 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
       });
     }
 
-    const observer=new MutationObserver(()=>{ normalizeShell(); installToolbar(); });
+    let observerQueued=false;
+    const observer=new MutationObserver(()=>{
+      if(observerQueued) return;
+      observerQueued=true;
+      requestAnimationFrame(()=>{
+        observerQueued=false;
+        observer.disconnect();
+        normalizeShell();
+        installToolbar();
+        const currentDashboard=document.getElementById("page-dashboard");
+        if(currentDashboard) observer.observe(currentDashboard,{childList:true,subtree:true});
+      });
+    });
     const dashboard=document.getElementById("page-dashboard");
     if(dashboard) observer.observe(dashboard,{childList:true,subtree:true});
   }
