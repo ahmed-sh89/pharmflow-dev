@@ -1,5 +1,5 @@
 "use strict";
-const PharmFlowNext={version:"B10R2.2",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
+const PharmFlowNext={version:"B10R3",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
 window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",()=>PharmFlowNext.init());
 
 
@@ -49,23 +49,27 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     const isSuccess=type==="success";
     const card=document.getElementById("lastScanCard");
     const scanBox=document.getElementById("scanBox");
+    const scanPanel=scanBox?.closest?.(".scanPanel")||document.querySelector("#page-dashboard .scanPanel");
 
     clearTimeout(flashTimer);
-    if(!card && !scanBox) return;
+    if(!card && !scanBox && !scanPanel) return;
 
     card?.classList.remove("pfnLastScanFlashSuccess","pfnLastScanFlashError");
     scanBox?.classList.remove("pfnScanBoxFlashSuccess","pfnScanBoxFlashError");
+    scanPanel?.classList.remove("pfnScanPanelFlashSuccess","pfnScanPanelFlashError");
 
     // Distinct frame keeps rapid back-to-back hardware scans visible.
-    void (card||scanBox).offsetWidth;
+    void (card||scanPanel||scanBox).offsetWidth;
 
     card?.classList.add(isSuccess?"pfnLastScanFlashSuccess":"pfnLastScanFlashError");
     scanBox?.classList.add(isSuccess?"pfnScanBoxFlashSuccess":"pfnScanBoxFlashError");
+    scanPanel?.classList.add(isSuccess?"pfnScanPanelFlashSuccess":"pfnScanPanelFlashError");
 
     flashTimer=setTimeout(()=>{
       card?.classList.remove("pfnLastScanFlashSuccess","pfnLastScanFlashError");
       scanBox?.classList.remove("pfnScanBoxFlashSuccess","pfnScanBoxFlashError");
-    },300);
+      scanPanel?.classList.remove("pfnScanPanelFlashSuccess","pfnScanPanelFlashError");
+    },360);
   }
 
   function scannerTransaction(transaction){
@@ -125,8 +129,8 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
 
 
 /* =============================================================
-   B10-R2 RECEIVING WORKSPACE REVIEW FIXES
-   Implements approved UI notes 1-8.
+   B10-R3 RECEIVING WORKSPACE CONSOLIDATED FIXES
+   Implements the nine approved UI corrections.
    Presentation/worklist metadata only. No receiving, GTIN, quantity,
    Supabase, sync, report or finalization business-rule changes.
 ============================================================= */
@@ -157,7 +161,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   }
 
   function normalizeShell(){
-    document.body.classList.add("pfnB10R1","pfnB10R2");
+    document.body.classList.add("pfnB10R1","pfnB10R2","pfnB10R3");
     const nav=document.querySelector(".sidebarNavigation");
     const dashboard=nav?.querySelector('[data-page="dashboard"]');
     const oldReceiving=nav?.querySelector('[data-page="receiving"]');
@@ -181,8 +185,12 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     if(scanHelp && scanHelp.textContent!=="Scan Barcode / GS1 or search by Item Number / Item Name.") scanHelp.textContent="Scan Barcode / GS1 or search by Item Number / Item Name.";
     if(input && input.placeholder!=="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME") input.placeholder="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME";
 
-    document.getElementById("btnQuickSearch")?.classList.add("pfnControlRemoved");
-    document.getElementById("btnOrderItemsPriority")?.classList.add("pfnControlRemoved");
+    const legacySearch=document.getElementById("btnQuickSearch");
+    const legacyOrderItems=document.getElementById("btnOrderItemsPriority");
+    legacySearch?.classList.add("pfnControlRemoved");
+    legacyOrderItems?.classList.add("pfnControlRemoved");
+    if(legacySearch) legacySearch.hidden=true;
+    if(legacyOrderItems) legacyOrderItems.hidden=true;
     const clear=document.getElementById("btnPcClearLastScan");
     if(clear){ clear.classList.add("pfnClearScreenButton"); const markup='<span aria-hidden="true">⌫</span><span>Clear Screen</span>'; if(clear.innerHTML!==markup) clear.innerHTML=markup; }
   }
@@ -190,8 +198,11 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   function openOrders(){
     const page=document.getElementById("page-files");
     if(!page) return;
-    document.body.classList.add("pfnDrawerActive");
-    page.classList.add("pfnR1OrdersDrawerOpen");
+    document.body.classList.add("pfnDrawerActive","pfnManagementModalActive");
+    page.classList.add("pfnR1OrdersDrawerOpen","pfnCenteredManagementModal");
+    page.setAttribute("role","dialog");
+    page.setAttribute("aria-modal","true");
+    page.setAttribute("aria-label","Manage Orders");
     if(!page.querySelector(".pfnR1DrawerClose")){
       const close=document.createElement("button");
       close.type="button";
@@ -204,8 +215,12 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     makeBackdrop("pfnOrdersBackdrop",closeOrders);
   }
   function closeOrders(){
-    document.body.classList.remove("pfnDrawerActive");
-    document.getElementById("page-files")?.classList.remove("pfnR1OrdersDrawerOpen");
+    document.body.classList.remove("pfnDrawerActive","pfnManagementModalActive");
+    const page=document.getElementById("page-files");
+    page?.classList.remove("pfnR1OrdersDrawerOpen","pfnCenteredManagementModal");
+    page?.removeAttribute("role");
+    page?.removeAttribute("aria-modal");
+    page?.removeAttribute("aria-label");
     removeBackdrop("pfnOrdersBackdrop");
     try{ document.getElementById("barcodeInput")?.focus({preventScroll:true}); }catch(_){ }
   }
@@ -314,6 +329,21 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     resultsMode=mode;
     const rows=scopedItems();
     const oldScroll=options.restoreScroll??(options.preserveScroll?body.scrollTop:0);
+    const isOrderModal=mode==="order";
+    panel.classList.toggle("pfnOrderItemsModal",isOrderModal);
+    if(isOrderModal){
+      document.body.classList.add("pfnOrderItemsModalActive");
+      if(!document.getElementById("pfnOrderItemsBackdrop")) makeBackdrop("pfnOrderItemsBackdrop",closeResults);
+      panel.setAttribute("role","dialog");
+      panel.setAttribute("aria-modal","true");
+      panel.setAttribute("aria-label","Order Items");
+    }else{
+      document.body.classList.remove("pfnOrderItemsModalActive");
+      removeBackdrop("pfnOrderItemsBackdrop");
+      panel.removeAttribute("role");
+      panel.removeAttribute("aria-modal");
+      panel.removeAttribute("aria-label");
+    }
     if(mode==="received"){
       const visible=rows.filter(item=>num(item?.receivedQty)>0);
       title.textContent="Received Items";
@@ -336,7 +366,9 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
 
   function closeResults(){
     const panel=document.getElementById("pfnSmartResults");
-    if(panel) panel.hidden=true;
+    if(panel){ panel.hidden=true; panel.classList.remove("pfnOrderItemsModal"); panel.removeAttribute("role"); panel.removeAttribute("aria-modal"); panel.removeAttribute("aria-label"); }
+    document.body.classList.remove("pfnOrderItemsModalActive");
+    removeBackdrop("pfnOrderItemsBackdrop");
     document.querySelectorAll(".pfnR1ViewActive").forEach(el=>el.classList.remove("pfnR1ViewActive"));
     try{ document.getElementById("barcodeInput")?.focus({preventScroll:true}); }catch(_){ }
   }
@@ -385,8 +417,10 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     footer.classList.add("pfnUnifiedActionBar");
     const hint=footer.querySelector(":scope > span");
     hint?.classList.add("pfnScannerHint");
-    document.getElementById("btnQuickSearch")?.classList.add("pfnControlRemoved");
-    document.getElementById("btnOrderItemsPriority")?.classList.add("pfnControlRemoved");
+    const search=document.getElementById("btnQuickSearch");
+    const orderItems=document.getElementById("btnOrderItemsPriority");
+    if(search){ search.classList.add("pfnControlRemoved"); search.hidden=true; }
+    if(orderItems){ orderItems.classList.add("pfnControlRemoved"); orderItems.hidden=true; }
     if(!document.getElementById("pfnReceivingReportButton")){
       const report=document.createElement("button");
       report.id="pfnReceivingReportButton";
@@ -396,6 +430,9 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
       report.addEventListener("click",openReport);
       footer.appendChild(report);
     }
+    document.getElementById("btnReceivingNeedsReview")?.classList.add("pfnActionNeedsReview");
+    document.getElementById("btnReceivedItems")?.classList.add("pfnActionReceived");
+    document.getElementById("pfnReceivingReportButton")?.classList.add("pfnActionReport");
   }
 
   function wireExistingViews(){
@@ -427,6 +464,8 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     installToolbar();
     installSmartResults();
     wireExistingViews();
+    setTimeout(()=>{ normalizeShell(); installToolbar(); },250);
+    setTimeout(()=>{ normalizeShell(); installToolbar(); },900);
 
     /* B10-R2.2 stability rule:
        Do not observe the live Receiving DOM. The legacy app legitimately
@@ -440,6 +479,10 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
             normalizeShell();
             installToolbar();
           },0);
+          setTimeout(()=>{
+            normalizeShell();
+            installToolbar();
+          },180);
         });
       }catch(_){ }
     }
