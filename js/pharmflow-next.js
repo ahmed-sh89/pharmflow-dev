@@ -138,7 +138,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   "use strict";
   let installed=false;
   let resultsMode="order";
-  const worklistState={order:"ALL",type:"all",sort:"default",search:""};
+  const worklistState={order:"ALL",priority:false,sort:"default",search:""};
 
   const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const num=value=>Number.isFinite(Number(value))?Number(value):0;
@@ -161,7 +161,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   }
 
   function normalizeShell(){
-    document.body.classList.add("pfnB10R1","pfnB10R2","pfnB10R3");
+    document.body.classList.add("pfnB10R1","pfnB10R2","pfnB10R3","pfnB10R4");
     const nav=document.querySelector(".sidebarNavigation");
     const dashboard=nav?.querySelector('[data-page="dashboard"]');
     const oldReceiving=nav?.querySelector('[data-page="receiving"]');
@@ -269,37 +269,36 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   function worklistToolbar(rows){
     const orders=allOrders(rows);
     if(worklistState.order!=="ALL"&&!orders.includes(worklistState.order)) worklistState.order="ALL";
-    const newCount=rows.filter(i=>classification(i)==="new").length;
-    const shortCount=rows.filter(i=>classification(i)==="short").length;
-    return `<div class="pfnR2WorklistTools">
-      <label><span>Order</span><select id="pfnWorklistOrder"><option value="ALL">All Orders</option>${orders.map(o=>`<option value="${esc(o)}" ${worklistState.order===o?"selected":""}>${esc(o)}</option>`).join("")}</select></label>
-      <div class="pfnR2TypeFilter" role="group" aria-label="Item type"><span>Type</span><div><button type="button" data-type="all" class="${worklistState.type==="all"?"active":""}">All</button><button type="button" data-type="new" class="${worklistState.type==="new"?"active":""}">NEW <b>${newCount}</b></button><button type="button" data-type="short" class="${worklistState.type==="short"?"active":""}">SHORT <b>${shortCount}</b></button></div></div>
-      <label><span>Quantity</span><select id="pfnWorklistSort"><option value="default" ${worklistState.sort==="default"?"selected":""}>Default / Order Sequence</option><option value="high" ${worklistState.sort==="high"?"selected":""}>Highest → Lowest</option><option value="low" ${worklistState.sort==="low"?"selected":""}>Lowest → Highest</option></select></label>
-      <label class="pfnR2WorklistSearch"><span>Search</span><input id="pfnWorklistSearch" type="search" value="${esc(worklistState.search)}" placeholder="Item name or number"></label>
-    </div><div class="pfnR2WorklistSummary"><strong>${rows.length} Items</strong><span class="pfnNewText">NEW ${newCount}</span><span class="pfnShortText">SHORT ${shortCount}</span></div>`;
+    const priorityCount=rows.filter(i=>classification(i)==="new"||classification(i)==="short").length;
+    return `<div class="pfnR4WorklistControls">
+      <div class="pfnR2WorklistTools">
+        <label><span>Order</span><select id="pfnWorklistOrder"><option value="ALL">All Orders</option>${orders.map(o=>`<option value="${esc(o)}" ${worklistState.order===o?"selected":""}>${esc(o)}</option>`).join("")}</select></label>
+        <div class="pfnR4PriorityFilter"><span>Priority</span><button id="pfnHighPriorityFilter" type="button" class="${worklistState.priority?"active":""}">High Priority <b>${priorityCount}</b></button></div>
+        <label><span>Quantity</span><select id="pfnWorklistSort"><option value="default" ${worklistState.sort==="default"?"selected":""}>Default / Order Sequence</option><option value="high" ${worklistState.sort==="high"?"selected":""}>Highest → Lowest</option><option value="low" ${worklistState.sort==="low"?"selected":""}>Lowest → Highest</option></select></label>
+      </div>
+      <label class="pfnR4SearchRow"><span>Search Items</span><input id="pfnWorklistSearch" type="search" value="${esc(worklistState.search)}" placeholder="Search by item name or item number"></label>
+    </div><div class="pfnR2WorklistSummary"><strong>${rows.length} Items</strong><span>High Priority ${priorityCount}</span></div>`;
   }
 
-  function rowMarkup(item,index){
+  function rowMarkup(item,index,mode="order"){
     const ordered=num(item?.orderedQty);
     const received=num(item?.receivedQty);
     const remaining=Math.max(0,num(item?.remainingQty ?? ordered-received));
     const orders=orderList(item);
     const order=orders.length?orders.join(", "):"—";
     const type=classification(item);
-    return `<article class="pfnR1ResultRow pfnR2WorklistRow" data-item-code="${esc(item?.itemCode||"")}" data-source-index="${index}">
+    if(mode==="received") return `<article class="pfnR1ResultRow pfnR4ReceivedRow" data-item-code="${esc(item?.itemCode||"")}"><div class="pfnR1ResultIdentity"><strong>${esc(item?.itemName||item?.itemCode||"Item")}</strong><small>Item ${esc(item?.itemCode||"—")} · Order ${esc(order)}</small></div><div><span>Ordered</span><b>${ordered}</b></div><div><span>Received</span><b>${received}</b></div><div><span>Remaining</span><b>${remaining}</b></div></article>`;
+    return `<article class="pfnR1ResultRow pfnR2WorklistRow pfnR4OrderRow" data-item-code="${esc(item?.itemCode||"")}" data-source-index="${index}">
       <div class="pfnR1ResultIdentity"><strong>${esc(item?.itemName||item?.itemCode||"Item")}</strong><small>Item ${esc(item?.itemCode||"—")} · Order ${esc(order)}</small></div>
-      <div class="pfnR2Classify"><span>Type</span><div><button type="button" data-classify="new" class="pfnTagNew ${type==="new"?"active":""}">NEW</button><button type="button" data-classify="short" class="pfnTagShort ${type==="short"?"active":""}">SHORT</button></div></div>
-      <div><span>Ordered</span><b>${ordered}</b></div>
-      <div><span>Received</span><b>${received}</b></div>
-      <div><span>Remaining</span><b>${remaining}</b></div>
-      <div><span>Status</span><b>${esc(item?.status||"")}</b></div>
+      <div class="pfnR4Ordered"><span>Ordered</span><b>${ordered}</b></div>
+      <div class="pfnR2Classify"><span>Priority</span><div><button type="button" data-classify="new" class="pfnTagNew ${type==="new"?"active":""}">NEW</button><button type="button" data-classify="short" class="pfnTagShort ${type==="short"?"active":""}">SHORT</button></div></div>
     </article>`;
   }
 
   function filteredWorklist(rows){
     let visible=rows.map((item,index)=>({item,index}));
     if(worklistState.order!=="ALL") visible=visible.filter(({item})=>orderList(item).includes(worklistState.order));
-    if(worklistState.type!=="all") visible=visible.filter(({item})=>classification(item)===worklistState.type);
+    if(worklistState.priority) visible=visible.filter(({item})=>{ const t=classification(item); return t==="new"||t==="short"; });
     const q=worklistState.search.trim().toLowerCase();
     if(q) visible=visible.filter(({item})=>String(item?.itemName||"").toLowerCase().includes(q)||String(item?.itemCode||"").toLowerCase().includes(q));
     if(worklistState.sort==="high") visible.sort((a,b)=>num(b.item?.orderedQty)-num(a.item?.orderedQty)||a.index-b.index);
@@ -311,7 +310,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     body.querySelector("#pfnWorklistOrder")?.addEventListener("change",e=>{worklistState.order=e.target.value;renderResults("order");});
     body.querySelector("#pfnWorklistSort")?.addEventListener("change",e=>{worklistState.sort=e.target.value;renderResults("order");});
     body.querySelector("#pfnWorklistSearch")?.addEventListener("input",e=>{worklistState.search=e.target.value;renderResults("order",{preserveScroll:true,focusSearch:true});});
-    body.querySelectorAll("[data-type]").forEach(btn=>btn.addEventListener("click",()=>{worklistState.type=btn.dataset.type;renderResults("order");}));
+    body.querySelector("#pfnHighPriorityFilter")?.addEventListener("click",()=>{worklistState.priority=!worklistState.priority;renderResults("order");});
     body.querySelectorAll("[data-classify]").forEach(btn=>btn.addEventListener("click",()=>{
       const scroll=body.scrollTop;
       const code=btn.closest("[data-item-code]")?.dataset.itemCode;
@@ -329,14 +328,14 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     resultsMode=mode;
     const rows=scopedItems();
     const oldScroll=options.restoreScroll??(options.preserveScroll?body.scrollTop:0);
-    const isOrderModal=mode==="order";
+    const isOrderModal=mode==="order"||mode==="received";
     panel.classList.toggle("pfnOrderItemsModal",isOrderModal);
     if(isOrderModal){
       document.body.classList.add("pfnOrderItemsModalActive");
       if(!document.getElementById("pfnOrderItemsBackdrop")) makeBackdrop("pfnOrderItemsBackdrop",closeResults);
       panel.setAttribute("role","dialog");
       panel.setAttribute("aria-modal","true");
-      panel.setAttribute("aria-label","Order Items");
+      panel.setAttribute("aria-label",mode==="received"?"Received Items":"Order Items");
     }else{
       document.body.classList.remove("pfnOrderItemsModalActive");
       removeBackdrop("pfnOrderItemsBackdrop");
@@ -347,7 +346,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     if(mode==="received"){
       const visible=rows.filter(item=>num(item?.receivedQty)>0);
       title.textContent="Received Items";
-      body.innerHTML=visible.length?`<div class="pfnR2ReceivedSummary"><strong>${visible.length} Received Items</strong></div>${visible.map((item,index)=>rowMarkup(item,index)).join("")}`:'<div class="pfnR1Empty">No received items.</div>';
+      body.innerHTML=visible.length?`<div class="pfnR2ReceivedSummary"><strong>${visible.length} Received Items</strong></div>${visible.map((item,index)=>rowMarkup(item,index,"received")).join("")}`:'<div class="pfnR1Empty">No received items.</div>';
     }else{
       title.textContent="Order Items";
       const visible=filteredWorklist(rows);
