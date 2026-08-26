@@ -1,5 +1,5 @@
 "use strict";
-const PharmFlowNext={version:"B10R1",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
+const PharmFlowNext={version:"B10R2",initialized:false,init(){if(this.initialized)return;this.initialized=true;document.body.classList.add("pfNextMode");this.bindDashboardActions();this.refreshDashboard();if(window.AppEvents?.on){["workspace:changed","receiving:updated","archive:updated","route:changed","cloud:workspace-updated"].forEach(evt=>{try{AppEvents.on(evt,()=>this.refreshDashboard())}catch(_){}})}setInterval(()=>this.refreshDashboard(),5000)},bindDashboardActions(){document.querySelectorAll("[data-pfn-route]").forEach(button=>{button.addEventListener("click",()=>{const route=button.getAttribute("data-pfn-route");if(route&&typeof navigateTo==="function")navigateTo(route)})})},refreshDashboard(){const stats=window.AppState?.statistics||{},workspace=window.AppState?.workspace||{},account=window.AuthState?.context||{};this.text("pfnTotalItems",stats.totalItems??0);this.text("pfnCompleted",stats.completedItems??0);this.text("pfnRemaining",stats.remainingItems??0);this.text("pfnAttentionRemaining",stats.remainingItems??0);this.text("pfnScans",stats.totalScans??0);this.text("pfnActiveAudits",Array.isArray(workspace.orderFiles)?workspace.orderFiles.length:0);this.text("pfnNeedsReview",this.needsReviewCount());this.text("pfnExpiryCount",this.expiryCount());this.text("pfnPharmacyName",account.pharmacy_name||"PharmFlow Dev");const greeting=document.getElementById("pfnGreeting");if(greeting){const h=new Date().getHours();greeting.textContent=h<12?"Good morning":h<18?"Good afternoon":"Good evening"}},needsReviewCount(){try{if(Array.isArray(window.NeedsReviewEngine?.items))return NeedsReviewEngine.items.length;return Number(window.AppState?.workspace?.needsReviewCount||0)}catch(_){return 0}},expiryCount(){try{if(Array.isArray(window.ExpiryCaptureEngine?.captures))return ExpiryCaptureEngine.captures.length}catch(_){}return 0},text(id,value){const el=document.getElementById(id);if(el)el.textContent=String(value??"")}};
 window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",()=>PharmFlowNext.init());
 
 
@@ -125,17 +125,23 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
 
 
 /* =============================================================
-   B10-R1 RECEIVING WORKSPACE SHELL
-   Presentation/navigation consolidation only.
-   No receiving, GTIN, quantity, Supabase, sync or report logic changes.
+   B10-R2 RECEIVING WORKSPACE REVIEW FIXES
+   Implements approved UI notes 1-8.
+   Presentation/worklist metadata only. No receiving, GTIN, quantity,
+   Supabase, sync, report or finalization business-rule changes.
 ============================================================= */
-(function pharmFlowB10R1Workspace(){
+(function pharmFlowB10R2Workspace(){
   "use strict";
   let installed=false;
   let resultsMode="order";
+  const worklistState={order:"ALL",type:"all",sort:"default",search:""};
 
   const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const num=value=>Number.isFinite(Number(value))?Number(value):0;
+  const orderList=item=>{
+    const raw=Array.isArray(item?.orderNumbers)&&item.orderNumbers.length?item.orderNumbers:[item?.orderNumber];
+    return [...new Set(raw.map(v=>String(v??"").trim()).filter(Boolean))];
+  };
 
   function removeBackdrop(id){ document.getElementById(id)?.remove(); }
   function makeBackdrop(id,onClose){
@@ -143,7 +149,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     const node=document.createElement("button");
     node.type="button";
     node.id=id;
-    node.className="pfnR1Backdrop";
+    node.className="pfnR1Backdrop pfnR2Backdrop";
     node.setAttribute("aria-label","Close panel");
     node.addEventListener("click",onClose,{once:true});
     document.body.appendChild(node);
@@ -151,7 +157,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   }
 
   function normalizeShell(){
-    document.body.classList.add("pfnB10R1");
+    document.body.classList.add("pfnB10R1","pfnB10R2");
     const nav=document.querySelector(".sidebarNavigation");
     const dashboard=nav?.querySelector('[data-page="dashboard"]');
     const oldReceiving=nav?.querySelector('[data-page="receiving"]');
@@ -165,7 +171,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     orders?.classList.add("pfnLegacyNavHidden");
 
     const subtitle=document.getElementById("pageSubtitle");
-    if(subtitle && subtitle.textContent.trim()==="Receiving Dashboard") subtitle.textContent="Receiving Workspace";
+    if(subtitle && /Receiving Dashboard|Receiving Workspace/.test(subtitle.textContent.trim())) subtitle.textContent="Receiving Workspace";
 
     const scanPanel=document.querySelector("#page-dashboard .scanPanel");
     const scanTitle=scanPanel?.querySelector("h2");
@@ -173,30 +179,18 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     const input=document.getElementById("barcodeInput");
     if(scanTitle) scanTitle.textContent="Scan / Search";
     if(scanHelp) scanHelp.textContent="Scan Barcode / GS1 or search by Item Number / Item Name.";
-    if(input) input.placeholder="SCAN BARCODE OR SEARCH ITEM";
-  }
+    if(input) input.placeholder="SCAN BARCODE OR SEARCH BY ITEM NUMBER / NAME";
 
-  function installScanSearchControl(){
-    const scanBox=document.getElementById("scanBox");
-    const legacy=document.getElementById("btnQuickSearch");
-    if(!scanBox || !legacy || document.getElementById("pfnScanSearchButton")) return;
-    legacy.classList.add("pfnSearchAnchorHidden");
-    const button=document.createElement("button");
-    button.id="pfnScanSearchButton";
-    button.type="button";
-    button.className="pfnScanSearchButton";
-    button.innerHTML='<span aria-hidden="true">⌕</span><span>Search</span>';
-    button.setAttribute("aria-label","Search by Item Number or Item Name");
-    button.addEventListener("click",event=>{
-      event.preventDefault();
-      legacy.click();
-    });
-    scanBox.appendChild(button);
+    document.getElementById("btnQuickSearch")?.classList.add("pfnControlRemoved");
+    document.getElementById("btnOrderItemsPriority")?.classList.add("pfnControlRemoved");
+    const clear=document.getElementById("btnPcClearLastScan");
+    if(clear){ clear.classList.add("pfnClearScreenButton"); clear.innerHTML='<span aria-hidden="true">⌫</span><span>Clear Screen</span>'; }
   }
 
   function openOrders(){
     const page=document.getElementById("page-files");
     if(!page) return;
+    document.body.classList.add("pfnDrawerActive");
     page.classList.add("pfnR1OrdersDrawerOpen");
     if(!page.querySelector(".pfnR1DrawerClose")){
       const close=document.createElement("button");
@@ -210,6 +204,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     makeBackdrop("pfnOrdersBackdrop",closeOrders);
   }
   function closeOrders(){
+    document.body.classList.remove("pfnDrawerActive");
     document.getElementById("page-files")?.classList.remove("pfnR1OrdersDrawerOpen");
     removeBackdrop("pfnOrdersBackdrop");
     try{ document.getElementById("barcodeInput")?.focus({preventScroll:true}); }catch(_){ }
@@ -223,7 +218,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     button.id="pfnManageOrdersButton";
     button.type="button";
     button.className="pfnManageOrdersButton";
-    button.innerHTML='<span aria-hidden="true">▤</span> Manage Orders';
+    button.innerHTML='<span aria-hidden="true">▤</span><span>Manage Orders</span>';
     button.addEventListener("click",openOrders);
     right.prepend(button);
   }
@@ -239,13 +234,46 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     return Array.isArray(rows)?rows:[];
   }
 
-  function rowMarkup(item){
+  function classification(item){
+    const value=String(item?.pfnWorklistType||"").toLowerCase();
+    return value==="new"||value==="short"?value:"";
+  }
+  function saveClassification(item,type){
+    if(!item) return;
+    const current=classification(item);
+    item.pfnWorklistType=current===type?"":type;
+    try{ if(typeof window.saveApplicationState==="function") window.saveApplicationState("worklist-classification"); }catch(_){ }
+  }
+
+  function allOrders(rows){
+    const set=new Set();
+    rows.forEach(item=>orderList(item).forEach(order=>set.add(order)));
+    return [...set].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"}));
+  }
+
+  function worklistToolbar(rows){
+    const orders=allOrders(rows);
+    if(worklistState.order!=="ALL"&&!orders.includes(worklistState.order)) worklistState.order="ALL";
+    const newCount=rows.filter(i=>classification(i)==="new").length;
+    const shortCount=rows.filter(i=>classification(i)==="short").length;
+    return `<div class="pfnR2WorklistTools">
+      <label><span>Order</span><select id="pfnWorklistOrder"><option value="ALL">All Orders</option>${orders.map(o=>`<option value="${esc(o)}" ${worklistState.order===o?"selected":""}>${esc(o)}</option>`).join("")}</select></label>
+      <div class="pfnR2TypeFilter" role="group" aria-label="Item type"><span>Type</span><div><button type="button" data-type="all" class="${worklistState.type==="all"?"active":""}">All</button><button type="button" data-type="new" class="${worklistState.type==="new"?"active":""}">NEW <b>${newCount}</b></button><button type="button" data-type="short" class="${worklistState.type==="short"?"active":""}">SHORT <b>${shortCount}</b></button></div></div>
+      <label><span>Quantity</span><select id="pfnWorklistSort"><option value="default" ${worklistState.sort==="default"?"selected":""}>Default / Order Sequence</option><option value="high" ${worklistState.sort==="high"?"selected":""}>Highest → Lowest</option><option value="low" ${worklistState.sort==="low"?"selected":""}>Lowest → Highest</option></select></label>
+      <label class="pfnR2WorklistSearch"><span>Search</span><input id="pfnWorklistSearch" type="search" value="${esc(worklistState.search)}" placeholder="Item name or number"></label>
+    </div><div class="pfnR2WorklistSummary"><strong>${rows.length} Items</strong><span class="pfnNewText">NEW ${newCount}</span><span class="pfnShortText">SHORT ${shortCount}</span></div>`;
+  }
+
+  function rowMarkup(item,index){
     const ordered=num(item?.orderedQty);
     const received=num(item?.receivedQty);
     const remaining=Math.max(0,num(item?.remainingQty ?? ordered-received));
-    const order=(Array.isArray(item?.orderNumbers)&&item.orderNumbers.length?item.orderNumbers.join(", "):(item?.orderNumber||"—"));
-    return `<article class="pfnR1ResultRow">
-      <div class="pfnR1ResultIdentity"><strong>${esc(item?.itemName||item?.itemCode||"Item")}</strong><small>${esc(item?.itemCode||"—")} · Order ${esc(order)}</small></div>
+    const orders=orderList(item);
+    const order=orders.length?orders.join(", "):"—";
+    const type=classification(item);
+    return `<article class="pfnR1ResultRow pfnR2WorklistRow" data-item-code="${esc(item?.itemCode||"")}" data-source-index="${index}">
+      <div class="pfnR1ResultIdentity"><strong>${esc(item?.itemName||item?.itemCode||"Item")}</strong><small>Item ${esc(item?.itemCode||"—")} · Order ${esc(order)}</small></div>
+      <div class="pfnR2Classify"><span>Type</span><div><button type="button" data-classify="new" class="pfnTagNew ${type==="new"?"active":""}">NEW</button><button type="button" data-classify="short" class="pfnTagShort ${type==="short"?"active":""}">SHORT</button></div></div>
       <div><span>Ordered</span><b>${ordered}</b></div>
       <div><span>Received</span><b>${received}</b></div>
       <div><span>Remaining</span><b>${remaining}</b></div>
@@ -253,20 +281,59 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     </article>`;
   }
 
-  function renderResults(mode){
+  function filteredWorklist(rows){
+    let visible=rows.map((item,index)=>({item,index}));
+    if(worklistState.order!=="ALL") visible=visible.filter(({item})=>orderList(item).includes(worklistState.order));
+    if(worklistState.type!=="all") visible=visible.filter(({item})=>classification(item)===worklistState.type);
+    const q=worklistState.search.trim().toLowerCase();
+    if(q) visible=visible.filter(({item})=>String(item?.itemName||"").toLowerCase().includes(q)||String(item?.itemCode||"").toLowerCase().includes(q));
+    if(worklistState.sort==="high") visible.sort((a,b)=>num(b.item?.orderedQty)-num(a.item?.orderedQty)||a.index-b.index);
+    if(worklistState.sort==="low") visible.sort((a,b)=>num(a.item?.orderedQty)-num(b.item?.orderedQty)||a.index-b.index);
+    return visible;
+  }
+
+  function bindWorklist(rows,body){
+    body.querySelector("#pfnWorklistOrder")?.addEventListener("change",e=>{worklistState.order=e.target.value;renderResults("order");});
+    body.querySelector("#pfnWorklistSort")?.addEventListener("change",e=>{worklistState.sort=e.target.value;renderResults("order");});
+    body.querySelector("#pfnWorklistSearch")?.addEventListener("input",e=>{worklistState.search=e.target.value;renderResults("order",{preserveScroll:true,focusSearch:true});});
+    body.querySelectorAll("[data-type]").forEach(btn=>btn.addEventListener("click",()=>{worklistState.type=btn.dataset.type;renderResults("order");}));
+    body.querySelectorAll("[data-classify]").forEach(btn=>btn.addEventListener("click",()=>{
+      const scroll=body.scrollTop;
+      const code=btn.closest("[data-item-code]")?.dataset.itemCode;
+      const item=rows.find(row=>String(row?.itemCode||"")===String(code||""));
+      saveClassification(item,btn.dataset.classify);
+      renderResults("order",{restoreScroll:scroll});
+    }));
+  }
+
+  function renderResults(mode,options={}){
     const panel=document.getElementById("pfnSmartResults");
     const body=document.getElementById("pfnSmartResultsBody");
     const title=document.getElementById("pfnSmartResultsTitle");
     if(!panel||!body||!title) return;
     resultsMode=mode;
-    let rows=scopedItems();
-    if(mode==="received") rows=rows.filter(item=>num(item?.receivedQty)>0);
-    title.textContent=mode==="received"?"Received Items":"Order Items";
-    body.innerHTML=rows.length?rows.map(rowMarkup).join(""):'<div class="pfnR1Empty">No matching items.</div>';
+    const rows=scopedItems();
+    const oldScroll=options.restoreScroll??(options.preserveScroll?body.scrollTop:0);
+    if(mode==="received"){
+      const visible=rows.filter(item=>num(item?.receivedQty)>0);
+      title.textContent="Received Items";
+      body.innerHTML=visible.length?`<div class="pfnR2ReceivedSummary"><strong>${visible.length} Received Items</strong></div>${visible.map((item,index)=>rowMarkup(item,index)).join("")}`:'<div class="pfnR1Empty">No received items.</div>';
+    }else{
+      title.textContent="Order Items";
+      const visible=filteredWorklist(rows);
+      body.innerHTML=worklistToolbar(rows)+(visible.length?visible.map(({item,index})=>rowMarkup(item,index)).join(""):'<div class="pfnR1Empty">No matching items.</div>');
+      bindWorklist(rows,body);
+    }
     panel.hidden=false;
+    body.scrollTop=oldScroll;
+    if(options.focusSearch){
+      const input=body.querySelector("#pfnWorklistSearch");
+      if(input){ input.focus({preventScroll:true}); input.setSelectionRange(input.value.length,input.value.length); }
+    }
     document.querySelectorAll("#scanPanelFooter .pfnR1ViewActive").forEach(el=>el.classList.remove("pfnR1ViewActive"));
-    document.getElementById(mode==="received"?"btnReceivedItems":"btnOrderItemsPriority")?.classList.add("pfnR1ViewActive");
+    document.getElementById(mode==="received"?"btnReceivedItems":"statTotalItems")?.classList.add("pfnR1ViewActive");
   }
+
   function closeResults(){
     const panel=document.getElementById("pfnSmartResults");
     if(panel) panel.hidden=true;
@@ -282,7 +349,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     panel.id="pfnSmartResults";
     panel.className="pfnSmartResults";
     panel.hidden=true;
-    panel.innerHTML=`<div class="pfnSmartResultsHead"><div><span>SMART RESULTS</span><h3 id="pfnSmartResultsTitle">Order Items</h3></div><button id="pfnCloseSmartResults" type="button" aria-label="Close results">✕</button></div><div id="pfnSmartResultsBody" class="pfnSmartResultsBody"></div>`;
+    panel.innerHTML=`<div class="pfnSmartResultsHead"><div><span>WORKLIST</span><h3 id="pfnSmartResultsTitle">Order Items</h3></div><button id="pfnCloseSmartResults" type="button" aria-label="Close results">✕</button></div><div id="pfnSmartResultsBody" class="pfnSmartResultsBody"></div>`;
     main.appendChild(panel);
     document.getElementById("pfnCloseSmartResults")?.addEventListener("click",closeResults);
   }
@@ -290,6 +357,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
   function openReport(){
     const page=document.getElementById("page-receiving");
     if(!page) return;
+    document.body.classList.add("pfnDrawerActive");
     page.classList.add("pfnR1ReportDrawerOpen");
     if(!page.querySelector(".pfnR1DrawerClose")){
       const close=document.createElement("button");
@@ -304,6 +372,7 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     try{ window.refreshReceivingTable?.(); }catch(_){ }
   }
   function closeReport(){
+    document.body.classList.remove("pfnDrawerActive");
     document.getElementById("page-receiving")?.classList.remove("pfnR1ReportDrawerOpen");
     removeBackdrop("pfnReportBackdrop");
     try{ document.getElementById("barcodeInput")?.focus({preventScroll:true}); }catch(_){ }
@@ -316,29 +385,38 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     footer.classList.add("pfnUnifiedActionBar");
     const hint=footer.querySelector(":scope > span");
     hint?.classList.add("pfnScannerHint");
+    document.getElementById("btnQuickSearch")?.classList.add("pfnControlRemoved");
+    document.getElementById("btnOrderItemsPriority")?.classList.add("pfnControlRemoved");
     if(!document.getElementById("pfnReceivingReportButton")){
       const report=document.createElement("button");
       report.id="pfnReceivingReportButton";
       report.type="button";
       report.className="secondaryButton pfnR1ToolbarButton";
-      report.textContent="Receiving Report";
+      report.innerHTML='<span aria-hidden="true">▧</span><span>Receiving Report</span>';
       report.addEventListener("click",openReport);
       footer.appendChild(report);
     }
   }
 
   function wireExistingViews(){
-    // Window capture runs before the legacy document capture handler.
     window.addEventListener("click",event=>{
+      const total=event.target?.closest?.('.dashboardKpiCard[data-kpi="total"]');
+      if(total){ event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); renderResults("order"); return; }
       const received=event.target?.closest?.("#btnReceivedItems");
       if(received){ event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); renderResults("received"); return; }
-      const order=event.target?.closest?.("#btnOrderItemsPriority");
-      if(order){ event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); renderResults("order"); }
+      const legacyOrder=event.target?.closest?.("#btnOrderItemsPriority");
+      if(legacyOrder){ event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation?.(); renderResults("order"); }
+    },true);
+    window.addEventListener("keydown",event=>{
+      const total=event.target?.closest?.('.dashboardKpiCard[data-kpi="total"]');
+      if(total&&(event.key==="Enter"||event.key===" ")){ event.preventDefault(); renderResults("order"); }
     },true);
   }
 
   function refreshOpenResults(){
-    if(!document.getElementById("pfnSmartResults")?.hidden) renderResults(resultsMode);
+    normalizeShell();
+    installToolbar();
+    if(!document.getElementById("pfnSmartResults")?.hidden) renderResults(resultsMode,{preserveScroll:true});
   }
 
   function install(){
@@ -346,7 +424,6 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
     installed=true;
     normalizeShell();
     installManageOrders();
-    installScanSearchControl();
     installToolbar();
     installSmartResults();
     wireExistingViews();
@@ -357,14 +434,9 @@ window.PharmFlowNext=PharmFlowNext;document.addEventListener("DOMContentLoaded",
       });
     }
 
-    // Existing UI inserts Needs Review / Received Items / Order Items after load.
-    // Re-run light shell setup without changing business handlers.
-    const observer=new MutationObserver(()=>{
-      installScanSearchControl();
-      installToolbar();
-    });
-    const footer=document.querySelector("#page-dashboard .scanPanelFooter");
-    if(footer) observer.observe(footer,{childList:true});
+    const observer=new MutationObserver(()=>{ normalizeShell(); installToolbar(); });
+    const dashboard=document.getElementById("page-dashboard");
+    if(dashboard) observer.observe(dashboard,{childList:true,subtree:true});
   }
 
   document.addEventListener("DOMContentLoaded",()=>setTimeout(install,100));

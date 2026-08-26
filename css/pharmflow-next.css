@@ -2582,3 +2582,152 @@ body.pfnB10R1 .pfnManageOrdersButton:hover{background:#e0f1fd;border-color:#7eac
   body.pfnB10R1 .pfnScannerHint{display:none}
   .pfnSmartResults{width:min(760px,72%)}
 }
+
+/* =============================================================
+   B10-R2 — APPROVED REVIEW NOTES 1-8
+   Professional compact Receiving UI; visual/worklist metadata only.
+============================================================= */
+body.pfnB10R2 .pfnControlRemoved{display:none!important}
+
+/* 1 + 4: unified visual language for the top status header and action bar. */
+body.pfnB10R2 .topBar{min-height:72px;padding-top:8px;padding-bottom:8px}
+body.pfnB10R2 .topBarRight{
+  display:grid!important;
+  grid-template-columns:auto minmax(150px,1.15fr) minmax(112px,.72fr) minmax(165px,1fr) auto;
+  align-items:stretch;
+  gap:0!important;
+  min-width:0;
+  border:1px solid #cfe0ee;
+  border-radius:14px;
+  background:#f8fbfe;
+  overflow:visible;
+  box-shadow:0 4px 14px rgba(22,62,96,.05);
+}
+body.pfnB10R2 .topBarRight>.headerInfo,
+body.pfnB10R2 .topBarRight>.systemStatus{
+  min-width:0;
+  margin:0!important;
+  padding:8px 12px!important;
+  border:0!important;
+  border-left:1px solid #dbe8f2!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+body.pfnB10R2 .topBarRight>.headerInfo span{font-size:9px;font-weight:900;letter-spacing:.08em;color:#6f8497;text-transform:uppercase}
+body.pfnB10R2 .topBarRight>.headerInfo strong{display:block;margin-top:3px;font-size:13px;line-height:1.15;color:#153f68;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.pfnB10R2 .topBarRight>.systemStatus{display:flex!important;align-items:center;justify-content:center;gap:7px;min-width:92px;font-size:12px;font-weight:900;color:#1b7b4b}
+body.pfnB10R2 .topBarRight>.systemStatus::before{content:"●";font-size:9px;color:#2aad68}
+body.pfnB10R2 .pfnManageOrdersButton{
+  border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  padding:8px 13px!important;min-height:100%;color:#123f68;font-size:12px;font-weight:900;
+}
+body.pfnB10R2 .pfnManageOrdersButton:hover{background:#eaf5fd!important}
+body.pfnB10R2 .headerOrderPickerButton{min-height:30px!important;padding:3px 8px!important;border-color:#bed6e8!important;background:#fff!important;font-size:12px!important}
+
+body.pfnB10R2 .pfnUnifiedActionBar{
+  display:flex!important;align-items:center;gap:2px!important;min-height:40px!important;margin-top:7px!important;
+  padding:4px 6px!important;border:1px solid #d7e5f0;border-radius:12px;background:#f7fbfe;
+  overflow:visible!important;box-shadow:0 3px 10px rgba(18,63,104,.04);
+}
+body.pfnB10R2 .pfnUnifiedActionBar .secondaryButton{
+  min-height:30px!important;padding:5px 9px!important;border:0!important;border-radius:8px!important;background:transparent!important;
+  color:#355873!important;font-size:12px!important;font-weight:800!important;white-space:nowrap;box-shadow:none!important;
+}
+body.pfnB10R2 .pfnUnifiedActionBar .secondaryButton:hover{background:#e8f3fb!important;color:#123f68!important}
+body.pfnB10R2 .pfnUnifiedActionBar .pfnR1ViewActive{background:#dcecf8!important;color:#0b4978!important}
+body.pfnB10R2 .pfnUnifiedActionBar .needsReviewButton strong{min-width:20px;height:20px;background:#d9ebf8;color:#0d4c78;font-size:11px}
+body.pfnB10R2 .pfnScannerHint{margin-left:auto!important;font-size:10px!important;color:#8294a3!important}
+body.pfnB10R2 #pfnReceivingReportButton{display:inline-flex;align-items:center;gap:5px}
+
+/* 2: Manage Orders is an isolated management workspace, not a transparent overlay. */
+body.pfnB10R2.pfnDrawerActive{overflow:hidden!important}
+body.pfnB10R2 .pfnR2Backdrop{background:rgba(229,239,247,.96)!important;backdrop-filter:blur(2px);cursor:default}
+body.pfnB10R2 #page-files.pfnR1OrdersDrawerOpen,
+body.pfnB10R2 #page-receiving.pfnR1ReportDrawerOpen{
+  z-index:3000!important;width:min(78vw,1040px)!important;background:#f8fcff!important;border-left:1px solid #bcd5e7;
+  box-shadow:-24px 0 50px rgba(11,45,71,.20)!important;
+}
+body.pfnB10R2 .pfnR1DrawerClose{z-index:3015!important}
+
+/* 3: Clear Screen is visible but intentionally secondary. */
+body.pfnB10R2 #btnPcClearLastScan.pfnClearScreenButton{
+  display:inline-flex!important;align-items:center;justify-content:center;gap:7px!important;
+  min-height:34px!important;padding:6px 12px!important;margin-top:5px!important;
+  border:1px solid #9fc2df!important;border-radius:9px!important;background:#f4f9fd!important;
+  color:#174f7d!important;font-size:12px!important;font-weight:900!important;letter-spacing:0!important;opacity:1!important;
+}
+body.pfnB10R2 #btnPcClearLastScan.pfnClearScreenButton:hover{background:#e5f2fb!important;border-color:#6fa6d0!important}
+
+/* 5 + 6: professional persistent Order Items worklist. */
+body.pfnB10R2 .pfnSmartResults{top:78px!important;right:14px!important;bottom:12px!important;width:min(790px,63%)!important;border-radius:14px!important}
+body.pfnB10R2 .pfnSmartResultsHead{padding:10px 13px!important;background:#edf6fc!important}
+body.pfnB10R2 .pfnSmartResultsHead span{font-size:9px!important}
+body.pfnB10R2 .pfnSmartResultsHead h3{font-size:20px!important}
+body.pfnB10R2 .pfnSmartResultsBody{padding:9px 10px 12px!important}
+body.pfnB10R2 .pfnR2WorklistTools{
+  position:sticky;top:-9px;z-index:5;display:grid;grid-template-columns:minmax(130px,.85fr) auto minmax(160px,1.05fr) minmax(180px,1.25fr);
+  align-items:end;gap:8px;padding:9px 2px 8px;background:#f8fcff;border-bottom:1px solid #dce9f3;
+}
+body.pfnB10R2 .pfnR2WorklistTools label,
+body.pfnB10R2 .pfnR2TypeFilter{display:flex;flex-direction:column;gap:4px;min-width:0}
+body.pfnB10R2 .pfnR2WorklistTools label>span,
+body.pfnB10R2 .pfnR2TypeFilter>span{font-size:9px;font-weight:900;letter-spacing:.08em;color:#6d8192;text-transform:uppercase}
+body.pfnB10R2 .pfnR2WorklistTools select,
+body.pfnB10R2 .pfnR2WorklistTools input{
+  width:100%;height:34px;border:1px solid #bcd3e5;border-radius:8px;background:#fff;color:#143f64;padding:0 9px;font-size:12px;font-weight:700;outline:none;
+}
+body.pfnB10R2 .pfnR2TypeFilter>div{display:flex;height:34px;border:1px solid #bcd3e5;border-radius:8px;background:#fff;overflow:hidden}
+body.pfnB10R2 .pfnR2TypeFilter button{border:0;border-right:1px solid #e1eaf1;background:#fff;color:#48657c;padding:0 8px;font-size:11px;font-weight:900;cursor:pointer;white-space:nowrap}
+body.pfnB10R2 .pfnR2TypeFilter button:last-child{border-right:0}
+body.pfnB10R2 .pfnR2TypeFilter button.active{background:#e7f2fa;color:#0e4c79}
+body.pfnB10R2 .pfnR2TypeFilter button[data-type="new"].active{background:#e4f2ff;color:#1767b0}
+body.pfnB10R2 .pfnR2TypeFilter button[data-type="short"].active{background:#ffe9eb;color:#b92d38}
+body.pfnB10R2 .pfnR2TypeFilter b{font-size:9px}
+body.pfnB10R2 .pfnR2WorklistSummary{display:flex;align-items:center;gap:12px;padding:8px 2px 7px;color:#5d7589;font-size:11px}
+body.pfnB10R2 .pfnR2WorklistSummary strong{font-size:14px;color:#123f68}
+body.pfnB10R2 .pfnNewText{color:#1769b3;font-weight:900}
+body.pfnB10R2 .pfnShortText{color:#b92d38;font-weight:900}
+body.pfnB10R2 .pfnR1ResultRow.pfnR2WorklistRow{
+  grid-template-columns:minmax(235px,2.15fr) minmax(108px,.9fr) repeat(4,minmax(68px,.58fr));
+  gap:8px;padding:9px 10px;margin-bottom:6px;border-radius:9px;
+}
+body.pfnB10R2 .pfnR2WorklistRow .pfnR1ResultIdentity strong{font-size:15px!important;line-height:1.2;color:#0f3455}
+body.pfnB10R2 .pfnR2WorklistRow .pfnR1ResultIdentity small{font-size:11px!important;color:#6b8092}
+body.pfnB10R2 .pfnR2WorklistRow>div:not(.pfnR1ResultIdentity) span{font-size:8px!important}
+body.pfnB10R2 .pfnR2WorklistRow b{font-size:13px!important}
+body.pfnB10R2 .pfnR2Classify>div{display:flex;gap:4px}
+body.pfnB10R2 .pfnR2Classify button{height:25px;padding:0 7px;border-radius:6px;background:#fff;font-size:10px;font-weight:900;cursor:pointer}
+body.pfnB10R2 .pfnTagNew{border:1px solid #9cc9ee;color:#1768ad}
+body.pfnB10R2 .pfnTagNew.active{background:#dceeff;border-color:#56a0da;color:#0e5896}
+body.pfnB10R2 .pfnTagShort{border:1px solid #efb3b8;color:#b92c37}
+body.pfnB10R2 .pfnTagShort.active{background:#ffe2e5;border-color:#df747d;color:#a61f2b}
+body.pfnB10R2 .pfnR2ReceivedSummary{padding:4px 2px 9px;color:#123f68;font-size:14px}
+
+/* 6: Total Items is the single primary Order Items entry point. */
+body.pfnB10R2 .dashboardKpiCard[data-kpi="total"]{cursor:pointer;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+body.pfnB10R2 .dashboardKpiCard[data-kpi="total"]:hover{border-color:#79add4!important;box-shadow:0 5px 15px rgba(34,98,145,.10)!important;transform:translateY(-1px)}
+body.pfnB10R2 .dashboardKpiCard[data-kpi="total"] .statCardLabel{font-weight:900;color:#234f72}
+body.pfnB10R2 .dashboardKpiCard[data-kpi="total"].pfnR1ViewActive{border-color:#4f9bcf!important;box-shadow:0 0 0 2px rgba(79,155,207,.13)!important}
+
+/* 8: full-width scan/search flash, not only the inner input. */
+body.pfnB10R2 #scanBox{position:relative;isolation:isolate;overflow:hidden!important}
+body.pfnB10R2 #scanBox::after{content:"";position:absolute;inset:-1px;z-index:8;border-radius:inherit;pointer-events:none;opacity:0}
+body.pfnB10R2 #scanBox.pfnScanBoxFlashSuccess::after{animation:pfnR2ScanSuccess .34s ease}
+body.pfnB10R2 #scanBox.pfnScanBoxFlashError::after{animation:pfnR2ScanError .34s ease}
+@keyframes pfnR2ScanSuccess{0%{opacity:0;background:rgba(53,183,99,0)}45%{opacity:1;background:rgba(53,183,99,.28);box-shadow:inset 0 0 0 3px #35a967}100%{opacity:0;background:rgba(53,183,99,0)}}
+@keyframes pfnR2ScanError{0%{opacity:0;background:rgba(220,67,79,0)}45%{opacity:1;background:rgba(220,67,79,.26);box-shadow:inset 0 0 0 3px #d94a55}100%{opacity:0;background:rgba(220,67,79,0)}}
+body.pfnB10R2 #scanBox.pfnScanBoxFlashSuccess,
+body.pfnB10R2 #scanBox.pfnScanBoxFlashError{animation:none!important}
+
+/* Preserve compact Windows viewport. Results scroll internally only. */
+@media (min-width:1100px){
+  body.pfnB10R2 .mainContent{overflow:hidden!important}
+  body.pfnB10R2 #page-dashboard.active{max-height:calc(100vh - 88px)!important;overflow:hidden!important}
+}
+@media (max-width:1280px){
+  body.pfnB10R2 .topBarRight{grid-template-columns:auto minmax(128px,1fr) 100px minmax(140px,1fr) 82px}
+  body.pfnB10R2 .pfnScannerHint{display:none!important}
+  body.pfnB10R2 .pfnSmartResults{width:min(780px,68%)!important}
+  body.pfnB10R2 .pfnR2WorklistTools{grid-template-columns:120px auto 150px minmax(160px,1fr)}
+}
