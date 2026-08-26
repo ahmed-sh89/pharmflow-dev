@@ -2520,3 +2520,65 @@ body.pfnScanFlashError #page-dashboard .scanBox{
   box-shadow:none !important;
   border-color:#8CB9E6 !important;
 }
+
+
+/* =============================================================
+   B10-R1 — RECEIVING WORKSPACE SHELL
+   Compact desktop fit; no whole-page layout expansion.
+============================================================= */
+body.pfnB10R1 .pfnLegacyNavHidden{display:none!important}
+body.pfnB10R1 .pfnPrimaryReceivingNav .sidebarIcon{color:#123f68}
+body.pfnB10R1 #page-dashboard .scanPanel{position:relative}
+body.pfnB10R1 #page-dashboard .scanPanelHeader h2{margin-bottom:3px}
+body.pfnB10R1 #page-dashboard .scanPanelHeader p{margin-top:0}
+body.pfnB10R1 #scanBox{position:relative;padding-right:112px}
+body.pfnB10R1 .pfnScanSearchButton{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:6px;height:38px;padding:0 12px;border:1px solid #b9d2e8;border-radius:9px;background:#eef7ff;color:#123f68;font-size:13px;font-weight:800;cursor:pointer;z-index:2}
+body.pfnB10R1 .pfnScanSearchButton:hover{background:#e2f1fd;border-color:#8fb9dd}
+body.pfnB10R1 .pfnSearchAnchorHidden{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important;padding:0!important;margin:0!important;border:0!important}
+body.pfnB10R1 .pfnUnifiedActionBar{display:flex;align-items:center;gap:8px;min-height:44px;margin-top:8px;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;padding-bottom:2px;scrollbar-width:thin}
+body.pfnB10R1 .pfnUnifiedActionBar .secondaryButton{white-space:nowrap;min-height:36px;padding:7px 11px;font-size:13px}
+body.pfnB10R1 .pfnUnifiedActionBar .needsReviewButton strong{display:inline-grid;place-items:center;min-width:21px;height:21px;border-radius:999px;background:#e8f2fb;color:#123f68;margin-left:4px}
+body.pfnB10R1 .pfnUnifiedActionBar .pfnR1ViewActive{background:#123f68!important;color:#fff!important;border-color:#123f68!important}
+body.pfnB10R1 .pfnScannerHint{margin-left:auto;white-space:nowrap;font-size:12px;color:#72879a}
+body.pfnB10R1 .pfnManageOrdersButton{display:flex;align-items:center;gap:7px;min-height:38px;padding:0 12px;border:1px solid #a9c9e5;border-radius:10px;background:#edf7ff;color:#123f68;font-weight:800;white-space:nowrap;cursor:pointer}
+body.pfnB10R1 .pfnManageOrdersButton:hover{background:#e0f1fd;border-color:#7eacd3}
+
+/* Closed panels do not exist as full-screen invisible blockers. */
+.pfnR1Backdrop{position:fixed;inset:0;z-index:2890;border:0;background:rgba(9,31,50,.36);cursor:default}
+#page-files.pfnR1OrdersDrawerOpen,#page-receiving.pfnR1ReportDrawerOpen{display:block!important;position:fixed!important;z-index:2900;top:0;right:0;bottom:0;left:auto;width:min(76vw,980px);margin:0!important;padding:18px!important;overflow:auto;background:#f6fbff;box-shadow:-18px 0 44px rgba(9,34,55,.22)}
+#page-files.pfnR1OrdersDrawerOpen .twoColumnLayout{grid-template-columns:1fr!important;gap:14px!important}
+#page-files.pfnR1OrdersDrawerOpen .contentCard,#page-receiving.pfnR1ReportDrawerOpen .contentCard{margin-bottom:12px}
+.pfnR1DrawerClose{position:sticky;top:0;margin-left:auto;z-index:8;display:grid;place-items:center;width:38px;height:38px;border:1px solid #bfd6e9;border-radius:10px;background:#fff;color:#123f68;font-weight:900;cursor:pointer;box-shadow:0 6px 16px rgba(18,63,104,.10)}
+
+/* Smart Results uses a docked workspace pane with internal scrolling only. */
+.pfnSmartResults[hidden]{display:none!important}
+.pfnSmartResults{position:absolute;z-index:2200;top:76px;right:16px;bottom:16px;width:min(700px,58%);display:flex;flex-direction:column;border:1px solid #cfe1f0;border-radius:16px;background:#f8fcff;box-shadow:0 18px 44px rgba(17,55,84,.18);overflow:hidden}
+.pfnSmartResultsHead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px 15px;border-bottom:1px solid #dceaf5;background:linear-gradient(135deg,#eef8ff,#e4f2fc)}
+.pfnSmartResultsHead span{font-size:10px;font-weight:900;letter-spacing:.10em;color:#5c7890}
+.pfnSmartResultsHead h3{margin:2px 0 0;font-size:19px;color:#102f4b}
+.pfnSmartResultsHead button{width:34px;height:34px;border:1px solid #b9d1e5;border-radius:9px;background:#fff;color:#123f68;font-weight:900;cursor:pointer}
+.pfnSmartResultsBody{flex:1;min-height:0;overflow:auto;padding:10px}
+.pfnR1ResultRow{display:grid;grid-template-columns:minmax(220px,2.2fr) repeat(4,minmax(74px,.7fr));gap:9px;align-items:center;padding:10px 11px;border:1px solid #e1ebf3;border-radius:10px;background:#fff;margin-bottom:8px}
+.pfnR1ResultIdentity{min-width:0}
+.pfnR1ResultIdentity strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#102f4b;font-size:14px}
+.pfnR1ResultIdentity small{display:block;margin-top:3px;color:#6c8294;font-size:11px}
+.pfnR1ResultRow>div:not(.pfnR1ResultIdentity){display:flex;flex-direction:column;gap:2px;min-width:0}
+.pfnR1ResultRow span{font-size:9px;font-weight:900;text-transform:uppercase;color:#7a8e9f}
+.pfnR1ResultRow b{font-size:13px;color:#173b5f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pfnR1Empty{padding:34px 16px;text-align:center;color:#6d8395}
+
+/* Dual scan feedback — visual only. */
+#lastScanCard.pfnLastScanFlashSuccess,#scanBox.pfnScanBoxFlashSuccess{animation:pfnR1GreenFlash .30s ease}
+#lastScanCard.pfnLastScanFlashError,#scanBox.pfnScanBoxFlashError{animation:pfnR1RedFlash .30s ease}
+@keyframes pfnR1GreenFlash{50%{background:#d9f7e2;box-shadow:0 0 0 3px rgba(53,168,92,.55)}}
+@keyframes pfnR1RedFlash{50%{background:#ffe1e3;box-shadow:0 0 0 3px rgba(204,57,69,.50)}}
+
+/* Keep the B9 desktop viewport compact. */
+@media (min-width:1100px){
+  body.pfnB10R1 .mainContent{overflow:hidden}
+  body.pfnB10R1 #page-dashboard.active{max-height:calc(100vh - 94px);overflow:hidden}
+}
+@media (max-width:1180px){
+  body.pfnB10R1 .pfnScannerHint{display:none}
+  .pfnSmartResults{width:min(760px,72%)}
+}
