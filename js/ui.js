@@ -7755,39 +7755,43 @@ function renderItemBrowser(body, rows, options={}){
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
-      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Item Name</th><th>Item Number</th>${orderMode?'<th>Order</th>':''}<th>Ordered</th>${receivedMode?'<th>Received</th>':''}${orderMode?'<th>Priority</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
+      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr>${orderMode?'<th>Item Code</th><th>Item Name</th><th>Priority</th><th>Quantity</th><th>Order No.</th>':'<th>Item Code</th><th>Item Name</th><th>Ordered</th>'}${receivedMode?'<th>Received</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
     const input=body.querySelector('.phase263Search');
     const tbody=body.querySelector('[data-rows]');
     const orderFilter=body.querySelector('[data-order-filter]');
     const qtySort=body.querySelector('[data-qty-sort]');
     const priorityFilter=body.querySelector('[data-priority-filter]');
     let priorityOnly=false;
+    const rowHtml=item=>{
+        const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
+        const pt=item.priorityType||'';
+        if(orderMode)return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo">${esc(orders)}</td></tr>`;
+        return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td>${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
+    };
     const draw=()=>{
         const q=toSafeString(input?.value||'').trim().toLowerCase();
         let visible=rows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
         const selectedOrder=orderFilter?.value||'ALL';
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
-        if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT'||item.highPriority===true);
+        if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
         const sort=qtySort?.value||'default';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
         if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
-        const colspan=orderMode?5:(receivedMode?4:3);
-        tbody.innerHTML=visible.length?visible.map(item=>{
-          const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
-          const pt=item.priorityType||'';
-          return `<tr><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td>${esc(item.itemCode)}</td>${orderMode?`<td>${esc(orders)}</td>`:''}<td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td>${esc(toNumber(item.receivedQty,0))}</td>`:''}${orderMode?`<td class="pfnPriorityCell"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></td>`:''}</tr>`;
-        }).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
+        if(orderMode&&priorityOnly){
+            const groups=[['NEW',visible.filter(i=>i.priorityType==='NEW')],['SHORT',visible.filter(i=>i.priorityType==='SHORT')]];
+            tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="5"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="5" class="tableEmptyState">No high priority items.</td></tr>`;
+        }else{
+            const colspan=orderMode?5:(receivedMode?4:3);
+            tbody.innerHTML=visible.length?visible.map(rowHtml).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
+        }
         tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=()=>{
-            const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;
-            if(!item)return;
-            item.priorityType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
-            item.highPriority=!!item.priorityType;
-            if(typeof saveApplicationState==='function')saveApplicationState('item-priority');
-            const wrap=body.querySelector('.phase263TableWrap'), top=wrap?.scrollTop||0;
-            draw(); const next=body.querySelector('.phase263TableWrap'); if(next)next.scrollTop=top;
+            const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;if(!item)return;
+            item.priorityType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;item.highPriority=!!item.priorityType;
+            try{if(window.PharmFlowNext)window.PharmFlowNext.suppressPriorityToast=true;if(typeof saveApplicationState==='function')saveApplicationState('item-priority');}finally{if(window.PharmFlowNext)window.PharmFlowNext.suppressPriorityToast=false;}
+            const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;draw();const next=body.querySelector('.phase263TableWrap');if(next)next.scrollTop=top;
         });
     };
-    input?.addEventListener('input',draw); orderFilter?.addEventListener('change',draw); qtySort?.addEventListener('change',draw);
+    input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);draw();});
     draw();
 }
