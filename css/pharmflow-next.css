@@ -2658,3 +2658,87 @@ body:not(.zebraDevice).pfnCleanReceiving #page-receiving{font-size:15px!importan
 body:not(.zebraDevice).pfNextMode .dataTable,body:not(.zebraDevice).pfNextMode .reportTable,body:not(.zebraDevice).pfNextMode table{font-size:14px}
 body:not(.zebraDevice).pfNextMode .dataTable th,body:not(.zebraDevice).pfNextMode .reportTable th{font-size:12px;font-weight:900}
 body:not(.zebraDevice).pfNextMode .dataTable td,body:not(.zebraDevice).pfNextMode .reportTable td{font-size:14px}
+
+/* ============================================================
+   B10 CLEAN 3 — approved operational polish bundle
+   Consolidated after source cleanup; presentation only unless noted.
+============================================================ */
+body:not(.zebraDevice).pfnCleanReceiving{--pfn-readable:16px;--pfn-readable-strong:17px}
+
+/* 1. Scanner result state must occupy the complete scan/search field. */
+body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after,
+body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;animation:pfnFullFieldFlash .58s ease-out}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after{background:rgba(30,180,96,.30)}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{background:rgba(224,53,68,.30)}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox>*{position:relative;z-index:1}
+@keyframes pfnFullFieldFlash{0%{opacity:1}70%{opacity:.78}100%{opacity:0}}
+
+/* 2/7/8. Last Scan readability + visible batch controls + semantic fields. */
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .lastScanQtyButton{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:38px!important;font-size:22px!important;line-height:1!important;color:#fff!important;opacity:1!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard #btnLastScanMinus{background:#315d87!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard #btnLastScanPlus{background:#0875c9!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .lastScanQtyValue{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:58px!important;height:38px!important;font-size:20px!important;background:#e7f4ff!important;color:#075da7!important;border-color:#65a5dc!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .lastScanQtyTitle{font-size:12px!important;color:#264f76!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanField:nth-child(2){background:#eef6ff!important;border-color:#b9d5ef!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanField:nth-child(3){background:#eaf8f0!important;border-color:#a9dcbc!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanField:nth-child(4){background:#fff5e5!important;border-color:#e9ca8b!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanField span{font-size:13px!important}.pfnCleanReceiving #lastScanCard .lastScanField strong{font-size:18px!important}
+
+/* 3/4/15. Order browser compact columns, category, and readable rows. */
+body:not(.zebraDevice) .pfnCleanWorklist table{table-layout:fixed!important;width:100%!important}
+body:not(.zebraDevice) .pfnCleanWorklist th,body:not(.zebraDevice) .pfnCleanWorklist td{font-size:16px!important;padding:10px 12px!important;vertical-align:middle!important}
+body:not(.zebraDevice) .pfnCleanWorklist th{font-size:13px!important}
+body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(1){width:11%}body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(2){width:31%}body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(3){width:17%}body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(4){width:15%}body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(5){width:9%}body:not(.zebraDevice) .pfnCleanWorklist th:nth-child(6){width:17%}
+body:not(.zebraDevice) .pfnCleanWorklist .pfnItemName{min-width:0!important}.pfnCleanWorklist .pfnItemName b{font-size:16px!important}.pfnPriorityCell{min-width:0!important}
+body:not(.zebraDevice) .pfnPrioritySegment{display:inline-flex;gap:5px;padding:3px;border:1px solid #bfd1e2;border-radius:9px;background:#f7fbff}
+body:not(.zebraDevice) .pfnPriorityMark{height:32px!important;min-width:58px!important;font-size:13px!important;border-radius:6px!important}
+body:not(.zebraDevice) .pfnCategoryCell{font-weight:750;color:#355a7c}
+body:not(.zebraDevice) .pfnBrowserControlRow{display:grid!important;grid-template-columns:minmax(150px,1fr) minmax(160px,1fr) 150px minmax(190px,1.2fr)!important;gap:9px!important;align-items:end!important}
+body:not(.zebraDevice) .pfnBrowserControlRow label,body:not(.zebraDevice) .pfnBrowserControlRow select,body:not(.zebraDevice) .pfnHighPriorityFilter{font-size:14px!important}
+
+/* 4/6/7. One readable table standard across operational views. */
+body:not(.zebraDevice).pfNextMode .dataTable th,body:not(.zebraDevice).pfNextMode .reportTable th,body:not(.zebraDevice).pfNextMode .phase263Table th{font-size:13px!important;font-weight:900!important;letter-spacing:.01em}
+body:not(.zebraDevice).pfNextMode .dataTable td,body:not(.zebraDevice).pfNextMode .reportTable td,body:not(.zebraDevice).pfNextMode .phase263Table td{font-size:16px!important;line-height:1.25!important;font-weight:650!important}
+body:not(.zebraDevice).pfNextMode .dataTable td b,body:not(.zebraDevice).pfNextMode .reportTable td b,body:not(.zebraDevice).pfNextMode .phase263Table td b{font-size:16px!important;font-weight:850!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .tableQtyButton{min-width:36px!important;height:34px!important;font-size:18px!important}.pfnCleanReceiving #page-receiving .tableQtyValue{min-width:44px!important;height:34px!important;font-size:16px!important;font-weight:900!important}
+
+/* 5. Unified toolbar: duplicate Export/Email removed in HTML. */
+body:not(.zebraDevice).pfnCleanReceiving .pfnActionBar{grid-template-columns:repeat(4,minmax(130px,1fr))!important;gap:8px!important}.pfnCleanReceiving .pfnAction{font-size:14px!important}
+
+/* 6. Quantity modal typography. */
+body:not(.zebraDevice) .quantityAdjustmentCard{font-size:16px!important}
+body:not(.zebraDevice) .quantityAdjustmentCard h3{font-size:19px!important}.quantityAdjustmentCard .sectionEyebrow{font-size:12px!important}
+body:not(.zebraDevice) .quantityCurrentTotal span,body:not(.zebraDevice) .quantityAdjustmentLabel{font-size:14px!important;font-weight:850!important}
+body:not(.zebraDevice) .quantityCurrentTotal strong{font-size:22px!important}.quantityAdjustmentInput{font-size:20px!important;font-weight:900!important;min-height:44px!important}
+body:not(.zebraDevice) .quantityAdjustmentHelp{font-size:13px!important;line-height:1.45!important}.quantityAdjustmentActions button,.quantityAdjustmentCard .authSecondaryLink{font-size:15px!important;font-weight:850!important}
+
+/* 10. Receiving progress: compact but visually meaningful. */
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard>.contentCard:not(#lastScanCard){background:#eef7ff!important;border:1px solid #a9cce9!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.65)!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .progressTrack{height:10px!important;background:#d8e9f7!important}.pfnCleanReceiving #page-dashboard #progressBar{background:linear-gradient(90deg,#1685d1,#1aa768)!important}.pfnCleanReceiving #page-dashboard .progressPercentage{font-size:17px!important;color:#075fa9!important}.pfnCleanReceiving #page-dashboard .progressDetails{font-size:13px!important;font-weight:800!important;color:#355b7d!important}
+
+/* 11. Entire sidebar typography, while preserving desktop fit. */
+body:not(.zebraDevice).pfNextMode .brandText strong{font-size:16px!important}.pfNextMode .brandText span{font-size:10px!important;line-height:1.2!important}
+body:not(.zebraDevice).pfNextMode .sidebarItem{font-size:15px!important;font-weight:800!important;min-height:48px!important}.pfNextMode .sidebarIcon{width:20px!important;height:20px!important}
+body:not(.zebraDevice).pfNextMode .accountIdentityText strong{font-size:14px!important}.pfNextMode .accountIdentityText small,.pfNextMode .accountRoleBadge,.pfNextMode .sidebarLogoutButton{font-size:12px!important}.pfNextMode .autoSaveStatus strong{font-size:12px!important}.pfNextMode .autoSaveStatus small{font-size:10px!important}
+
+/* 12/13. Report header is a compact operational console with no dead space. */
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving>.contentCard{padding:10px!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .cardHeader{gap:10px!important;margin-bottom:7px!important}.pfnCleanReceiving #page-receiving .receivingFilterBar{display:grid!important;grid-template-columns:minmax(180px,1fr) minmax(160px,.7fr)!important;gap:8px!important;margin-left:auto!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .receivingSummaryPanel{padding:10px!important;background:#f6faff!important;border:1px solid #b8d2e8!important}.pfnCleanReceiving #page-receiving .receivingSummaryHeader{display:grid!important;grid-template-columns:minmax(260px,.8fr) minmax(500px,1.5fr)!important;gap:10px!important;align-items:center!important}.pfnCleanReceiving #page-receiving .receivingSummaryHeader p{display:none!important}
+body:not(.zebraDevice).pfnCleanReceiving .pfnReportTitleLine{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.pfnCleanReceiving .pfnReportTitleLine h3{margin:0!important;font-size:20px!important}.pfnCleanReceiving .pfnReportBack{height:34px;padding:0 12px;border:1px solid #9bbbd8;border-radius:8px;background:#fff;color:#174f82;font-size:13px;font-weight:850;cursor:pointer}
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .receivingSummaryActions{display:grid!important;grid-template-columns:repeat(3,minmax(150px,1fr))!important;gap:7px!important}.pfnCleanReceiving #page-receiving #btnFinalizeReceiving{grid-column:1/-1!important;justify-self:start!important;min-width:190px!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .receivingSummaryGrid{display:grid!important;grid-template-columns:repeat(5,minmax(120px,1fr))!important;gap:7px!important;margin-top:9px!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid>div{padding:8px 10px!important;border-radius:9px!important;border:1px solid #c4d7e8!important;background:#eef6ff!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid>div:nth-child(2){background:#f2f0ff!important;border-color:#c9c1ed!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid>div:nth-child(3){background:#fff3df!important;border-color:#e7c787!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid>div:nth-child(4){background:#ffecee!important;border-color:#e7a8ae!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid>div:nth-child(5){background:#f4edff!important;border-color:#cdb9e9!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid span{font-size:12px!important;font-weight:850!important}.pfnCleanReceiving #page-receiving .receivingSummaryGrid strong{font-size:19px!important}
+body:not(.zebraDevice).pfnCleanReceiving .pfnReceivingSearchBlock{margin:8px 0 7px}.pfnCleanReceiving #receivingInlineSearch{box-sizing:border-box;width:100%;height:42px;padding:0 14px;border:2px solid #9fc1df;border-radius:9px;background:#fff;font-size:16px;font-weight:700;color:#173f66;outline:none}.pfnCleanReceiving #receivingInlineSearch:focus{border-color:#257fc4;box-shadow:0 0 0 3px rgba(37,127,196,.13)}
+body:not(.zebraDevice).pfnCleanReceiving .pfnReceivingInlineResult{margin-top:6px;border:1px solid #9fc1df;border-radius:9px;background:#f4f9fe;padding:7px}.pfnCleanReceiving .pfnInlineRow{display:grid;grid-template-columns:1.1fr .8fr 2fr 1fr .9fr 130px 1fr 1fr;gap:9px;align-items:center;font-size:14px}.pfnCleanReceiving .pfnInlineRow strong{font-size:15px;color:#0b477d}
+
+/* 14. Discrepancy selector readability. */
+body:not(.zebraDevice).pfnCleanReceiving .issueMultiFilter summary{font-size:14px!important}.pfnCleanReceiving .issueMultiFilterMenu{min-width:260px!important;padding:10px!important}.pfnCleanReceiving .issueMultiFilterMenu label{font-size:15px!important;min-height:34px!important;gap:9px!important}.pfnCleanReceiving .issueMultiFilterMenu input[type=checkbox]{width:17px!important;height:17px!important}.pfnCleanReceiving .issueMultiFilterActions button{font-size:14px!important;min-height:36px!important}
+
+/* Category column should remain readable without forcing horizontal scrolling. */
+body:not(.zebraDevice).pfnCleanReceiving #page-receiving .receivingCategoryCell{font-weight:750!important;color:#355b7c!important;max-width:150px;white-space:normal}
+/* Active professional Last Scan metrics use the same semantic visual language. */
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetric{border:1px solid #bfd3e5!important;background:#eef6ff!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetricReceived{background:#eaf8f0!important;border-color:#a9dcbc!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetricRemaining{background:#fff5e5!important;border-color:#e9ca8b!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetric>span,body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetaItem>span{font-size:13px!important;font-weight:900!important;color:#365a7d!important}
+body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetric>strong,body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetaItem>strong{font-size:17px!important;font-weight:900!important;color:#103f6d!important}

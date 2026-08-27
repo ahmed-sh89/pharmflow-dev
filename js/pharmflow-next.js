@@ -1,6 +1,6 @@
 "use strict";
 (function(){
-  const PF={version:"B10CLEAN2",flashTimer:0,ordersHost:null,ordersAnchor:null,initialized:false};
+  const PF={version:"B10CLEAN3",flashTimer:0,ordersHost:null,ordersAnchor:null,initialized:false};
   function $(id){return document.getElementById(id)}
   function flash(kind){
     const panel=document.querySelector('#page-dashboard .scanPanel');
@@ -45,9 +45,7 @@
     $('pfnManageOrders')?.addEventListener('click',openOrders);
     $('btnReceivedItems')?.addEventListener('click',()=>window.openDashboardKpiPanel?.('received'));
     $('btnAdjustReceiving')?.addEventListener('click',()=>{const item=window.getCurrentLastScanItem?.(); if(item&&window.openQuantityEditPrompt){window.openQuantityEditPrompt(item);return;} window.openDashboardKpiPanel?.('received');});
-    $('btnReceivingReportAction')?.addEventListener('click',()=>window.navigateTo?.('receiving'));
-    $('btnExportReceivingAction')?.addEventListener('click',()=>window.navigateTo?.('receiving'));
-    $('btnEmailReceivingAction')?.addEventListener('click',()=>{$('btnEmailReceivingDifferences')?.click()});
+    $('btnReceivingReportAction')?.addEventListener('click',()=>{if(typeof window.navigateTo==='function'){window.navigateTo('receiving');return;}document.querySelector('.sidebarItem[data-page="receiving"]')?.click();});
     bindSidebar();
   }
   function init(){if(PF.initialized)return;PF.initialized=true;document.body.classList.add('pfNextMode','pfnCleanReceiving');bind();installFlash()}

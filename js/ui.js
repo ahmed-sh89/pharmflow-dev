@@ -19,7 +19,8 @@ const UI = {
 
     receivingFilters:{
         issues:new Set(["not_received","partial","received_any","over","manual"]),
-        category:"all"
+        category:"all",
+        search:""
     },
 
     smartScan:{
@@ -1272,13 +1273,6 @@ function bindUIEvents(){
         );
 
 
-    document
-        .getElementById("btnReceivingSearch")
-        ?.addEventListener(
-            "click",
-            openItemSearchModal
-        );
-
 
     document.querySelectorAll("[data-receiving-issue]").forEach(input=>{
         input.addEventListener("change",function(){
@@ -1321,6 +1315,16 @@ function bindUIEvents(){
             UI.receivingFilters.category = event.target.value || "all";
             refreshReceivingTable();
         });
+
+    document.getElementById("receivingInlineSearch")?.addEventListener("input",function(event){
+        UI.receivingFilters.search=toSafeString(event.target.value||"").trim().toLowerCase();
+        refreshReceivingTable();
+    });
+
+    document.getElementById("btnBackToReceivingDashboard")?.addEventListener("click",function(){
+        if(typeof navigateTo==="function"){ navigateTo("dashboard"); return; }
+        document.querySelector('.sidebarItem[data-page="dashboard"]')?.click();
+    });
 
 
     document
@@ -2170,13 +2174,24 @@ function getVisibleReceivingItemsForExport(){
 
 function refreshReceivingTable(){
     const tbody=UI.elements.receivingTableBody;if(!tbody)return;refreshReceivingCategoryFilter();tbody.innerHTML="";
-    const issues=UI.receivingFilters.issues instanceof Set?UI.receivingFilters.issues:new Set(["not_received","partial","received_any","over","manual"]), categoryFilter=UI.receivingFilters.category||"all";
+    const issues=UI.receivingFilters.issues instanceof Set?UI.receivingFilters.issues:new Set(["not_received","partial","received_any","over","manual"]), categoryFilter=UI.receivingFilters.category||"all", searchFilter=toSafeString(UI.receivingFilters.search||"").trim().toLowerCase();
     const scope=typeof getSelectedReceivingOrderNumber==="function"?getSelectedReceivingOrderNumber():"ALL", active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[], selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():(scope==="ALL"?active:[scope].filter(Boolean)), allMode=selectedOrders.length>1;
-    const hr=tbody.closest("table")?.querySelector("thead tr");if(hr){let h=hr.querySelector('[data-order-column="1"]');if(allMode&&!h){h=document.createElement("th");h.dataset.orderColumn="1";h.textContent="Order Number";const cells=hr.querySelectorAll("th");hr.insertBefore(h,cells[1]||null);}else if(!allMode&&h)h.remove();}
     let rows=[];if(typeof getPerOrderReceivingRows==="function"&&active.length){const orders=selectedOrders.length?selectedOrders:[active[0]].filter(Boolean);orders.forEach(orderNumber=>getPerOrderReceivingRows(orderNumber).forEach(r=>{const received=toNumber(r["Received Qty"],0),issue=r.issueKey||"",cat=toSafeString(r["Category"]||"").trim(),match=issues.has(issue)||(issues.has("received_any")&&received>0);if(match&&(categoryFilter==="all"||cat===categoryFilter))rows.push({orderNumber,itemCode:r["Item Number"],itemName:r["Item Name"],orderedQty:toNumber(r["Ordered Qty"],0),receivedQty:received,remainingQty:Math.max(0,toNumber(r["Ordered Qty"],0)-received),status:r["Issue Type"]==="Received"?"Completed":r["Issue Type"],category:r["Category"]||"",manual:r.issueKey==="manual"});}));}else{rows=(AppState.workspace.orderData||[]).filter(item=>{if(selectedOrders.length && !selectedOrders.some(order=>itemBelongsToOrderScope(item,order)))return false;const issue=getReceivingIssueKey(item),received=toNumber(item.receivedQty,0),cat=toSafeString(item.category||"").trim();return (issues.has(issue)||(issues.has("received_any")&&received>0))&&(categoryFilter==="all"||cat===categoryFilter);});}
+    if(searchFilter){rows=rows.filter(item=>toSafeString(item.itemName||"").toLowerCase().includes(searchFilter)||toSafeString(item.itemCode||"").toLowerCase().includes(searchFilter));}
     UI.receivingVisibleItems=rows.slice();const d=document.getElementById("rsDisplayedItems");if(d)d.textContent=rows.length;if(typeof refreshReceivingVerificationSummary==="function")refreshReceivingVerificationSummary();
-    if(!(AppState.workspace.orderData||[]).length){tbody.innerHTML=`<tr><td colspan="${allMode?9:8}" class="tableEmptyState">No order items loaded.</td></tr>`;return;}if(!rows.length){tbody.innerHTML=`<tr><td colspan="${allMode?9:8}" class="tableEmptyState">No items match the selected filters.</td></tr>`;return;}
-    rows.forEach((item,index)=>{const tr=createReceivingTableRow(item,index);if(allMode){const c=document.createElement("td");c.className="receivingOrderCell";c.innerHTML=`<span class="receivingOrderBadge">${escapeHTML(item.orderNumber||"")}</span>`;tr.insertBefore(c,tr.children[1]||null);}tr.dataset.orderNumber=item.orderNumber||"";tbody.appendChild(tr);});
+    const inline=document.getElementById("receivingInlineResult");
+    if(!(AppState.workspace.orderData||[]).length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML=`<tr><td colspan="10" class="tableEmptyState">No order items loaded.</td></tr>`;return;}if(!rows.length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML=`<tr><td colspan="10" class="tableEmptyState">No items match the selected filters.</td></tr>`;return;}
+    rows.forEach((item,index)=>{const tr=createReceivingTableRow(item,index);tr.dataset.orderNumber=item.orderNumber||"";tbody.appendChild(tr);});
+    if(inline){
+        if(searchFilter&&rows.length){
+            const item=rows[0], order=item.orderNumber||((Array.isArray(item.orderNumbers)&&item.orderNumbers[0])||"—");
+            inline.hidden=false;
+            inline.innerHTML=`<div class="pfnInlineRow"><span>${escapeHTML(order)}</span><b>${escapeHTML(item.itemCode||"")}</b><strong>${escapeHTML(item.itemName||"")}</strong><span>${escapeHTML(item.category||"—")}</span><span>Ordered <b>${toNumber(item.orderedQty,0)}</b></span><div class="tableQtyControl"><button type="button" class="tableQtyButton" data-inline-minus>−</button><button type="button" class="tableQtyValue" data-inline-edit>${toNumber(item.receivedQty,0)}</button><button type="button" class="tableQtyButton" data-inline-plus>+</button></div><span>Remaining <b>${toNumber(item.remainingQty,0)}</b></span><span>${escapeHTML(item.status||"")}</span></div>`;
+            inline.querySelector('[data-inline-plus]')?.addEventListener('click',()=>increaseItemQuantity(item.itemCode,1));
+            inline.querySelector('[data-inline-minus]')?.addEventListener('click',()=>decreaseItemQuantity(item.itemCode,1));
+            inline.querySelector('[data-inline-edit]')?.addEventListener('click',()=>openQuantityEditPrompt(item));
+        }else{inline.hidden=true;inline.innerHTML="";}
+    }
 }
 function refreshReceivingCategoryFilter(){
     const select = UI.elements.receivingCategoryFilter;
@@ -2230,6 +2245,10 @@ function createReceivingTableRow(
             ${index + 1}
         </td>
 
+        <td class="receivingOrderCell">
+            ${escapeHTML(toSafeString(item.orderNumber || (Array.isArray(item.orderNumbers) ? item.orderNumbers[0] : "") || "—"))}
+        </td>
+
         <td>
             ${escapeHTML(
                 item.itemCode
@@ -2250,6 +2269,10 @@ function createReceivingTableRow(
                 ""
             }
 
+        </td>
+
+        <td class="receivingCategoryCell">
+            ${escapeHTML(toSafeString(item.category || "—"))}
         </td>
 
         <td>
@@ -7751,21 +7774,22 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="default">Default / Order Sequence</option><option value="desc">Highest → Lowest</option><option value="asc">Lowest → Highest</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="default">Default / Order Sequence</option><option value="desc">Highest → Lowest</option><option value="asc">Lowest → Highest</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
-      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr>${orderMode?'<th>Item Code</th><th>Item Name</th><th>Priority</th><th>Quantity</th><th>Order No.</th>':'<th>Item Code</th><th>Item Name</th><th>Ordered</th>'}${receivedMode?'<th>Received</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
+      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr>${orderMode?'<th>Item Code</th><th>Item Name</th><th>Priority</th><th>Category</th><th>Quantity</th><th>Order No.</th>':'<th>Item Code</th><th>Item Name</th><th>Ordered</th>'}${receivedMode?'<th>Received</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
     const input=body.querySelector('.phase263Search');
     const tbody=body.querySelector('[data-rows]');
     const orderFilter=body.querySelector('[data-order-filter]');
     const qtySort=body.querySelector('[data-qty-sort]');
+    const categoryFilter=body.querySelector('[data-category-filter]');
     const priorityFilter=body.querySelector('[data-priority-filter]');
     let priorityOnly=false;
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
         const pt=item.priorityType||'';
-        if(orderMode)return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo">${esc(orders)}</td></tr>`;
+        if(orderMode)return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></div></td><td class="pfnCategoryCell">${esc(item.category||item.Category||'—')}</td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo">${esc(orders)}</td></tr>`;
         return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td>${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
     };
     const draw=()=>{
@@ -7773,15 +7797,17 @@ function renderItemBrowser(body, rows, options={}){
         let visible=rows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
         const selectedOrder=orderFilter?.value||'ALL';
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
+        const selectedCategory=categoryFilter?.value||'ALL';
+        if(orderMode&&selectedCategory!=='ALL') visible=visible.filter(item=>toSafeString(item.category||item.Category||'').trim()===selectedCategory);
         if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
         const sort=qtySort?.value||'default';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
         if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
         if(orderMode&&priorityOnly){
             const groups=[['NEW',visible.filter(i=>i.priorityType==='NEW')],['SHORT',visible.filter(i=>i.priorityType==='SHORT')]];
-            tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="5"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="5" class="tableEmptyState">No high priority items.</td></tr>`;
+            tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="6"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="6" class="tableEmptyState">No high priority items.</td></tr>`;
         }else{
-            const colspan=orderMode?5:(receivedMode?4:3);
+            const colspan=orderMode?6:(receivedMode?4:3);
             tbody.innerHTML=visible.length?visible.map(rowHtml).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
         }
         tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=()=>{
@@ -7791,7 +7817,7 @@ function renderItemBrowser(body, rows, options={}){
             const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;draw();const next=body.querySelector('.phase263TableWrap');if(next)next.scrollTop=top;
         });
     };
-    input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
+    input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);draw();});
     draw();
 }

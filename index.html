@@ -52,7 +52,7 @@
         href="css/auth.css?v=2C1054"
     >
 
-<link rel="stylesheet" href="css/pharmflow-next.css?v=B10CLEAN2">
+<link rel="stylesheet" href="css/pharmflow-next.css?v=B10CLEAN3">
 </head>
 
 
@@ -685,8 +685,6 @@
                         <button id="btnReceivedItems" class="pfnAction pfnActionReceived" type="button">Received Items</button>
                         <button id="btnAdjustReceiving" class="pfnAction pfnActionAdjust" type="button">Adjust</button>
                         <button id="btnReceivingReportAction" class="pfnAction pfnActionReport" type="button">Receiving Report</button>
-                        <button id="btnExportReceivingAction" class="pfnAction pfnActionExport" type="button">Export ▾</button>
-                        <button id="btnEmailReceivingAction" class="pfnAction pfnActionEmail" type="button">Email</button>
                     </div>
 
 
@@ -956,15 +954,6 @@
                                 <option value="all">All Categories</option>
                             </select>
 
-                            <button
-                                id="btnReceivingSearch"
-                                class="secondaryButton"
-                                type="button"
-                            >
-
-                                🔍 Search
-
-                            </button>
 
 
                         </div>
@@ -975,10 +964,9 @@
 
                     <section class="receivingSummaryPanel discrepancyPanel" id="receivingSummaryPanel">
                         <div class="receivingSummaryHeader">
-                            <div>
+                            <div class="pfnReportTitleBlock">
                                 <span class="sectionEyebrow">RECEIVING RECONCILIATION</span>
-                                <h3>Discrepancy Report Preview</h3>
-                                <p>Select the receiving types above. The table, exports and Email Differences use exactly the rows currently displayed.</p>
+                                <div class="pfnReportTitleLine"><h3>Discrepancy Report Preview</h3><button id="btnBackToReceivingDashboard" class="pfnReportBack" type="button">← Back to Receiving</button></div>
                             </div>
                             <div class="receivingSummaryActions">
                                 <button id="btnExportReceivingSummaryExcel" class="secondaryButton" type="button">Export Discrepancies · Excel</button>
@@ -996,6 +984,11 @@
                         </div>
                     </section>
 
+                    <div class="pfnReceivingSearchBlock">
+                        <input id="receivingInlineSearch" type="search" placeholder="Search by Item Name or Item Number" autocomplete="off" aria-label="Search receiving report items">
+                        <div id="receivingInlineResult" class="pfnReceivingInlineResult" hidden></div>
+                    </div>
+
                     <div class="tableContainer">
 
 
@@ -1011,11 +1004,19 @@
                                 </th>
 
                                 <th>
+                                    Order Number
+                                </th>
+
+                                <th>
                                     Item Number
                                 </th>
 
                                 <th>
                                     Item Name
+                                </th>
+
+                                <th>
+                                    Category
                                 </th>
 
                                 <th>
@@ -2747,7 +2748,7 @@
 
 <script src="js/router.js?v=B1"></script>
 
-<script src="js/ui.js?v=2C1142"></script>
+<script src="js/ui.js?v=B10CLEAN3"></script>
 
 <script src="js/excel.js?v=2C1054"></script>
 
@@ -2777,7 +2778,7 @@
 <script src="js/cloud-workspace.js?v=2C11411"></script>
 
 <script src="js/data-layer.js?v=B1"></script>
-<script src="js/pharmflow-next.js?v=B10CLEAN2"></script>
+<script src="js/pharmflow-next.js?v=B10CLEAN3"></script>
 
 <script src="js/app.js?v=2C11411"></script>
 
