@@ -7740,44 +7740,55 @@ function toggleHighPriority(itemCode, options={}){
     item.highPriority=item.highPriority!==true;
     if(typeof saveApplicationState==="function") saveApplicationState("high-priority");
     if(options.refresh!==false) refreshOpenKpiPanel();
-    if(options.toast!==false) showToast(`${item.itemName} — ${item.highPriority?"High Priority enabled":"High Priority removed"}`,"success");
+    
     return item;
 }
 
 function renderItemBrowser(body, rows, options={}){
     const esc=value=>typeof escapeHtml==="function"?escapeHtml(toSafeString(value)):toSafeString(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-    const showPriority=options.showPriority===true;
+    const orderMode=options.showPriority===true;
     const receivedMode=options.receivedMode===true;
-    const totalUnits=rows.reduce((sum,item)=>sum+Math.max(0,toNumber(item.receivedQty,0)),0);
+    const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
-      <div class="phase263BrowserToolbar">
-        <input class="phase263Search" type="search" placeholder="Search by Item Name / Item Number" aria-label="Search items">
-        ${showPriority?'<button type="button" class="phase263Filter active" data-filter="all">All Items</button><button type="button" class="phase263Filter" data-filter="priority">★ High Priority</button>':''}
+      <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="default">Default / Order Sequence</option><option value="desc">Highest → Lowest</option><option value="asc">Lowest → Highest</option></select></label></div>`:''}
+        <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
-      ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b><span>Total Received Units: <b>${totalUnits}</b></span></div>`:''}
-      <div class="phase263TableWrap"><table class="quickKpiTable phase263Table"><thead><tr>${showPriority?'<th>Priority</th>':''}<th>Item Code</th><th>Item Name</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Status</th></tr></thead><tbody data-rows></tbody></table></div>`;
+      ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
+      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Item Name</th><th>Item Number</th>${orderMode?'<th>Order</th>':''}<th>Ordered</th>${receivedMode?'<th>Received</th>':''}${orderMode?'<th>Priority</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
     const input=body.querySelector('.phase263Search');
     const tbody=body.querySelector('[data-rows]');
-    let filter='all';
+    const orderFilter=body.querySelector('[data-order-filter]');
+    const qtySort=body.querySelector('[data-qty-sort]');
+    const priorityFilter=body.querySelector('[data-priority-filter]');
+    let priorityOnly=false;
     const draw=()=>{
         const q=toSafeString(input?.value||'').trim().toLowerCase();
         let visible=rows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
-        if(showPriority&&filter==='priority') visible=visible.filter(item=>item.highPriority===true);
-        visible.sort((a,b)=>(b.highPriority===true)-(a.highPriority===true)||toSafeString(a.itemName).localeCompare(toSafeString(b.itemName)));
-        tbody.innerHTML=visible.length?visible.map(item=>`<tr class="${item.highPriority===true?'phase263PriorityRow':''}">${showPriority?`<td><button type="button" class="phase263Star ${item.highPriority===true?'active':''}" data-priority="${esc(item.itemCode)}" title="Toggle High Priority">${item.highPriority===true?'★':'☆'}</button></td>`:''}<td>${esc(item.itemCode)}</td><td><b>${esc(item.itemName)}</b></td><td>${esc(toNumber(item.orderedQty,0))}</td><td>${esc(toNumber(item.receivedQty,0))}</td><td>${esc(toNumber(item.remainingQty,0))}</td><td>${esc(item.status||'')}</td></tr>`).join(''):'<tr><td colspan="7" class="tableEmptyState">No matching items.</td></tr>';
-        tbody.querySelectorAll('[data-priority]').forEach(btn=>btn.onclick=(event)=>{
-            event.preventDefault();
-            const wrap=body.querySelector('.phase263TableWrap');
-            const savedTop=wrap?.scrollTop||0;
-            const savedLeft=wrap?.scrollLeft||0;
-            toggleHighPriority(btn.dataset.priority,{refresh:false});
-            draw();
-            const nextWrap=body.querySelector('.phase263TableWrap');
-            if(nextWrap){nextWrap.scrollTop=savedTop;nextWrap.scrollLeft=savedLeft;}
+        const selectedOrder=orderFilter?.value||'ALL';
+        if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
+        if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT'||item.highPriority===true);
+        const sort=qtySort?.value||'default';
+        if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
+        if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
+        const colspan=orderMode?5:(receivedMode?4:3);
+        tbody.innerHTML=visible.length?visible.map(item=>{
+          const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
+          const pt=item.priorityType||'';
+          return `<tr><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td>${esc(item.itemCode)}</td>${orderMode?`<td>${esc(orders)}</td>`:''}<td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td>${esc(toNumber(item.receivedQty,0))}</td>`:''}${orderMode?`<td class="pfnPriorityCell"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></td>`:''}</tr>`;
+        }).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
+        tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=()=>{
+            const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;
+            if(!item)return;
+            item.priorityType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
+            item.highPriority=!!item.priorityType;
+            if(typeof saveApplicationState==='function')saveApplicationState('item-priority');
+            const wrap=body.querySelector('.phase263TableWrap'), top=wrap?.scrollTop||0;
+            draw(); const next=body.querySelector('.phase263TableWrap'); if(next)next.scrollTop=top;
         });
     };
-    input?.addEventListener('input',draw);
-    body.querySelectorAll('[data-filter]').forEach(btn=>btn.onclick=()=>{filter=btn.dataset.filter;body.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('active',b===btn));draw();});
+    input?.addEventListener('input',draw); orderFilter?.addEventListener('change',draw); qtySort?.addEventListener('change',draw);
+    priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);draw();});
     draw();
 }
 
@@ -7815,36 +7826,7 @@ function renderDashboardKpiPanel(key,body){
    PHASE 2C.6 FINAL - ONE-TAP ACCIDENTAL SCAN CORRECTION
 ===================================================== */
 function refreshScanSafetyUI(){
-    /* Phase 2C.6.3+: remove the risky dashboard Undo button. */
     document.querySelector("#lastScanCard .scanSafetyBar")?.remove();
-
-    /* Always expose the two fast review workflows beside Search Item.
-       Handlers are assigned every refresh AND backed by delegated binding
-       below so a re-render can never leave a dead button. */
-    const searchButton=document.getElementById("btnQuickSearch");
-    if(!searchButton) return;
-
-    let received=document.getElementById("btnReceivedItems");
-    if(!received){
-        received=document.createElement("button");
-        received.type="button";
-        received.id="btnReceivedItems";
-        received.className=(searchButton.className||"")+" receivedItemsButton";
-        received.innerHTML="✓ Received Items";
-        searchButton.insertAdjacentElement("afterend",received);
-    }
-    received.onclick=()=>openDashboardKpiPanel("received");
-
-    let priority=document.getElementById("btnOrderItemsPriority");
-    if(!priority){
-        priority=document.createElement("button");
-        priority.type="button";
-        priority.id="btnOrderItemsPriority";
-        priority.className=(searchButton.className||"")+" priorityItemsButton";
-        priority.innerHTML="★ Order Items";
-        received.insertAdjacentElement("afterend",priority);
-    }
-    priority.onclick=()=>openDashboardKpiPanel("total");
     ensureNeedsReviewButtons();
 }
 
@@ -7895,20 +7877,11 @@ async function refreshNeedsReviewCounters(){
 
 function ensureNeedsReviewButtons(){
     if(typeof isLikelyZebraDevice==="function"&&isLikelyZebraDevice()) return;
-
-    const search=document.getElementById("btnQuickSearch");
-    if(search && !document.getElementById("btnReceivingNeedsReview")){
-        const button=document.createElement("button");
-        button.id="btnReceivingNeedsReview";
-        button.className="secondaryButton needsReviewButton";
-        button.type="button";
-        button.innerHTML='Needs Review <strong id="receivingNeedsReviewCount">0</strong>';
-        search.insertAdjacentElement("afterend",button);
-        button.onclick=()=>openNeedsReviewPanel("RECEIVING");
-    }
-
+    const button=document.getElementById("btnReceivingNeedsReview");
+    if(button && button.dataset.bound!=="1"){button.dataset.bound="1";button.onclick=()=>openNeedsReviewPanel("RECEIVING");}
     refreshNeedsReviewCounters();
 }
+
 
 function nrV2FindOrderMatches(query){
     const q=toSafeString(query).trim().toLowerCase();
@@ -8320,7 +8293,7 @@ function setupPhase263ActionDelegation(){
         /* Phase 2C.7.6: Dashboard Search Item and Receiving Search are one
            workflow. Capture binding prevents an older page-specific handler
            from opening a different/stale search implementation. */
-        const unifiedSearch=event.target.closest?.("#btnQuickSearch, #btnReceivingSearch");
+        const unifiedSearch=event.target.closest?.("#btnReceivingSearch");
         if(unifiedSearch){
             event.preventDefault();
             event.stopImmediatePropagation?.();
@@ -8329,8 +8302,6 @@ function setupPhase263ActionDelegation(){
         }
         const received=event.target.closest?.("#btnReceivedItems");
         if(received){event.preventDefault();openDashboardKpiPanel("received");return;}
-        const priority=event.target.closest?.("#btnOrderItemsPriority");
-        if(priority){event.preventDefault();openDashboardKpiPanel("total");}
     },true);
 }
 
