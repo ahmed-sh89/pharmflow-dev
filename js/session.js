@@ -697,7 +697,7 @@ async function closeAndArchiveCurrentOrder(targetOrderNumber){
         ? normalizeOrderNumber(targetOrderNumber||"")
         : String(targetOrderNumber||"").trim();
     if(!targetOrder){
-        showToast("Select one order before Finalize Receiving","warning");
+        showToast("Select one order before Complete Receiving","warning");
         return false;
     }
     const targetFile=(workspace.orderFiles||[]).find(file=>
@@ -755,93 +755,45 @@ async function closeAndArchiveCurrentOrder(targetOrderNumber){
             getCurrentOrderReceivedUnits();
 
 
-        const archiveRecord = {
-
-            orderId:
-                workspace.orderId
-                ||
-                createOrderId(),
-
-            orderName:
-                workspace.orderName
-                ||
-                "Receiving Order",
-
-            createdAt:
-                workspace.createdAt
-                ||
-                closedAt,
-
-            startedAt:
-                workspace.startedAt
-                ||
-                workspace.createdAt
-                ||
-                closedAt,
-
-            closedAt:
-                closedAt,
-
-            totalItems:
-                targetItems.length,
-
-            completedItems:
-                AppState.statistics
-                    .completedItems,
-
-            remainingItems:
-                AppState.statistics
-                    .remainingItems,
-
-            overReceivedItems:
-                AppState.statistics
-                    .overReceivedItems,
-
-            manualItems:
-                AppState.statistics
-                    .manualItems,
-
-            totalTransactions:
-                targetTransactions.length,
-
-            totalReceivedUnits:
-                targetItems.reduce((sum,item)=>sum+Number(item.receivedQty||0),0),
-
-            orderFiles:
-                deepClone([targetFile]),
-
-            mappingFiles:
-                deepClone(
-                    workspace.mappingFiles
-                ),
-
-            items:
-                deepClone(targetItems),
-
-            status:
-                "Received",
-
-            sessionId:
-                AppState.session.id,
-
-            deviceId:
-                AppState.session.deviceId,
-
-            /* Permanent report snapshot created at Finalize.
-               Stored inside the cloud archive payload so it survives page
-               close, sign-out and use from another PC. */
-            discrepancyReport:
-                window.__pfFinalizedDiscrepancyReport
-                    ? deepClone(window.__pfFinalizedDiscrepancyReport)
-                    : null,
-
-            fullReceivingReport:
-                window.__pfFinalizedFullReceivingReport
-                    ? deepClone(window.__pfFinalizedFullReceivingReport)
-                    : null
-
+        const minimalOrderFile={
+            documentId:targetOrder,
+            orderNumber:targetOrder,
+            orderDate:targetFile?.orderDate||targetFile?.order_date||targetFile?.documentDate||targetFile?.reportDate||""
         };
 
+        const discrepancySnapshot=window.__pfFinalizedDiscrepancyReport
+            ? deepClone(window.__pfFinalizedDiscrepancyReport)
+            : null;
+        const discrepancyCount=Number(discrepancySnapshot?.totalDiscrepancies||discrepancySnapshot?.rows?.length||0);
+
+        /* B10 Clean 4 — minimal historical retention.
+           Receiving completion keeps only operational identity/date plus a
+           discrepancy snapshot when a difference exists. Source files,
+           photos, per-item workspace rows and receiving transaction history
+           are intentionally not retained in the finalized archive payload. */
+        const archiveRecord = {
+            orderId:workspace.orderId||createOrderId(),
+            orderName:targetOrder,
+            orderNumber:targetOrder,
+            createdAt:workspace.createdAt||closedAt,
+            startedAt:workspace.startedAt||workspace.createdAt||closedAt,
+            closedAt,
+            totalItems:0,
+            completedItems:0,
+            remainingItems:0,
+            overReceivedItems:0,
+            manualItems:0,
+            totalTransactions:0,
+            totalReceivedUnits:0,
+            orderFiles:[minimalOrderFile],
+            mappingFiles:[],
+            items:[],
+            status:"Received",
+            sessionId:AppState.session.id,
+            deviceId:AppState.session.deviceId,
+            discrepancyReport:discrepancyCount>0?discrepancySnapshot:null,
+            fullReceivingReport:null
+        };
 
         /* Phase 2C.10.1: finalized archive is saved server-side BEFORE
            clearing this PC. This is the cross-PC authoritative copy. */
@@ -868,68 +820,10 @@ async function closeAndArchiveCurrentOrder(targetOrderNumber){
         }
 
 
-        const historicalTransactions =
-            targetTransactions
-                .map(transaction=>({
-
-                    ...deepClone(
-                        transaction
-                    ),
-
-                    orderId:
-                        archiveRecord
-                            .orderId
-
-                }));
-
-
         await dbPut(
-            APP_CONFIG
-                .database
-                .stores
-                .orders,
-
+            APP_CONFIG.database.stores.orders,
             archiveRecord
         );
-
-
-        await dbPutMany(
-            APP_CONFIG
-                .database
-                .stores
-                .transactions,
-
-            historicalTransactions
-        );
-
-
-        await dbPut(
-            APP_CONFIG
-                .database
-                .stores
-                .sessions,
-
-            {
-
-                ...deepClone(
-                    AppState.session
-                ),
-
-                id:
-                    AppState.session.id
-                    ||
-                    createSessionId(),
-
-                archivedAt:
-                    closedAt,
-
-                orderId:
-                    archiveRecord
-                        .orderId
-
-            }
-        );
-
 
         await restoreHistoricalArchive();
 

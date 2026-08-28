@@ -1711,12 +1711,17 @@ window.buildEmailReportFromDisplayedReceiving=
 
 
 function getReceivingReportFileBase(summary){
-    const orderNumbers=(summary?.orders||[])
-        .map(o=>toSafeString(o?.orderNumber||"").trim())
-        .filter(Boolean);
-    const raw=(orderNumbers.length ? orderNumbers.join("_") : toSafeString(summary?.orderId||"Receiving").trim());
-    const safe=raw.replace(/[^a-z0-9_-]+/gi,"_").replace(/^_+|_+$/g,"") || "Receiving";
-    return safe+"-PharmFlow";
+    const orderNumbers=(summary?.orders||[]).map(o=>toSafeString(o?.orderNumber||"").trim()).filter(Boolean);
+    const pharmacyCode=toSafeString(
+        (typeof AuthState!=="undefined" && (AuthState?.context?.pharmacy_code||AuthState?.profile?.pharmacy_code)) ||
+        AppState?.account?.pharmacyCode ||
+        document.getElementById("dashboardPharmacyCode")?.textContent ||
+        document.querySelector("[data-pharmacy-code]")?.textContent ||
+        "PHARMACY"
+    ).trim();
+    const orderPart=orderNumbers.length===1 ? orderNumbers[0] : (orderNumbers.length>1 ? `${orderNumbers.length} Orders` : "Receiving");
+    const safe=value=>toSafeString(value).replace(/[\/:*?"<>|]+/g,"-").replace(/\s+/g," ").trim();
+    return `${safe(orderPart)} - ${safe(pharmacyCode||"PHARMACY")}`;
 }
 
 function exportReceivingSummaryExcel(){

@@ -7774,7 +7774,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="default">Default / Order Sequence</option><option value="desc">Highest → Lowest</option><option value="asc">Lowest → Highest</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -7789,7 +7789,7 @@ function renderItemBrowser(body, rows, options={}){
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
         const pt=item.priorityType||'';
-        if(orderMode)return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button></div></td><td class="pfnCategoryCell">${esc(item.category||item.Category||'—')}</td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo">${esc(orders)}</td></tr>`;
+        if(orderMode)return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell">${esc(item.category||item.Category||'—')}</td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo">${esc(orders)}</td></tr>`;
         return `<tr><td class="pfnItemCode">${esc(item.itemCode)}</td><td class="pfnItemName"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td>${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
     };
     const draw=()=>{
@@ -7800,11 +7800,11 @@ function renderItemBrowser(body, rows, options={}){
         const selectedCategory=categoryFilter?.value||'ALL';
         if(orderMode&&selectedCategory!=='ALL') visible=visible.filter(item=>toSafeString(item.category||item.Category||'').trim()===selectedCategory);
         if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
-        const sort=qtySort?.value||'default';
+        const sort=qtySort?.value||'desc';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
         if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
         if(orderMode&&priorityOnly){
-            const groups=[['NEW',visible.filter(i=>i.priorityType==='NEW')],['SHORT',visible.filter(i=>i.priorityType==='SHORT')]];
+            const groups=[['SHORT',visible.filter(i=>i.priorityType==='SHORT')],['NEW',visible.filter(i=>i.priorityType==='NEW')]];
             tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="6"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="6" class="tableEmptyState">No high priority items.</td></tr>`;
         }else{
             const colspan=orderMode?6:(receivedMode?4:3);
@@ -7895,11 +7895,12 @@ async function refreshNeedsReviewCounters(){
         const receiving=await loadNeedsReviewRows("RECEIVING",null);
         const rc=document.getElementById("receivingNeedsReviewCount");
 
-        if(rc) rc.textContent=String(receiving.length);
+        const grouped=groupNeedsReviewRows(receiving);
+        if(rc) rc.textContent=String(grouped.length);
 
         document
             .getElementById("btnReceivingNeedsReview")
-            ?.classList.toggle("hasItems",receiving.length>0);
+            ?.classList.toggle("hasItems",grouped.length>0);
     }catch(error){
         console.warn("Needs Review V2 count failed",error);
     }
@@ -7953,6 +7954,7 @@ async function nrV2ResolveToOrderItem(row,item){
             gtin:row.gtin,
             source:APP_CONFIG.transactionSources.scanner,
             manual:false,
+            targetOrder:group.order_number||"",
             transactionId
         });
 
@@ -7993,6 +7995,7 @@ async function nrV2ResolveAsUnordered(row,itemCode,itemName,targetOrder=""){
             gtin:row.gtin,
             source:APP_CONFIG.transactionSources.scanner,
             manual:true,
+            targetOrder:targetOrder||group.order_number||"",
             transactionId
         });
 
@@ -8022,274 +8025,189 @@ async function nrV2HydratePhoto(img,path){
     }catch(_){}
 }
 
+function groupNeedsReviewRows(rows){
+    const groups=new Map();
+    (rows||[]).forEach(row=>{
+        const gtin=toSafeString(row?.gtin||"").trim();
+        const order=toSafeString(row?.order_number||"").trim();
+        const reason=toSafeString(row?.review_reason||"UNKNOWN_GTIN").trim();
+        const key=[gtin,order,reason].join("|");
+        if(!groups.has(key)){
+            groups.set(key,{
+                key,
+                gtin,
+                order_number:order,
+                review_reason:reason,
+                source:row?.source||"",
+                rows:[],
+                total_quantity:0,
+                photos:[],
+                master_item_name_hint:row?.master_item_name_hint||"",
+                master_item_code_hint:row?.master_item_code_hint||""
+            });
+        }
+        const group=groups.get(key);
+        group.rows.push(row);
+        group.total_quantity+=Math.max(0,Number(row?.pending_quantity||0)||0);
+        if(row?.photo_path) group.photos.push(row.photo_path);
+        if(!group.master_item_name_hint && row?.master_item_name_hint) group.master_item_name_hint=row.master_item_name_hint;
+        if(!group.master_item_code_hint && row?.master_item_code_hint) group.master_item_code_hint=row.master_item_code_hint;
+    });
+    return Array.from(groups.values()).map(group=>({
+        ...group,
+        total_quantity:Math.max(1,group.total_quantity||0),
+        rows:group.rows.slice().sort((a,b)=>String(a?.created_at||a?.date_time||"").localeCompare(String(b?.created_at||b?.date_time||"")))
+    }));
+}
+
+function nrV2GroupTransactionId(group){
+    const safe=value=>toSafeString(value||"").replace(/[^a-z0-9]+/gi,"_").replace(/^_+|_+$/g,"").slice(0,42);
+    return `NEEDS_REVIEW_GROUP_${safe(group?.order_number||"ALL")}_${safe(group?.gtin||"UNKNOWN")}`;
+}
+
+function nrV2HasTransactionId(transactionId){
+    return (AppState?.workspace?.receivingHistory||[]).some(tx=>toSafeString(tx?.transactionId||"")===transactionId);
+}
+
+async function nrV2ResolveGroupToOrderItem(group,item){
+    const transactionId=nrV2GroupTransactionId(group);
+    if(!nrV2HasTransactionId(transactionId)){
+        await savePharmacyLearnedGTIN(group.gtin,item.itemCode,item.itemName);
+        addMappingRecord({itemCode:item.itemCode,gtin:group.gtin,source:"PHARMACY_LEARNED"});
+        const tx=receiveOrderItem({
+            item,
+            quantity:Math.max(1,Number(group.total_quantity||1)||1),
+            gtin:group.gtin,
+            source:APP_CONFIG.transactionSources.scanner,
+            manual:false,
+            transactionId
+        });
+        if(!tx) throw new Error("Unable to apply reviewed quantity");
+    }
+    for(const row of group.rows){
+        await nrV2MarkResolved(row,item,"LINK_ORDER_ITEM",transactionId);
+    }
+    for(const path of group.photos){
+        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
+    }
+}
+
+async function nrV2ResolveGroupAsUnordered(group,itemCode,itemName,targetOrder=""){
+    const transactionId=nrV2GroupTransactionId(group);
+    if(!nrV2HasTransactionId(transactionId)){
+        await savePharmacyLearnedGTIN(group.gtin,itemCode,itemName);
+        const item=prepareManualExtraItem(itemCode,itemName,group.gtin,targetOrder||group.order_number||"");
+        const tx=receiveOrderItem({
+            item,
+            quantity:Math.max(1,Number(group.total_quantity||1)||1),
+            gtin:group.gtin,
+            source:APP_CONFIG.transactionSources.scanner,
+            manual:true,
+            transactionId
+        });
+        if(!tx) throw new Error("Unable to add unordered item");
+    }
+    for(const row of group.rows){
+        await nrV2MarkResolved(row,{itemCode,itemName},"ADD_UNORDERED",transactionId);
+    }
+    for(const path of group.photos){
+        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
+    }
+}
+
 async function openNeedsReviewPanel(workflow="RECEIVING"){
     if(typeof isLikelyZebraDevice==="function"&&isLikelyZebraDevice()) return;
-
     document.getElementById("needsReviewOverlay")?.remove();
 
-    let rows=[];
-    try{
-        rows=await loadNeedsReviewRows(workflow,null);
-    }catch(error){
-        showToast?.(
-            error?.message||"Unable to load Needs Review",
-            "error"
-        );
-        return;
-    }
+    let rawRows=[];
+    try{ rawRows=await loadNeedsReviewRows(workflow,null); }
+    catch(error){ showToast?.(error?.message||"Unable to load Needs Review","error"); return; }
 
+    const groups=groupNeedsReviewRows(rawRows);
     const esc=value=>escapeHTML(toSafeString(value));
-
     const overlay=document.createElement("div");
     overlay.id="needsReviewOverlay";
-    overlay.className="needsReviewOverlay needsReviewOverlayV2";
-
+    overlay.className="needsReviewOverlay needsReviewOverlayV2 pfnNeedsReviewModern";
     overlay.innerHTML=`
       <button class="needsReviewScrim" data-close aria-label="Close"></button>
       <section class="needsReviewPanel needsReviewPanelV2 needsReviewWorkspace">
         <header>
-          <div>
-            <span>RECEIVING</span>
-            <h2>Needs Review</h2>
-            <p>${rows.length} pending · Review scanned exceptions without interrupting the Handheld worker</p>
-          </div>
+          <div><span>RECEIVING EXCEPTIONS</span><h2>Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each unknown GTIN once. Repeated scans are grouped automatically.</p></div>
           <button class="needsReviewClose" data-close>✕</button>
         </header>
-
-        <div class="needsReviewList">
-          ${
-            rows.length
-            ? rows.map((row,index)=>`
-              <section class="needsReviewRow needsReviewRowV2" data-i="${index}">
-                <div class="needsReviewPhotoWrap ${row.photo_path?"hasPhoto":""}">
-                  ${
-                    row.photo_path
-                    ? `<button class="needsReviewPhotoButton" data-photo-open="${index}" type="button" title="Open photo"><img data-photo="${index}" alt="Product review photo" hidden><span>OPEN PHOTO</span></button>`
-                    : `<div class="needsReviewNoPhoto">NO PHOTO</div>`
-                  }
-                </div>
-
-                <div class="needsReviewInfo">
-                  <span>${row.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"UNKNOWN GTIN"}</span>
-                  <strong>${esc(row.gtin)}</strong>
-                  <small>
-                    Qty ${Number(row.pending_quantity||1)}
-                    ${row.order_number?` · Order ${esc(row.order_number)}`:""}
-                    ${row.source?` · ${esc(row.source)}`:""}
-                  </small>
-                  ${
-                    row.master_item_name_hint
-                    ? `<em>${esc(row.master_item_name_hint)} · ${esc(row.master_item_code_hint)}</em>`
-                    : ""
-                  }
-                </div>
-
-                <div class="needsReviewResolve">
-                  <label>
-                    Find item in current order
-                    <input data-search="${index}" placeholder="Search uploaded orders by Item Code or Item Name" autocomplete="off" spellcheck="false">
-                  </label>
-                  <div class="needsReviewMatches" data-matches="${index}"></div>
-
-                  <details class="needsReviewExtra">
-                    <summary>Item truly not in the order?</summary>
-                    <div class="needsReviewExtraGrid">
-                      <input data-extra-code="${index}" placeholder="Item Code" value="${esc(row.master_item_code_hint||"")}">
-                      <input data-extra-name="${index}" placeholder="Item Name" value="${esc(row.master_item_name_hint||"")}">
-                      <label class="needsReviewTargetOrder">
-                        Target Order
-                        <select data-extra-order="${index}">
-                          ${
-                            (
-                              typeof getSelectedReceivingOrderNumbers==="function"
-                                ? getSelectedReceivingOrderNumbers()
-                                : []
-                            ).map(order=>
-                              `<option value="${esc(order)}">${esc(order)}</option>`
-                            ).join("")
-                          }
-                        </select>
-                      </label>
-                      <button data-extra="${index}" type="button">ADD UNORDERED & RECEIVE</button>
-                    </div>
-                  </details>
-
-                  <button class="needsReviewDelete" data-delete="${index}" type="button">Delete review</button>
-                </div>
-              </section>
-            `).join("")
-            : `<div class="needsReviewEmpty">Nothing needs review.</div>`
-          }
+        <div class="pfnNeedsReviewToolbar"><input type="search" data-review-filter placeholder="Search by GTIN, Item Number or Item Name"></div>
+        <div class="needsReviewList" data-review-list>
+          ${groups.length?groups.map((group,index)=>`
+            <section class="needsReviewRow needsReviewRowV2 pfnGroupedReview" data-i="${index}" data-search-text="${esc([group.gtin,group.master_item_code_hint,group.master_item_name_hint,group.order_number].join(' ').toLowerCase())}">
+              <div class="needsReviewInfo">
+                <span class="pfnReviewReason">${group.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"ITEM NOT RECOGNIZED"}</span>
+                <strong class="pfnReviewGTIN">${esc(group.gtin)}</strong>
+                <div class="pfnReviewQuantity">Total Quantity: <b>${group.total_quantity}</b></div>
+                <small>${group.rows.length} receiving entr${group.rows.length===1?"y":"ies"}${group.photos.length?` · ${group.photos.length} temporary photo${group.photos.length===1?"":"s"}`:""}${group.order_number?` · Order ${esc(group.order_number)}`:""}</small>
+              </div>
+              <div class="needsReviewResolve">
+                ${group.photos.length?`<details class="pfnReviewPhotos"><summary>View temporary photo${group.photos.length===1?"":"s"}</summary><div class="pfnReviewPhotoGrid">${group.photos.map((path,pidx)=>`<button type="button" data-photo-open="${index}:${pidx}"><img data-photo="${index}:${pidx}" alt="Product review photo" hidden><span>Photo ${pidx+1}</span></button>`).join('')}</div></details>`:""}
+                <label>Search Current Order<input data-search="${index}" placeholder="Search by Item Name or Item Number" autocomplete="off" spellcheck="false"></label>
+                <div class="needsReviewMatches" data-matches="${index}"></div>
+                <details class="needsReviewExtra"><summary>+ Add Extra Item</summary><div class="needsReviewExtraGrid"><input data-extra-code="${index}" placeholder="Item Code" value="${esc(group.master_item_code_hint||"")}"><input data-extra-name="${index}" placeholder="Item Name" value="${esc(group.master_item_name_hint||"")}"><label class="needsReviewTargetOrder">Target Order<select data-extra-order="${index}">${(typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():[]).map(order=>`<option value="${esc(order)}" ${normalizeOrderNumber(order)===normalizeOrderNumber(group.order_number)?"selected":""}>${esc(order)}</option>`).join("")}</select></label><button data-extra="${index}" type="button">ADD EXTRA &amp; RECEIVE ${group.total_quantity}</button></div></details>
+                <button class="needsReviewDelete" data-delete="${index}" type="button">Delete review case</button>
+              </div>
+            </section>`).join(""):`<div class="needsReviewEmpty">Nothing needs review.</div>`}
         </div>
-      </section>
-    `;
-
+      </section>`;
     document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close]").forEach(button=>button.onclick=()=>overlay.remove());
 
-    overlay.querySelectorAll("[data-close]").forEach(button=>{
-        button.onclick=()=>overlay.remove();
+    const reviewFilter=overlay.querySelector('[data-review-filter]');
+    reviewFilter?.addEventListener('input',()=>{
+        const q=toSafeString(reviewFilter.value).trim().toLowerCase();
+        overlay.querySelectorAll('.pfnGroupedReview').forEach(row=>{row.hidden=!!q&&!toSafeString(row.dataset.searchText).includes(q);});
     });
 
-    rows.forEach((row,index)=>{
+    groups.forEach((group,index)=>{
         const section=overlay.querySelector(`[data-i="${index}"]`);
         const search=overlay.querySelector(`[data-search="${index}"]`);
         const matches=overlay.querySelector(`[data-matches="${index}"]`);
 
-        if(row.photo_path){
-            nrV2HydratePhoto(
-                overlay.querySelector(`[data-photo="${index}"]`),
-                row.photo_path
-            );
-        }
-
-        overlay.querySelector(`[data-photo-open="${index}"]`)?.addEventListener("click",async()=>{
-            const url=await nrV2PhotoObjectUrl(row.photo_path);
-            if(!url){ showToast?.("Unable to open review photo","error"); return; }
+        group.photos.forEach((path,pidx)=>nrV2HydratePhoto(overlay.querySelector(`[data-photo="${index}:${pidx}"]`),path));
+        group.photos.forEach((path,pidx)=>overlay.querySelector(`[data-photo-open="${index}:${pidx}"]`)?.addEventListener('click',async()=>{
+            const url=await nrV2PhotoObjectUrl(path); if(!url){showToast?.("Unable to open review photo","error");return;}
             document.getElementById("needsReviewPhotoViewer")?.remove();
-            const viewer=document.createElement("div");
-            viewer.id="needsReviewPhotoViewer";
-            viewer.className="needsReviewPhotoViewer";
-            viewer.innerHTML=`<button type="button" class="needsReviewPhotoViewerScrim" aria-label="Close"></button><div class="needsReviewPhotoViewerCard"><button type="button" class="needsReviewPhotoViewerClose">✕</button><img src="${url}" alt="Product review photo"></div>`;
-            document.body.appendChild(viewer);
-            viewer.querySelectorAll("button").forEach(btn=>btn.onclick=()=>viewer.remove());
-        });
+            const viewer=document.createElement("div");viewer.id="needsReviewPhotoViewer";viewer.className="needsReviewPhotoViewer";
+            viewer.innerHTML=`<button type="button" data-close aria-label="Close"></button><div><img src="${url}" alt="Product review photo"><button type="button" data-close>Close</button></div>`;
+            document.body.appendChild(viewer);viewer.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>viewer.remove());
+        }));
 
-        const renderMatches=()=>{
-            const items=nrV2FindOrderMatches(search?.value||"");
-
-            matches.innerHTML=
-                items.length
-                ? items.map((item,itemIndex)=>`
-                    <button type="button" data-match="${itemIndex}">
-                      <span>
-                        <strong>${esc(item.itemName)}</strong>
-                        <small>Item ${esc(item.itemCode)}</small>
-                      </span>
-                      <b>LINK GTIN & RECEIVE ${Number(row.pending_quantity||1)}</b>
-                    </button>
-                  `).join("")
-                : `<div class="gtinNoResult">Search the current order.</div>`;
-
-            matches.querySelectorAll("[data-match]").forEach(button=>{
-                button.onclick=async()=>{
-                    const item=items[Number(button.dataset.match)];
-                    button.disabled=true;
-
-                    try{
-                        await nrV2ResolveToOrderItem(row,item);
-                        section.remove();
-                        showToast?.(
-                            "GTIN linked and quantity received",
-                            "success"
-                        );
-                        refreshNeedsReviewCounters();
-                    }catch(error){
-                        button.disabled=false;
-                        showToast?.(
-                            error?.message||"Unable to resolve review",
-                            "error"
-                        );
-                    }
-                };
+        const drawMatches=()=>{
+            const q=toSafeString(search?.value||"").trim();
+            if(!q){matches.innerHTML="";return;}
+            const items=nrV2FindOrderMatches(q).slice(0,6);
+            matches.innerHTML=items.length?items.map((item,itemIndex)=>`<button type="button" data-match="${itemIndex}"><span><strong>${esc(item.itemName)}</strong><small>Item ${esc(item.itemCode)}</small></span><b>Resolve &amp; Receive ${group.total_quantity}</b></button>`).join(""):`<div class="needsReviewNoMatches">No matching order item.</div>`;
+            matches.querySelectorAll('[data-match]').forEach(button=>button.onclick=async()=>{
+                const item=items[Number(button.dataset.match)]; if(!item)return;
+                button.disabled=true;
+                try{await nrV2ResolveGroupToOrderItem(group,item);section.remove();await refreshNeedsReviewCounters();showToast?.(`GTIN resolved — ${group.total_quantity} received`,"success");}
+                catch(error){button.disabled=false;showToast?.(error?.message||"Unable to resolve review","error");}
             });
         };
+        search?.addEventListener('input',drawMatches);
 
-        search?.addEventListener("input",renderMatches);
-        if(search && row.master_item_code_hint){
-            search.value=row.master_item_code_hint;
-        }else if(search && row.master_item_name_hint){
-            search.value=row.master_item_name_hint;
-        }
-        renderMatches();
+        overlay.querySelector(`[data-extra="${index}"]`)?.addEventListener('click',async event=>{
+            const code=normalizeItemCode(overlay.querySelector(`[data-extra-code="${index}"]`)?.value||"");
+            const name=toSafeString(overlay.querySelector(`[data-extra-name="${index}"]`)?.value||"").trim();
+            const target=normalizeOrderNumber(overlay.querySelector(`[data-extra-order="${index}"]`)?.value||group.order_number||"");
+            if(!code||!name){showToast?.("Enter Item Code and Item Name","warning");return;}
+            event.currentTarget.disabled=true;
+            try{await nrV2ResolveGroupAsUnordered(group,code,name,target);section.remove();await refreshNeedsReviewCounters();showToast?.(`Extra item added — ${group.total_quantity} received`,"success");}
+            catch(error){event.currentTarget.disabled=false;showToast?.(error?.message||"Unable to add extra item","error");}
+        });
 
-        overlay
-            .querySelector(`[data-extra="${index}"]`)
-            ?.addEventListener("click",async event=>{
-                const button=event.currentTarget;
-                const code=normalizeItemCode(
-                    overlay.querySelector(`[data-extra-code="${index}"]`)?.value||""
-                );
-                const name=toSafeString(
-                    overlay.querySelector(`[data-extra-name="${index}"]`)?.value||""
-                ).trim();
-
-                if(!code || !name){
-                    showToast?.(
-                        "Enter Item Code and Item Name",
-                        "warning"
-                    );
-                    return;
-                }
-
-                button.disabled=true;
-
-                const targetOrder=
-                    normalizeOrderNumber(
-                        overlay.querySelector(
-                            `[data-extra-order="${index}"]`
-                        )?.value||""
-                    );
-
-                if(!targetOrder){
-                    showToast?.(
-                        "Select the target Order",
-                        "warning"
-                    );
-                    button.disabled=false;
-                    return;
-                }
-
-                try{
-                    await nrV2ResolveAsUnordered(
-                        row,
-                        code,
-                        name,
-                        targetOrder
-                    );
-                    section.remove();
-                    showToast?.(
-                        "Unordered item added and received",
-                        "success"
-                    );
-                    refreshNeedsReviewCounters();
-                }catch(error){
-                    button.disabled=false;
-                    showToast?.(
-                        error?.message||"Unable to add unordered item",
-                        "error"
-                    );
-                }
-            });
-
-        overlay
-            .querySelector(`[data-delete="${index}"]`)
-            ?.addEventListener("click",async event=>{
-                const button=event.currentTarget;
-
-                if(button.dataset.confirm!=="1"){
-                    button.dataset.confirm="1";
-                    button.textContent="Confirm delete";
-                    setTimeout(()=>{
-                        if(button.isConnected){
-                            button.dataset.confirm="";
-                            button.textContent="Delete review";
-                        }
-                    },2500);
-                    return;
-                }
-
-                try{
-                    await nrV2Delete(row.review_id);
-                    if(row.photo_path) await nrV2DeletePhoto?.(row.photo_path);
-                    section.remove();
-                    refreshNeedsReviewCounters();
-                }catch(error){
-                    showToast?.(
-                        error?.message||"Unable to delete review",
-                        "error"
-                    );
-                }
-            });
+        overlay.querySelector(`[data-delete="${index}"]`)?.addEventListener('click',async event=>{
+            const button=event.currentTarget;
+            if(button.dataset.confirm!=="1"){button.dataset.confirm="1";button.textContent="Confirm delete";setTimeout(()=>{if(button.isConnected){button.dataset.confirm="";button.textContent="Delete review case";}},2500);return;}
+            try{for(const row of group.rows)await nrV2Delete(row.review_id);for(const path of group.photos){try{await nrV2DeletePhoto?.(path);}catch(_){}}section.remove();await refreshNeedsReviewCounters();}
+            catch(error){showToast?.(error?.message||"Unable to delete review","error");}
+        });
     });
 }
 

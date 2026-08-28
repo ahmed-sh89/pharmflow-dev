@@ -408,6 +408,22 @@ async function validateWorkspaceCanFinalize(){
     if(received.length){
         throw new Error("Already received/finalized: "+received.join(", "));
     }
+    if(typeof nrV2List==="function"){
+        const pending=[];
+        try{
+            const rows=await nrV2List("RECEIVING",null);
+            const selected=new Set(summary.orderNumbers.map(normalizeOrderNumber));
+            (Array.isArray(rows)?rows:[]).forEach(row=>{
+                const order=normalizeOrderNumber(row?.order_number||"");
+                if(!order || selected.has(order)) pending.push(row);
+            });
+        }catch(error){
+            throw new Error("Needs Review could not be verified. Complete Receiving was blocked for safety.");
+        }
+        if(pending.length){
+            throw new Error("Resolve Needs Review before Complete Receiving ("+pending.length+" pending scan"+(pending.length===1?"":"s")+").");
+        }
+    }
     return summary;
 }
 
@@ -423,8 +439,8 @@ function refreshFinalizeReceivingButton(){
     const needsSpecificOrder=
         active.length>1 && selectedOrders.length!==1;
     button.disabled=!hasOrder||FinalizeReceivingEngine.busy||needsSpecificOrder;
-    button.title=needsSpecificOrder?"Select one order before Finalize Receiving":"";
-    button.textContent=FinalizeReceivingEngine.busy?"Finalizing…":"✓ Finalize Receiving";
+    button.title=needsSpecificOrder?"Select one order before Complete Receiving":"";
+    button.textContent=FinalizeReceivingEngine.busy?"Completing…":"✓ Complete Receiving";
 }
 
 function requestFinalizeReceiving(){
@@ -432,12 +448,12 @@ function requestFinalizeReceiving(){
     validateWorkspaceCanFinalize().then(summary=>{
         const orders=summary.orderNumbers.join(", ");
         const message=[
-            "Finalize receiving manually for: "+orders+".",
+            "Complete receiving for: "+orders+".",
             "This confirms the physical count is finished even when quantities do not match.",
             "Discrepancies: "+summary.discrepancies+" (Shortage "+summary.shortages+", Over "+summary.over+", Manual "+summary.manual+").",
-            "The original uploaded order remains the source for official reports. After finalization, this receiving workspace will be archived and cleared."
+            "The order number, order date, completion time and any discrepancy report will be retained. The active receiving workspace for this order will then be cleared."
         ].join(" ");
-        showConfirmModal("Finalize Receiving",message,function(){
+        showConfirmModal("Complete Receiving",message,function(){
             finalizeCurrentReceiving().catch(()=>{});
         });
     }).catch(error=>{
@@ -450,7 +466,7 @@ async function finalizeCurrentReceiving(){
     if(FinalizeReceivingEngine.busy){ return false; }
     FinalizeReceivingEngine.busy=true;
     refreshFinalizeReceivingButton();
-    showLoading("Finalizing receiving…");
+    showLoading("Completing receiving…");
     try{
         const summary=await validateWorkspaceCanFinalize();
 
@@ -531,8 +547,8 @@ async function finalizeCurrentReceiving(){
 
         showToast(
             summary.orderNumbers.length>1
-                ? summary.orderNumbers.length+" orders finalized as Received"
-                : "Order "+summary.orderNumbers[0]+" finalized as Received",
+                ? summary.orderNumbers.length+" orders completed"
+                : "Order "+summary.orderNumbers[0]+" completed",
             "success"
         );
         return true;
@@ -607,11 +623,11 @@ function buildFinalizedDiscrepancyEmailHTML(report){
         const rows=group.rows;
 
         return `
-        <div style="margin:24px 0 0;border:1px solid #ddc9bb;border-radius:14px;overflow:hidden;background:#ffffff">
-          <div style="padding:16px;background:#f5ebe3;border-bottom:1px solid #ddc9bb;text-align:center">
-            <div style="font-size:11px;letter-spacing:.08em;color:#9a6246;font-weight:700">ORDER ${index+1}</div>
-            <div style="font-size:18px;color:#342d28;font-weight:700;margin-top:3px">${esc(group.orderNumber||"-")}</div>
-            <div style="font-size:12px;color:#76675d;margin-top:3px">
+        <div style="margin:24px 0 0;border:1px solid #cfe0f3;border-radius:14px;overflow:hidden;background:#ffffff">
+          <div style="padding:16px;background:#eef6ff;border-bottom:1px solid #cfe0f3;text-align:center">
+            <div style="font-size:11px;letter-spacing:.08em;color:#1769aa;font-weight:700">ORDER ${index+1}</div>
+            <div style="font-size:18px;color:#123a63;font-weight:700;margin-top:3px">${esc(group.orderNumber||"-")}</div>
+            <div style="font-size:12px;color:#55718f;margin-top:3px">
               Order Date: ${esc(group.orderDate||"-")}
               &nbsp;&nbsp;•&nbsp;&nbsp;
               Displayed Items: ${rows.length}
@@ -620,7 +636,7 @@ function buildFinalizedDiscrepancyEmailHTML(report){
 
           <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;text-align:center" cellpadding="0" cellspacing="0">
             <thead>
-              <tr style="background:#9a6246;color:#ffffff">
+              <tr style="background:#1769aa;color:#ffffff">
                 <th style="padding:10px 8px;text-align:center;font-weight:800">Item Code</th>
                 <th style="padding:10px 8px;text-align:center;font-weight:800">Item Name</th>
                 <th style="padding:10px 8px;text-align:center;font-weight:800">Ordered</th>
@@ -640,12 +656,12 @@ function buildFinalizedDiscrepancyEmailHTML(report){
 
                   return `
                   <tr>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center">${esc(row["Item Number"]||"")}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center">${esc(row["Item Name"]||"")}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center">${esc(row["Received Qty"]??0)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center;font-weight:700;color:${diff<0?"#a54343":(diff>0?"#9a6a20":"#47795a")}">${diff>0?"+":""}${esc(diff)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #eee4dc;text-align:center;font-weight:700">${esc(status)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Item Number"]||"")}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Item Name"]||"")}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Received Qty"]??0)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:700;color:${diff<0?"#c23a46":(diff>0?"#b56b08":"#198754")}">${diff>0?"+":""}${esc(diff)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:700">${esc(status)}</td>
                   </tr>`;
               }).join("")}
             </tbody>
@@ -654,27 +670,27 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     }).join("");
 
     return `
-    <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#342d28;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
+    <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#123a63;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
       <div dir="rtl" style="text-align:center;padding:18px 14px 8px">
-        <div style="font-size:30px;line-height:1.45;font-weight:800;color:#6f432e;text-align:center">الإخوة الكرام بالمستودع</div>
-        <div style="font-size:21px;line-height:1.7;font-weight:800;color:#8b5d46;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
-        <div style="font-size:18px;line-height:1.9;font-weight:700;color:#443832;margin:12px auto 0;max-width:800px;text-align:center">
+        <div style="font-size:28px;line-height:1.45;font-weight:800;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
+        <div style="font-size:19px;line-height:1.7;font-weight:800;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
+        <div style="font-size:18px;line-height:1.9;font-weight:700;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
           يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.
         </div>
       </div>
 
-      <div style="display:block;margin:12px 0;padding:12px 14px;border-radius:12px;background:#f8f3ef;border:1px solid #e3d6cc;text-align:center">
-        <span style="font-size:12px;color:#7c6d63">Orders with displayed results:</span>
-        <strong style="font-size:14px;color:#342d28">${groups.length}</strong>
-        <span style="font-size:12px;color:#7c6d63">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items:</span>
-        <strong style="font-size:14px;color:#342d28">${totalRows}</strong>
+      <div style="display:block;margin:12px 0;padding:12px 14px;border-radius:12px;background:#f4f9ff;border:1px solid #d8e8f6;text-align:center">
+        <span style="font-size:12px;color:#67819b">Orders with displayed results:</span>
+        <strong style="font-size:14px;color:#123a63">${groups.length}</strong>
+        <span style="font-size:12px;color:#67819b">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items:</span>
+        <strong style="font-size:14px;color:#123a63">${totalRows}</strong>
       </div>
 
       ${sections}
 
-      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:18px;line-height:1.9;color:#443832">
+      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:18px;line-height:1.9;color:#234a6f">
         <div style="font-weight:700">للإفادة والمراجعة والتشييك.</div>
-        <div style="margin-top:8px;font-size:19px;font-weight:800;color:#6f432e">خالص الشكر والتقدير.</div>
+        <div style="margin-top:8px;font-size:19px;font-weight:800;color:#123f6d">خالص الشكر والتقدير.</div>
       </div>
     </div>`;
 }
