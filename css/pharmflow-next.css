@@ -2883,179 +2883,263 @@ body:not(.zebraDevice) .finalizedEmailRichPreview span{
 }
 
 /* ============================================================
-   B10 CLEAN 10 — context-aware shell + Receiving order controls
-   Consolidated ownership: global identity stays in Top Bar;
-   order/session controls live only inside Receiving.
+   B10 CLEAN 11 — shell layout ownership cleanup
+   - Protect page title from context-card overlap.
+   - Keep pharmacy/global status in the global Top Bar.
+   - Keep order controls inside Receiving only.
+   - Session Status remains internal; it is not an operator control.
+   - Give Total Items / Total Scans distinct, clearer colors.
+   This block REPLACES the Clean 10 shell rules rather than stacking
+   a second override layer on top of them.
 ============================================================ */
 body:not(.zebraDevice).pfnCleanReceiving .topBar{
+  display:grid!important;
+  grid-template-columns:minmax(340px,max-content) minmax(0,1fr)!important;
+  align-items:center!important;
+  column-gap:18px!important;
   min-height:62px!important;
+  height:62px!important;
+  padding:7px 18px!important;
+  overflow:visible!important;
 }
-body:not(.zebraDevice).pfnCleanReceiving .pfnContextBar{
+body:not(.zebraDevice).pfnCleanReceiving .topBarLeft{
   display:flex!important;
   align-items:center!important;
-  justify-content:flex-end!important;
+  gap:12px!important;
+  min-width:340px!important;
+  max-width:460px!important;
+  overflow:hidden!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving .topBarLeft .pageHeading{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:14px!important;
+  min-width:0!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving .topBarLeft .pageHeading h1{
+  flex:0 1 auto!important;
+  min-width:0!important;
+  margin:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving .topBarLeft .pageHeading p{
+  position:relative!important;
+  flex:0 0 auto!important;
+  margin:0!important;
+  padding-left:14px!important;
+  color:#607d9a!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  white-space:nowrap!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving .topBarLeft .pageHeading p::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:50%;
+  width:1px;
+  height:18px;
+  transform:translateY(-50%);
+  background:#c7d9e9;
+}
+
+body:not(.zebraDevice).pfnCleanReceiving .pfnContextBar{
+  display:grid!important;
+  grid-template-columns:minmax(220px,1fr) 126px 82px auto!important;
+  align-items:center!important;
+  justify-content:stretch!important;
   gap:8px!important;
-  min-width:0;
-  flex:1 1 auto;
+  min-width:0!important;
+  width:100%!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentity{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  min-width:300px;
-  max-width:520px;
-  height:44px;
-  margin-right:auto;
-  padding:5px 12px;
-  border:1px solid #9fc4e8;
-  border-radius:10px;
-  background:linear-gradient(135deg,#e3f1ff 0%,#edf7ff 100%);
-  color:#103f70;
-  box-shadow:0 1px 2px rgba(13,66,112,.08);
-  overflow:hidden;
+  display:flex!important;
+  align-items:center!important;
+  gap:9px!important;
+  min-width:0!important;
+  max-width:none!important;
+  height:44px!important;
+  margin:0!important;
+  padding:5px 10px!important;
+  border:1px solid #9fc4e8!important;
+  border-radius:10px!important;
+  background:linear-gradient(135deg,#e3f1ff 0%,#edf7ff 100%)!important;
+  color:#103f70!important;
+  box-shadow:0 1px 2px rgba(13,66,112,.08)!important;
+  overflow:hidden!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityIcon{
-  display:grid;
-  place-items:center;
-  flex:0 0 30px;
-  width:30px;
-  height:30px;
-  border-radius:9px;
-  background:#cfe7ff;
-  color:#0a5fae;
-  font-size:14px;
-  font-weight:900;
+  display:grid!important;
+  place-items:center!important;
+  flex:0 0 30px!important;
+  width:30px!important;
+  height:30px!important;
+  border-radius:9px!important;
+  background:#cfe7ff!important;
+  color:#0a5fae!important;
+  font-size:14px!important;
+  font-weight:900!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityText{
-  display:flex;
-  min-width:0;
-  flex:1 1 auto;
-  flex-direction:column;
-  justify-content:center;
-  line-height:1.1;
+  display:flex!important;
+  min-width:0!important;
+  flex:1 1 auto!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  line-height:1.08!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityText small{
-  margin-bottom:2px;
-  color:#617c96;
-  font-size:9px;
-  font-weight:800;
-  letter-spacing:.06em;
-  text-transform:uppercase;
+  margin-bottom:2px!important;
+  color:#617c96!important;
+  font-size:9px!important;
+  font-weight:800!important;
+  letter-spacing:.06em!important;
+  text-transform:uppercase!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityText strong{
-  overflow:hidden;
-  color:#0f416f;
-  font-size:15px;
-  font-weight:850;
-  text-overflow:ellipsis;
-  white-space:nowrap;
+  overflow:hidden!important;
+  color:#0f416f!important;
+  font-size:14px!important;
+  font-weight:850!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityCode{
-  flex:0 0 auto;
-  padding:5px 8px;
-  border:1px solid #add0ef;
-  border-radius:8px;
-  background:rgba(255,255,255,.72);
-  color:#155d9b;
-  font-size:12px;
-  font-weight:900;
-  white-space:nowrap;
+  flex:0 0 auto!important;
+  padding:5px 8px!important;
+  border:1px solid #add0ef!important;
+  border-radius:8px!important;
+  background:rgba(255,255,255,.76)!important;
+  color:#155d9b!important;
+  font-size:11px!important;
+  font-weight:900!important;
+  white-space:nowrap!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .topBarRight .globalMasterHeaderInfo{
-  min-width:126px;
-  min-height:44px;
-  padding:5px 10px!important;
-  border:1px solid #d2e1ef;
-  border-radius:9px;
-  background:#fff;
   display:flex!important;
-  flex-direction:column;
-  justify-content:center;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-width:126px!important;
+  min-height:44px!important;
+  padding:5px 10px!important;
+  border:1px solid #d2e1ef!important;
+  border-radius:9px!important;
+  background:#fff!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .topBarRight .globalMasterHeaderInfo span{
   color:#60758d!important;
-  font-size:10px!important;
+  font-size:9px!important;
   font-weight:850!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .topBarRight .globalMasterHeaderInfo strong{
   color:#123d69!important;
-  font-size:13px!important;
-  font-weight:900!important;
-}
-body:not(.zebraDevice).pfnCleanReceiving #systemStatus{
-  min-width:92px;
-  height:44px;
-  border-radius:9px!important;
   font-size:12px!important;
   font-weight:900!important;
 }
+body:not(.zebraDevice).pfnCleanReceiving #systemStatus{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:82px!important;
+  height:44px!important;
+  padding:0 10px!important;
+  border-radius:9px!important;
+  font-size:11px!important;
+  font-weight:900!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving .topBarRight > .cloudWorkspaceStatus{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  min-width:78px!important;
+  height:44px!important;
+  padding:0 8px!important;
+  border:1px solid #cfe9da!important;
+  border-radius:9px!important;
+  background:#f1fbf5!important;
+  color:#218154!important;
+  font-size:10px!important;
+  font-weight:850!important;
+  white-space:nowrap!important;
+}
+html[data-cloud-workspace-state="syncing"] body:not(.zebraDevice).pfnCleanReceiving .topBarRight > .cloudWorkspaceStatus{
+  border-color:#c8ddf2!important;background:#f0f7ff!important;color:#27679f!important;
+}
+html[data-cloud-workspace-state="offline"] body:not(.zebraDevice).pfnCleanReceiving .topBarRight > .cloudWorkspaceStatus{
+  border-color:#efc0c6!important;background:#fff1f3!important;color:#b43d4c!important;
+}
 
-/* Receiving-only action/order strip. */
+/* Receiving-only operational strip: action controls + order controls in one row. */
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .pfnActionBar{
   display:flex!important;
-  align-items:stretch!important;
-  justify-content:space-between!important;
-  gap:12px!important;
-  margin-top:8px;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:10px!important;
+  margin-top:8px!important;
   padding:6px!important;
-  border:1px solid #cddfed;
-  border-radius:10px;
+  border:1px solid #cddfed!important;
+  border-radius:10px!important;
   background:#f6faff!important;
   overflow:visible!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnReceivingActionGroup,
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup{
-  display:flex;
-  align-items:stretch;
-  gap:6px;
-  min-width:0;
+  display:flex!important;
+  align-items:stretch!important;
+  gap:6px!important;
+  min-width:0!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnReceivingActionGroup{
-  flex:1 1 auto;
+  flex:0 1 auto!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup{
-  flex:0 0 auto;
-  padding-left:10px;
-  border-left:1px solid #cbdcea;
+  flex:0 0 auto!important;
+  margin-left:auto!important;
+  padding-left:10px!important;
+  border-left:1px solid #cbdcea!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnAction{
-  min-width:112px;
-  height:40px;
-  padding:0 12px;
-  border:1px solid #b7cde1;
-  border-radius:8px;
+  min-width:112px!important;
+  height:40px!important;
+  padding:0 12px!important;
+  border:1px solid #b7cde1!important;
+  border-radius:8px!important;
   font-size:13px!important;
-  font-weight:850;
-  white-space:nowrap;
-  cursor:pointer;
+  font-weight:850!important;
+  white-space:nowrap!important;
+  cursor:pointer!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnManageOrdersButton{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:7px;
-  min-width:132px;
-  height:40px;
-  padding:0 12px;
-  border:1px solid #75aade;
-  border-radius:8px;
-  background:#eaf4ff;
-  color:#0b4c8c;
-  font-size:13px;
-  font-weight:900;
-  cursor:pointer;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  min-width:132px!important;
+  height:40px!important;
+  padding:0 12px!important;
+  border:1px solid #75aade!important;
+  border-radius:8px!important;
+  background:#eaf4ff!important;
+  color:#0b4c8c!important;
+  font-size:13px!important;
+  font-weight:900!important;
+  cursor:pointer!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerInfo{
-  position:relative;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  min-width:126px;
-  height:40px;
+  position:relative!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  min-width:140px!important;
+  height:40px!important;
   padding:4px 9px!important;
-  border:1px solid #c6d9e9;
-  border-radius:8px;
-  background:#fff;
+  border:1px solid #c6d9e9!important;
+  border-radius:8px!important;
+  background:#fff!important;
 }
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerInfo span{
   color:#647a90!important;
@@ -3069,26 +3153,43 @@ body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerOrderPicke
   font-size:12px!important;
   font-weight:900!important;
 }
-body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerOrderPicker{
-  position:static;
-}
+body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerOrderPicker{position:static!important}
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerOrderPickerMenu{
-  right:0;
-  left:auto;
+  right:0!important;
+  left:auto!important;
   z-index:150000!important;
 }
+/* Session state is an internal synchronization detail, not a permanent operator control. */
+body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .pfnSessionStatus{display:none!important}
 
-/* KPI backgrounds: same semantic palette, one step stronger for readability. */
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"]{background:#e2f0ff!important;border-color:#a9cef2!important}
+/* KPI palette: Total Items = teal; Total Scans = indigo. Other semantic colors stay approved. */
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"]{
+  background:#d9f5f1!important;border-color:#78cfc5!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"] strong{color:#08756d!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="completed"]{background:#dff6e9!important;border-color:#9ed8b5!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="remaining"]{background:#fff0d2!important;border-color:#e8bd66!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="over"]{background:#ffe2e6!important;border-color:#e79aa4!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="manual"]{background:#eee3ff!important;border-color:#c5a8ee!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="scans"]{background:#dff2ff!important;border-color:#a7d6f2!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="scans"]{
+  background:#e5e7ff!important;border-color:#aeb4ee!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="scans"] strong{color:#4b50bf!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="scans"]::after{opacity:.38!important}
 
 @media(max-width:1180px){
-  body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentity{min-width:220px;max-width:320px}
-  body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .pfnSessionStatus{display:none}
-  body:not(.zebraDevice).pfnCleanReceiving .pfnAction{min-width:96px;padding:0 9px;font-size:12px!important}
+  body:not(.zebraDevice).pfnCleanReceiving .topBar{
+    grid-template-columns:minmax(300px,max-content) minmax(0,1fr)!important;
+    column-gap:12px!important;
+  }
+  body:not(.zebraDevice).pfnCleanReceiving .topBarLeft{min-width:300px!important;max-width:380px!important}
+  body:not(.zebraDevice).pfnCleanReceiving .pfnContextBar{
+    grid-template-columns:minmax(170px,1fr) 116px 76px auto!important;
+    gap:6px!important;
+  }
+  body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityIcon{display:none!important}
+  body:not(.zebraDevice).pfnCleanReceiving .pfnPharmacyIdentityText strong{font-size:13px!important}
+  body:not(.zebraDevice).pfnCleanReceiving .pfnAction{min-width:96px!important;padding:0 9px!important;font-size:12px!important}
+  body:not(.zebraDevice).pfnCleanReceiving .pfnManageOrdersButton{min-width:118px!important;font-size:12px!important}
+  body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerInfo{min-width:125px!important}
 }
-
