@@ -87,13 +87,66 @@ async function assertOrderNumberCanUpload(orderNumber){
 
     const status = String(existing.status || "uploaded").trim().toLowerCase();
 
-    /* Received/finalized orders remain protected from duplicate upload.
-       They can only be removed through the protected Archive/Historical
-       deletion workflows. */
+    /* B10 Clean 6 — completed-order recovery.
+       A completed order is still protected by default, but an accidental
+       Complete Receiving must not trap the pharmacy permanently. Reopening
+       is an explicit destructive recovery action: remove only this order's
+       finalized/history record, then allow the uploaded source file to start
+       a brand-new Receiving cycle at zero. Global GTIN, other orders and
+       Item Movement remain independent and untouched. */
     if(["received","finalized","closed"].includes(status)){
-        throw new Error(
-            "Order "+normalized+" was already uploaded (status: "+(existing.status||"received")+"). Duplicate upload is blocked."
+        const reopen = window.confirm(
+            "Order "+normalized+" was already completed.\n\n"+
+            "If Complete Receiving was done by mistake, you can reopen this order and start Receiving again from zero.\n\n"+
+            "The previous Receiving history and discrepancy report for THIS order will be permanently removed. Global GTIN and other orders are not affected.\n\n"+
+            "Press OK to Reopen Receiving, or Cancel to keep the completed order protected."
         );
+
+        if(!reopen){
+            throw new Error(
+                "Order "+normalized+" is already completed. Duplicate upload remains blocked."
+            );
+        }
+
+        const typed = window.prompt(
+            "Type the Order Number exactly to reopen Receiving:\n"+normalized,
+            ""
+        );
+        if(normalizeOrderNumber(typed)!==normalized){
+            throw new Error("Reopen Receiving cancelled. Completed order remains protected.");
+        }
+
+        if(typeof authRpc!=="function" || !AuthState.context?.pharmacy_id){
+            throw new Error("Pharmacy cloud context is unavailable. Sign in again and retry.");
+        }
+
+        await authRpc("delete_pharmflow_order_complete",{
+            p_pharmacy_id:AuthState.context.pharmacy_id,
+            p_order_number:normalized,
+            p_confirmation:normalized
+        });
+
+        /* Cloud is authoritative. Re-read both historical archive and lifecycle
+           before allowing the upload to continue. Never rely on stale browser
+           state after a destructive recovery operation. */
+        if(typeof restoreHistoricalArchive==="function"){
+            await restoreHistoricalArchive();
+        }
+        await refreshOrderLifecycleRegistry();
+
+        const remaining = await getOrderLifecycleRecord(normalized);
+        if(remaining){
+            throw new Error(
+                "The completed order could not be reopened safely because its cloud lifecycle record still exists. No new upload was started."
+            );
+        }
+
+        showToast(
+            "Order "+normalized+" reopened — Receiving will start again from zero",
+            "success",
+            9000
+        );
+        return true;
     }
 
     /* Phase 2C.5.4.5 legacy orphan recovery. Older builds could clear a
