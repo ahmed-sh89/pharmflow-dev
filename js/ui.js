@@ -8320,24 +8320,49 @@ async function requestRemoveActiveOrderFile(fileId){
         return;
     }
 
-    /* B10 Clean 7 — Active Order removal is order-scoped, never workspace-scoped.
-       The old implementation intentionally preserved physical scans and forced
-       Reset Current Workspace when only one order remained. Both behaviours
-       conflict with the Manage Orders contract: REMOVE must remove THIS active
-       order and its operational footprint while every other order survives. */
+    /* B10 Clean 8 — REMOVE is a structural, order-scoped operation.
+       Source contribution comes from the active file's embedded sourceRows
+       first. This is the same source used by order/report filtering and avoids
+       relying on a historical/server snapshot that may be absent or delayed. */
+    let sourceRows=[];
+    try{
+        sourceRows=typeof getWorkspaceOrderSourceRows==="function"
+            ? (getWorkspaceOrderSourceRows(orderNumber)||[])
+            : [];
+    }catch(_){ sourceRows=[]; }
+    if(!sourceRows.length){
+        try{
+            sourceRows=typeof getOriginalUploadedOrderSnapshot==="function"
+                ? (await getOriginalUploadedOrderSnapshot(orderNumber)||[])
+                : [];
+        }catch(_){ sourceRows=[]; }
+    }
+
+    const targetMembership=(item)=>{
+        const memberships=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[])
+            .map(normalizeOrderNumber)
+            .filter(Boolean);
+        return memberships.includes(orderNumber);
+    };
+
+    /* Transactions created by older builds did not always stamp orderNumber.
+       If an item belongs to exactly one active order, attribution is still
+       deterministic and safe. Shared-item transactions without an explicit
+       order are deliberately NOT guessed. */
+    const activeOrders=files
+        .map(f=>normalizeOrderNumber(f.documentId||f.orderNumber||""))
+        .filter(Boolean);
     const perOrderTransactions=(Array.isArray(AppState?.workspace?.receivingHistory)
         ? AppState.workspace.receivingHistory
         : []).filter(tx=>{
             const explicit=normalizeOrderNumber(tx?.selectedOrderNumber||tx?.orderNumber||tx?.orderId||"");
-            return explicit===orderNumber;
+            if(explicit)return explicit===orderNumber;
+            const item=typeof getItemByCode==="function"?getItemByCode(normalizeItemCode(tx?.itemCode||"")):null;
+            const memberships=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[])
+                .map(normalizeOrderNumber)
+                .filter(n=>activeOrders.includes(n));
+            return memberships.length===1 && memberships[0]===orderNumber;
         });
-
-    let sourceRows=[];
-    try{
-        sourceRows=typeof getOriginalUploadedOrderSnapshot==="function"
-            ? (await getOriginalUploadedOrderSnapshot(orderNumber)||[])
-            : [];
-    }catch(_){ sourceRows=[]; }
 
     const receivedUnits=perOrderTransactions.reduce((sum,tx)=>sum+Number(tx?.quantity||0),0);
     const reviewRows=await loadNeedsReviewRows("RECEIVING",orderNumber).catch(()=>[]);
@@ -8353,49 +8378,47 @@ async function requestRemoveActiveOrderFile(fileId){
             if(typeof authRpc!=="function" || typeof AuthState==="undefined" || !AuthState.context?.pharmacy_id){
                 throw new Error("Pharmacy cloud context is unavailable. Sign in again before removing the order.");
             }
+            if(!sourceRows.length){
+                throw new Error("Order source data could not be resolved safely. No data was removed.");
+            }
 
-            /* Server authority first. The RPC removes the active lifecycle/order
-               registration and its order-scoped cloud receiving state. If it
-               fails, do not mutate this browser. */
+            /* Server structural authority first. If this fails, local state is
+               untouched and no success message can be shown. */
             await authRpc("discard_pharmflow_active_order",{
                 p_pharmacy_id:AuthState.context.pharmacy_id,
                 p_order_number:orderNumber,
                 p_confirmation:orderNumber
             });
 
-            /* Needs Review is temporary operational evidence. Remove only cases
-               explicitly attributed to this order, including temporary photos. */
+            /* Temporary review evidence belongs to this active order only. */
             for(const row of reviewRows){
                 try{
-                    if(row?.photo_path && typeof nrV2DeletePhoto==="function"){
-                        await nrV2DeletePhoto(row.photo_path);
-                    }
-                    if(row?.review_id && typeof nrV2Delete==="function"){
-                        await nrV2Delete(row.review_id);
-                    }
+                    if(row?.photo_path && typeof nrV2DeletePhoto==="function")await nrV2DeletePhoto(row.photo_path);
+                    if(row?.review_id && typeof nrV2Delete==="function")await nrV2Delete(row.review_id);
                 }catch(reviewError){
-                    Logger.warn?.("Order removed but a temporary review artifact could not be deleted",reviewError);
+                    Logger.warn?.("Temporary review cleanup failed after active-order removal",reviewError);
                 }
             }
 
-            /* Remove quantities transactionally attributed to THIS order only. */
+            /* Remove received contribution first, then ordered contribution. */
             perOrderTransactions.forEach(tx=>{
-                const code=normalizeItemCode(tx?.itemCode||"");
-                const item=typeof getItemByCode==="function"?getItemByCode(code):null;
+                const item=typeof getItemByCode==="function"?getItemByCode(normalizeItemCode(tx?.itemCode||"")):null;
                 if(!item)return;
                 item.receivedQty=Math.max(0,Number(item.receivedQty||0)-Number(tx?.quantity||0));
                 if(typeof updateItemCalculatedFields==="function")updateItemCalculatedFields(item);
             });
 
-            /* Remove this order's ordered contribution. Shared items remain with
-               quantities belonging to the other active orders. */
             sourceRows.forEach(row=>{
-                const code=normalizeItemCode(row.item_code||row.itemCode||"");
+                const code=normalizeItemCode(row?.item_code||row?.itemCode||"");
                 const item=typeof getItemByCode==="function"?getItemByCode(code):null;
                 if(!item)return;
-                item.orderedQty=Math.max(0,Number(item.orderedQty||0)-Number(row.ordered_qty??row.orderedQty??0));
+                item.orderedQty=Math.max(0,Number(item.orderedQty||0)-Number(row?.ordered_qty??row?.orderedQty??0));
                 if(Array.isArray(item.orderNumbers)){
                     item.orderNumbers=item.orderNumbers.filter(n=>normalizeOrderNumber(n)!==orderNumber);
+                }
+                if(normalizeOrderNumber(item.orderNumber||"")===orderNumber){
+                    const surviving=(item.orderNumbers||[]).map(normalizeOrderNumber).filter(Boolean);
+                    item.orderNumber=surviving[0]||"";
                 }
                 if(typeof updateItemCalculatedFields==="function")updateItemCalculatedFields(item);
             });
@@ -8418,7 +8441,9 @@ async function requestRemoveActiveOrderFile(fileId){
             if(typeof ReceivingEngine!=="undefined"){
                 ReceivingEngine.recentScans=(ReceivingEngine.recentScans||[]).filter(tx=>{
                     const explicit=normalizeOrderNumber(tx?.selectedOrderNumber||tx?.orderNumber||tx?.orderId||"");
-                    return explicit!==orderNumber;
+                    if(explicit)return explicit!==orderNumber;
+                    const item=typeof getItemByCode==="function"?getItemByCode(normalizeItemCode(tx?.itemCode||"")):null;
+                    return !targetMembership(item);
                 });
                 const last=ReceivingEngine.lastTransaction;
                 const lastOrder=normalizeOrderNumber(last?.selectedOrderNumber||last?.orderNumber||last?.orderId||"");
@@ -8427,19 +8452,34 @@ async function requestRemoveActiveOrderFile(fileId){
 
             if(typeof rebuildStateIndexes==="function")rebuildStateIndexes();
             if(typeof recalculateStatistics==="function")recalculateStatistics();
-            if(typeof saveApplicationState==="function")saveApplicationState("remove-active-order");
+
+            /* Local persistence does not announce a separate "Workspace saved"
+               toast. More importantly, REMOVE must update the full cloud
+               workspace even when the last order was removed. Normal autosave
+               intentionally skips empty workspaces and was the root cause of
+               the deleted order being hydrated back into Manage Orders. */
+            if(typeof saveWorkspaceSnapshot==="function")saveWorkspaceSnapshot();
+
+            if(typeof syncCloudWorkspaceAfterStructuralChange!=="function"){
+                throw new Error("Structural workspace synchronization is unavailable. Reload and try again.");
+            }
+            const cloudSaved=await syncCloudWorkspaceAfterStructuralChange("Active order removal synchronized");
+            if(cloudSaved!==true){
+                throw new Error("The order was removed locally, but the server workspace did not confirm the deletion. Reload before continuing.");
+            }
+
             if(typeof refreshOrderLifecycleRegistry==="function")await refreshOrderLifecycleRegistry();
             if(typeof refreshEntireUI==="function")refreshEntireUI();
             if(typeof refreshNeedsReviewCounters==="function")await refreshNeedsReviewCounters();
 
             showToast(
-                `${orderNumber} removed — its Receiving quantities and temporary review data were cleared. ${remaining.length} active order(s) remain.`,
+                `${orderNumber} removed successfully. ${remaining.length} active order(s) remain.`,
                 "success",
                 9000
             );
         }catch(error){
             Logger.error("Remove active order failed",error);
-            showToast(error?.message||"Unable to remove order","error",9000);
+            showToast(error?.message||"Unable to remove order","error",10000);
         }finally{
             hideLoading();
         }

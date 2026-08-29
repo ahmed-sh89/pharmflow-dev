@@ -1146,20 +1146,21 @@ window.forceCloudWorkspaceSnapshot=forceCloudWorkspaceSnapshot;
 
 
 /*
-   2C.11.4.10 — FINALIZE PERSISTENCE ROOT FIX
+   2C.11.4.12 — STRUCTURAL WORKSPACE PERSISTENCE
 
-   Active Order Manifest is the structural authority, but PharmFlow still
-   keeps the legacy full Cloud Workspace as compatibility/session state.
-   Finalize previously updated only the Manifest. That left a stale full
-   Cloud Workspace containing finalized Orders, which was later hydrated
-   briefly on sign-in until the empty Manifest corrected it.
+   Active Order Manifest is the structural authority, while the legacy full
+   Cloud Workspace remains a compatibility/session snapshot. Structural
+   operations such as Finalize, Remove Active Order and Reset may legitimately
+   leave an EMPTY workspace. The ordinary autosave intentionally refuses to
+   save an empty workspace, so using it after a structural deletion leaves a
+   stale server snapshot that can hydrate the deleted Order back into the UI.
 
-   This function synchronizes the COMPLETE post-finalize workspace to the
-   same guarded server authority. Unlike the ordinary autosave helper, it
-   intentionally allows an EMPTY workspace so the last finalized Order can
-   never survive in the legacy cloud snapshot.
+   This is the one canonical structural-save path. It ALWAYS persists the
+   complete current workspace, including EMPTY, and cancels any pending normal
+   autosave before writing. Finalize keeps a compatibility wrapper below so
+   previously verified callers are not changed.
 */
-async function syncCloudWorkspaceAfterFinalize(reason="Finalize synchronized"){
+async function syncCloudWorkspaceAfterStructuralChange(reason="Workspace structure synchronized"){
     const pharmacyId=cloudWorkspacePharmacyId();
 
     if(
@@ -1225,6 +1226,11 @@ async function syncCloudWorkspaceAfterFinalize(reason="Finalize synchronized"){
     }
 }
 
+window.syncCloudWorkspaceAfterStructuralChange=syncCloudWorkspaceAfterStructuralChange;
+
+async function syncCloudWorkspaceAfterFinalize(reason="Finalize synchronized"){
+    return syncCloudWorkspaceAfterStructuralChange(reason);
+}
 window.syncCloudWorkspaceAfterFinalize=syncCloudWorkspaceAfterFinalize;
 
 
