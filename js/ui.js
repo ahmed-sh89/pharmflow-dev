@@ -4536,6 +4536,43 @@ function focusScannerInput(){
    SCAN BOX STATE
 ===================================================== */
 
+function triggerScanFieldFlash(kind="success"){
+
+    const scanBox = UI.elements.scanBox || document.getElementById("scanBox");
+    if(!scanBox){ return; }
+
+    let layer = scanBox.querySelector(":scope > .pfnScanFlashLayer");
+    if(!layer){
+        layer = document.createElement("span");
+        layer.className = "pfnScanFlashLayer";
+        layer.setAttribute("aria-hidden","true");
+        scanBox.appendChild(layer);
+    }
+
+    const flashClass = kind === "error"
+        ? "pfnScanFlashLayerError"
+        : "pfnScanFlashLayerSuccess";
+
+    layer.classList.remove(
+        "pfnScanFlashLayerSuccess",
+        "pfnScanFlashLayerError",
+        "pfnScanFlashLayerActive"
+    );
+
+    /* Restart the transition even for two consecutive scans with the same
+       result.  The layer is a real element above the input/icon backgrounds,
+       so the whole Scan/Search field receives one continuous tint. */
+    void layer.offsetWidth;
+    layer.classList.add(flashClass,"pfnScanFlashLayerActive");
+
+    clearTimeout(scanBox._pfnFullFieldFlashTimer);
+    scanBox._pfnFullFieldFlashTimer=setTimeout(()=>{
+        layer.classList.remove("pfnScanFlashLayerActive");
+    },760);
+}
+
+window.triggerScanFieldFlash=triggerScanFieldFlash;
+
 function setScanBoxState(
     state = "ready"
 ){
@@ -4564,6 +4601,8 @@ function setScanBoxState(
             "success",
             "flashSuccess"
         );
+
+        triggerScanFieldFlash("success");
 
         if(badge){
 
@@ -4606,6 +4645,8 @@ function setScanBoxState(
             "error",
             "flashError"
         );
+
+        triggerScanFieldFlash("error");
 
         if(badge){
 

@@ -1,23 +1,26 @@
 "use strict";
 (function(){
-  const PF={version:"B10CLEAN4",flashTimer:0,ordersAnchor:null,initialized:false,suppressPriorityToast:false,successOrders:new Set()};
+  const PF={version:"B10CLEAN5",flashTimer:0,ordersAnchor:null,initialized:false,suppressPriorityToast:false,successOrders:new Set()};
   const $=id=>document.getElementById(id);
   const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 
   function flash(kind){
-    const panel=document.querySelector('#page-dashboard .scanPanel');
-    const box=$('scanBox');
     const card=$('lastScanCard');
-    if(!panel||!box||!card)return;
+    if(!card)return;
+
+    /* Scan/Search feedback has one authoritative renderer in ui.js.  Keeping
+       the field flash there prevents legacy child backgrounds and duplicate
+       controllers from producing partial/competing visual states. */
+    try{
+      if(typeof window.triggerScanFieldFlash==='function'){
+        window.triggerScanFieldFlash(kind==='success'?'success':'error');
+      }
+    }catch(_){}
+
     clearTimeout(PF.flashTimer);
-    [panel,box].forEach(el=>el.classList.remove('pfnScanSuccess','pfnScanError'));
     card.classList.remove('pfnLastScanFlashSuccess','pfnLastScanFlashError');
-    void box.offsetWidth;
-    const state=kind==='success'?'pfnScanSuccess':'pfnScanError';
-    panel.classList.add(state);box.classList.add(state);
     card.classList.add(kind==='success'?'pfnLastScanFlashSuccess':'pfnLastScanFlashError');
     PF.flashTimer=setTimeout(()=>{
-      [panel,box].forEach(el=>el.classList.remove('pfnScanSuccess','pfnScanError'));
       card.classList.remove('pfnLastScanFlashSuccess','pfnLastScanFlashError');
     },700);
   }

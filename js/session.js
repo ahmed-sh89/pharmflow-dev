@@ -1130,7 +1130,25 @@ async function deleteAllHistoricalData(){
         ""
     );
 
-    if(phrase!=="DELETE ALL HISTORICAL DATA"){
+    if(phrase===null){
+        return false;
+    }
+
+    /* Root fix B10 Clean 5: the destructive phrase is semantically exact but
+       case/extra whitespace is not meaningful.  Older code silently returned
+       when the user typed e.g. "Delete All Historical Data", making it look
+       like the delete succeeded while the lifecycle row correctly survived. */
+    const normalizedConfirmation=String(phrase)
+        .trim()
+        .replace(/\s+/g," ")
+        .toUpperCase();
+
+    if(normalizedConfirmation!=="DELETE ALL HISTORICAL DATA"){
+        showToast(
+            "Historical data was not deleted — confirmation phrase did not match.",
+            "warning",
+            9000
+        );
         return false;
     }
 
@@ -1175,6 +1193,23 @@ async function deleteAllHistoricalData(){
             );
         }
 
+        /* Independent read-back closes the lifecycle/duplicate-protection loop.
+           A success UI is shown only after Supabase confirms no historical
+           lifecycle/archive rows remain for this pharmacy. */
+        const rawVerification=await authRpc(
+            "verify_pharmflow_historical_state_v2",
+            {p_pharmacy_id:pharmacyId}
+        );
+        const verification=Array.isArray(rawVerification)
+            ? (rawVerification[0]||{})
+            : (rawVerification||{});
+
+        if(verification.historical_data_empty!==true){
+            throw new Error(
+                "Historical deletion read-back failed — historical order lock still exists"
+            );
+        }
+
         /* Clear only browser-side HISTORICAL stores after the server has
            committed and verified. Current workspace/order state is untouched. */
         await dbClearStore(APP_CONFIG.database.stores.orders);
@@ -1208,9 +1243,9 @@ async function deleteAllHistoricalData(){
         const preservedActive=Number(receipt.active_orders_preserved||0);
 
         const successMessage=
-            "Historical data deleted and server verified · "+
-            "Historical orders removed: "+deletedOrders+
-            " · Finalized archives removed: "+deletedArchives+
+            "Historical Receiving Data deleted successfully · "+
+            "Orders removed: "+deletedOrders+
+            " · Reports removed: "+deletedArchives+
             " · Active orders preserved: "+preservedActive;
 
         const persistentReceipt=document.getElementById("historicalDeleteReceipt");

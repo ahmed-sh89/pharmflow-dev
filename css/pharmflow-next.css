@@ -2535,10 +2535,6 @@ body:not(.zebraDevice).pfnCleanReceiving .topBarRight .headerInfo strong{font-si
 body:not(.zebraDevice).pfnCleanReceiving #systemStatus{min-width:112px;border-radius:10px!important;font-size:12px!important;font-weight:900!important}
 
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .scanPanel{transition:background-color .12s,border-color .12s,box-shadow .12s!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .scanPanel.pfnScanSuccess{background:#eaf9f1!important;border-color:#28a968!important;box-shadow:0 0 0 4px rgba(40,169,104,.14)!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .scanPanel.pfnScanError{background:#fff0f2!important;border-color:#d94a55!important;box-shadow:0 0 0 4px rgba(217,74,85,.14)!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .scanPanel.pfnScanSuccess .scanBox{background:#f7fffa!important;border-color:#28a968!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .scanPanel.pfnScanError .scanBox{background:#fff8f9!important;border-color:#d94a55!important}
 
 body:not(.zebraDevice).pfnCleanReceiving .pfnActionBar{display:grid!important;grid-template-columns:repeat(6,minmax(0,1fr));gap:0!important;padding:0!important;margin-top:8px;border:1px solid #d6e3f0;border-radius:11px;overflow:hidden;background:#fff}
 body:not(.zebraDevice).pfnCleanReceiving .pfnAction{min-width:0;height:42px;border:0;border-right:1px solid #e2eaf3;background:#fff;font-size:12px;font-weight:850;white-space:nowrap;cursor:pointer}
@@ -2594,14 +2590,6 @@ body:not(.zebraDevice) .finalizedEmailPanel h2{font-size:23px!important}.finaliz
    Source-level cleanup: no legacy action duplication added here.
 ============================================================ */
 body:not(.zebraDevice).pfnCleanReceiving{--pfn-readable:15px;--pfn-readable-strong:16px}
-
-/* Full-width scanner feedback: the scan field itself flashes. */
-body:not(.zebraDevice).pfnCleanReceiving #scanBox{position:relative;overflow:hidden;transition:background-color .14s,border-color .14s,box-shadow .14s!important}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess{background:#dff7e9!important;border:2px solid #159a57!important;box-shadow:0 0 0 4px rgba(21,154,87,.18)!important;animation:pfnScanGreen .56s ease-out}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError{background:#ffe3e6!important;border:2px solid #d62f40!important;box-shadow:0 0 0 4px rgba(214,47,64,.17)!important;animation:pfnScanRed .56s ease-out}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess input{background:transparent!important}body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError input{background:transparent!important}
-@keyframes pfnScanGreen{0%{box-shadow:0 0 0 0 rgba(21,154,87,.45)}45%{box-shadow:0 0 0 7px rgba(21,154,87,.22)}100%{box-shadow:0 0 0 4px rgba(21,154,87,.08)}}
-@keyframes pfnScanRed{0%{box-shadow:0 0 0 0 rgba(214,47,64,.42)}45%{box-shadow:0 0 0 7px rgba(214,47,64,.20)}100%{box-shadow:0 0 0 4px rgba(214,47,64,.07)}}
 
 /* Compact, readable top context bar. */
 body:not(.zebraDevice).pfnCleanReceiving .topBar{min-height:54px!important}
@@ -2664,14 +2652,6 @@ body:not(.zebraDevice).pfNextMode .dataTable td,body:not(.zebraDevice).pfNextMod
    Consolidated after source cleanup; presentation only unless noted.
 ============================================================ */
 body:not(.zebraDevice).pfnCleanReceiving{--pfn-readable:16px;--pfn-readable-strong:17px}
-
-/* 1. Scanner result state must occupy the complete scan/search field. */
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after,
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{content:"";position:absolute;inset:0;pointer-events:none;z-index:0;animation:pfnFullFieldFlash .58s ease-out}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after{background:rgba(30,180,96,.30)}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{background:rgba(224,53,68,.30)}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox>*{position:relative;z-index:1}
-@keyframes pfnFullFieldFlash{0%{opacity:1}70%{opacity:.78}100%{opacity:0}}
 
 /* 2/7/8. Last Scan readability + visible batch controls + semantic fields. */
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .lastScanQtyButton{display:inline-flex!important;align-items:center!important;justify-content:center!important;width:42px!important;height:38px!important;font-size:22px!important;line-height:1!important;color:#fff!important;opacity:1!important}
@@ -2750,20 +2730,41 @@ body:not(.zebraDevice).pfnCleanReceiving #lastScanCard .lastScanMetric>strong,bo
 
 /* 1/2 Order Item Browser defaults and priority order are controlled in ui.js. */
 
-/* 3 — full-field scan feedback. The overlay sits ABOVE every inner child so
-   the flash cannot be visually restricted by the input/icon backgrounds. */
+/* 3 — full-field Scan/Search feedback.
+   One real overlay layer is rendered by ui.js above every legacy child
+   background.  This replaces the old split icon/input/indicator flash path. */
 body:not(.zebraDevice).pfnCleanReceiving #scanBox{
-  position:relative!important;isolation:isolate!important;overflow:hidden!important;
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:hidden!important;
 }
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after,
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{
-  content:""!important;position:absolute!important;inset:0!important;z-index:50!important;
-  pointer-events:none!important;border-radius:inherit!important;
-  animation:pfnC4FullScanFlash .72s ease-out forwards!important;
+body:not(.zebraDevice).pfnCleanReceiving #scanBox>.pfnScanFlashLayer{
+  position:absolute!important;
+  inset:0!important;
+  z-index:80!important;
+  display:block!important;
+  pointer-events:none!important;
+  border-radius:inherit!important;
+  opacity:0!important;
+  transition:opacity .22s ease-out!important;
 }
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanSuccess::after{background:rgba(39,190,112,.34)!important;box-shadow:inset 0 0 0 2px #159a57!important}
-body:not(.zebraDevice).pfnCleanReceiving #scanBox.pfnScanError::after{background:rgba(224,62,78,.34)!important;box-shadow:inset 0 0 0 2px #d73545!important}
-@keyframes pfnC4FullScanFlash{0%{opacity:1}65%{opacity:.72}100%{opacity:0}}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox>.pfnScanFlashLayer.pfnScanFlashLayerSuccess{
+  background:rgba(43,190,112,.32)!important;
+  box-shadow:inset 0 0 0 2px #169b59,0 0 0 3px rgba(22,155,89,.10)!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox>.pfnScanFlashLayer.pfnScanFlashLayerError{
+  background:rgba(224,62,78,.30)!important;
+  box-shadow:inset 0 0 0 2px #d73545,0 0 0 3px rgba(215,53,69,.10)!important;
+}
+body:not(.zebraDevice).pfnCleanReceiving #scanBox>.pfnScanFlashLayer.pfnScanFlashLayerActive{
+  opacity:1!important;
+  animation:pfnC5FullScanFlash .76s ease-out forwards!important;
+}
+@keyframes pfnC5FullScanFlash{
+  0%{opacity:1}
+  62%{opacity:.78}
+  100%{opacity:0}
+}
 
 /* 4 — semantic KPI card backgrounds, intentionally pale for an operational UI. */
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"]{background:#eef6ff!important;border-color:#c5dcf5!important}
