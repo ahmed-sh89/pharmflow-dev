@@ -2870,3 +2870,27 @@ body:not(.zebraDevice) .finalizedEmailRichPreview table th{
   font-size:15px!important;
 }
 
+
+
+/* B10 Clean 4.2 — Email typography normalization */
+body:not(.zebraDevice) .finalizedEmailRichPreview{
+  font-size:16px!important;
+  font-weight:400!important;
+  line-height:1.7!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview table{
+  font-size:16px!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview table td{
+  font-size:16px!important;
+  font-weight:400!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview table th{
+  font-size:16px!important;
+  font-weight:600!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview p,
+body:not(.zebraDevice) .finalizedEmailRichPreview span{
+  font-size:16px!important;
+  font-weight:400!important;
+}

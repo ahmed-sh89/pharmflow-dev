@@ -625,24 +625,24 @@ function buildFinalizedDiscrepancyEmailHTML(report){
         return `
         <div style="margin:24px 0 0;border:1px solid #cfe0f3;border-radius:14px;overflow:hidden;background:#ffffff">
           <div style="padding:16px;background:#eef6ff;border-bottom:1px solid #cfe0f3;text-align:center">
-            <div style="font-size:11px;letter-spacing:.08em;color:#1769aa;font-weight:700">ORDER ${index+1}</div>
-            <div style="font-size:18px;color:#123a63;font-weight:700;margin-top:3px">${esc(group.orderNumber||"-")}</div>
-            <div style="font-size:12px;color:#55718f;margin-top:3px">
+            <div style="font-size:16px;letter-spacing:.04em;color:#1769aa;font-weight:600">ORDER ${index+1}</div>
+            <div style="font-size:18px;color:#123a63;font-weight:600;margin-top:3px">${esc(group.orderNumber||"-")}</div>
+            <div style="font-size:16px;color:#55718f;margin-top:3px">
               Order Date: ${esc(group.orderDate||"-")}
               &nbsp;&nbsp;•&nbsp;&nbsp;
               Displayed Items: ${rows.length}
             </div>
           </div>
 
-          <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;text-align:center" cellpadding="0" cellspacing="0">
+          <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:16px;text-align:center" cellpadding="0" cellspacing="0">
             <thead>
               <tr style="background:#1769aa;color:#ffffff">
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Item Code</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Item Name</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Ordered</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Received</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Difference</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:800">Status</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Item Code</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Item Name</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Ordered</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Received</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Difference</th>
+                <th style="padding:10px 8px;text-align:center;font-weight:600">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -672,7 +672,7 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     return `
     <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#123a63;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
       <div dir="rtl" style="text-align:center;padding:18px 14px 8px">
-        <div style="font-size:28px;line-height:1.45;font-weight:800;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
+        <div style="font-size:28px;line-height:1.45;font-weight:600;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
         <div style="font-size:19px;line-height:1.7;font-weight:400;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
         <div style="font-size:16px;line-height:1.9;font-weight:400;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
           يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.
@@ -680,8 +680,8 @@ function buildFinalizedDiscrepancyEmailHTML(report){
       </div>
 
       <div style="display:block;margin:12px 0;padding:12px 14px;border-radius:12px;background:#f4f9ff;border:1px solid #d8e8f6;text-align:center">
-        <span style="font-size:15px;color:#4f6f8d">Orders with displayed results: ${groups.length}</span>
-        <span style="font-size:15px;color:#4f6f8d">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items: ${totalRows}</span>
+        <span style="font-size:16px;color:#4f6f8d">Orders with displayed results: ${groups.length}</span>
+        <span style="font-size:16px;color:#4f6f8d">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items: ${totalRows}</span>
       </div>
 
       ${sections}
