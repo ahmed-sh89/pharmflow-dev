@@ -673,8 +673,8 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#123a63;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
       <div dir="rtl" style="text-align:center;padding:18px 14px 8px">
         <div style="font-size:28px;line-height:1.45;font-weight:600;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
-        <div style="font-size:19px;line-height:1.7;font-weight:400;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
-        <div style="font-size:16px;line-height:1.9;font-weight:400;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
+        <div style="font-size:28px;line-height:1.7;font-weight:400;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
+        <div style="font-size:28px;line-height:1.9;font-weight:400;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
           يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.
         </div>
       </div>
@@ -686,9 +686,9 @@ function buildFinalizedDiscrepancyEmailHTML(report){
 
       ${sections}
 
-      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:16px;line-height:1.9;color:#234a6f;font-weight:400">
+      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:28px;line-height:1.9;color:#234a6f;font-weight:400">
         <div>للإفادة والمراجعة والتشييك.</div>
-        <div style="margin-top:8px;font-size:16px;font-weight:400;color:#123f6d">خالص الشكر والتقدير.</div>
+        <div style="margin-top:8px;font-size:28px;font-weight:400;color:#123f6d">خالص الشكر والتقدير.</div>
       </div>
     </div>`;
 }
