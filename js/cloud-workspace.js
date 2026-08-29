@@ -987,6 +987,74 @@ window.saveActiveOrderManifest=saveActiveOrderManifest;
 window.pullActiveOrderManifest=pullActiveOrderManifest;
 window.clearActiveOrderManifest=clearActiveOrderManifest;
 
+/* B10 Clean 9 — structural Active Order authority.
+   REMOVE must update the dedicated Active Order Manifest, not only the legacy
+   Cloud Workspace snapshot. The manifest is what restores Active Orders on
+   refresh/other PCs, so a successful structural change is not acknowledged
+   until the server manifest exactly reflects the current local structure. */
+function currentActiveManifestSignature(){
+    const manifest=serializeActiveOrderManifest();
+    const files=Array.isArray(manifest?.orderFiles)?manifest.orderFiles:[];
+    const data=Array.isArray(manifest?.orderData)?manifest.orderData:[];
+    return {
+        manifest,
+        fileCount:files.length,
+        itemCount:data.length,
+        orders:files.map(file=>normalizeOrderNumber(file?.documentId||file?.orderNumber||""))
+            .filter(Boolean).sort()
+    };
+}
+
+async function verifyActiveOrderManifestMatchesLocal(){
+    const pharmacyId=cloudWorkspacePharmacyId();
+    if(!pharmacyId || typeof authRpc!=="function") return false;
+
+    const local=currentActiveManifestSignature();
+    const result=await authRpc(
+        "get_pharmflow_active_order_manifest_v3",
+        {p_pharmacy_id:pharmacyId}
+    );
+    const row=Array.isArray(result)?result[0]:result;
+
+    if(local.fileCount===0){
+        const remoteFiles=Array.isArray(row?.manifest?.orderFiles)?row.manifest.orderFiles:[];
+        const remoteData=Array.isArray(row?.manifest?.orderData)?row.manifest.orderData:[];
+        return !row?.manifest || (remoteFiles.length===0 && remoteData.length===0);
+    }
+
+    if(!row?.manifest) return false;
+    const remoteFiles=Array.isArray(row.manifest.orderFiles)?row.manifest.orderFiles:[];
+    const remoteData=Array.isArray(row.manifest.orderData)?row.manifest.orderData:[];
+    const remoteOrders=remoteFiles.map(file=>normalizeOrderNumber(file?.documentId||file?.orderNumber||""))
+        .filter(Boolean).sort();
+
+    return remoteFiles.length===local.fileCount &&
+        remoteData.length===local.itemCount &&
+        JSON.stringify(remoteOrders)===JSON.stringify(local.orders);
+}
+
+async function syncActiveOrderManifestAfterStructuralChange(){
+    const local=currentActiveManifestSignature();
+    let saved=false;
+
+    if(local.fileCount===0){
+        saved=await clearActiveOrderManifest();
+    }else{
+        saved=await saveActiveOrderManifest({silent:true});
+    }
+    if(saved!==true) return false;
+
+    try{
+        return await verifyActiveOrderManifestMatchesLocal();
+    }catch(error){
+        Logger.error("Active Order Manifest structural verification failed",error);
+        return false;
+    }
+}
+
+window.verifyActiveOrderManifestMatchesLocal=verifyActiveOrderManifestMatchesLocal;
+window.syncActiveOrderManifestAfterStructuralChange=syncActiveOrderManifestAfterStructuralChange;
+
 
 
 
@@ -1227,6 +1295,29 @@ async function syncCloudWorkspaceAfterStructuralChange(reason="Workspace structu
 }
 
 window.syncCloudWorkspaceAfterStructuralChange=syncCloudWorkspaceAfterStructuralChange;
+
+/* Canonical structural persistence for Active Receiving.
+   Order structure is persisted to the Active Order Manifest FIRST, then the
+   compatibility Cloud Workspace snapshot. A caller may show success only when
+   BOTH authorities confirm the same state. */
+async function syncReceivingStructureAfterChange(reason="Receiving structure synchronized"){
+    const manifestSaved=await syncActiveOrderManifestAfterStructuralChange();
+    if(manifestSaved!==true){
+        setCloudWorkspaceStatus("offline","Active Order structure not confirmed");
+        return false;
+    }
+
+    const workspaceSaved=await syncCloudWorkspaceAfterStructuralChange(reason);
+    if(workspaceSaved!==true) return false;
+
+    const verified=await verifyActiveOrderManifestMatchesLocal();
+    if(verified!==true){
+        setCloudWorkspaceStatus("offline","Active Order structure verification failed");
+        return false;
+    }
+    return true;
+}
+window.syncReceivingStructureAfterChange=syncReceivingStructureAfterChange;
 
 async function syncCloudWorkspaceAfterFinalize(reason="Finalize synchronized"){
     return syncCloudWorkspaceAfterStructuralChange(reason);

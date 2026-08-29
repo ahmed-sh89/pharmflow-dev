@@ -8460,12 +8460,25 @@ async function requestRemoveActiveOrderFile(fileId){
                the deleted order being hydrated back into Manage Orders. */
             if(typeof saveWorkspaceSnapshot==="function")saveWorkspaceSnapshot();
 
-            if(typeof syncCloudWorkspaceAfterStructuralChange!=="function"){
-                throw new Error("Structural workspace synchronization is unavailable. Reload and try again.");
+            if(typeof syncReceivingStructureAfterChange!=="function"){
+                throw new Error("Structural receiving synchronization is unavailable. Reload and try again.");
             }
-            const cloudSaved=await syncCloudWorkspaceAfterStructuralChange("Active order removal synchronized");
-            if(cloudSaved!==true){
-                throw new Error("The order was removed locally, but the server workspace did not confirm the deletion. Reload before continuing.");
+            const structureSaved=await syncReceivingStructureAfterChange("Active order removal synchronized");
+            if(structureSaved!==true){
+                throw new Error("The server did not confirm removal from the Active Order Manifest. No success was recorded. Reload before continuing.");
+            }
+
+            /* Re-read the structural authority before success. This prevents a
+               stale Active Order Manifest from silently re-hydrating the order
+               after the green toast. Empty server state is authoritative. */
+            if(typeof pullActiveOrderManifest==="function"){
+                await pullActiveOrderManifest({clearIfMissing:remaining.length===0});
+            }
+            if(typeof verifyActiveOrderManifestMatchesLocal==="function"){
+                const verified=await verifyActiveOrderManifestMatchesLocal();
+                if(verified!==true){
+                    throw new Error("Active Order removal verification failed. Reload before continuing.");
+                }
             }
 
             if(typeof refreshOrderLifecycleRegistry==="function")await refreshOrderLifecycleRegistry();
