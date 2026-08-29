@@ -52,7 +52,7 @@
         href="css/auth.css?v=2C1054"
     >
 
-<link rel="stylesheet" href="css/pharmflow-next.css?v=B10CLEAN7">
+<link rel="stylesheet" href="css/pharmflow-next.css?v=B10CLEAN10">
 </head>
 
 
@@ -399,73 +399,26 @@
 
             <div class="topBarRight pfnContextBar">
 
-                <button id="pfnManageOrders" class="pfnManageOrdersButton" type="button">▣ <span>Manage Orders</span></button>
-
-                <div class="headerInfo">
-
-                    <span>
-                        Select Orders
+                <div class="pfnPharmacyIdentity" title="Current pharmacy workspace">
+                    <span class="pfnPharmacyIdentityIcon" aria-hidden="true">P</span>
+                    <span class="pfnPharmacyIdentityText">
+                        <small>Current Pharmacy</small>
+                        <strong id="topBarPharmacyName">Pharmacy</strong>
                     </span>
-
-                    <strong id="headerOrderId">
-                        No Order
-                    </strong>
-
-                    <div
-                        id="headerOrderPicker"
-                        class="headerOrderPicker"
-                        hidden
-                    >
-                        <button
-                            id="headerOrderPickerButton"
-                            class="headerOrderPickerButton"
-                            type="button"
-                            aria-haspopup="true"
-                            aria-expanded="false"
-                        >
-                            <span id="headerOrderPickerLabel">All Orders</span>
-                            <span class="headerOrderPickerChevron" aria-hidden="true">⌄</span>
-                        </button>
-
-                        <div
-                            id="headerOrderPickerMenu"
-                            class="headerOrderPickerMenu"
-                            role="menu"
-                            hidden
-                        ></div>
-                    </div>
-
+                    <span id="topBarPharmacyCode" class="pfnPharmacyIdentityCode">—</span>
                 </div>
-
-
-                <div class="headerInfo">
-
-                    <span>
-                        Session Status
-                    </span>
-
-                    <strong id="headerSessionId">
-                        INACTIVE
-                    </strong>
-
-                </div>
-
 
                 <div class="headerInfo globalMasterHeaderInfo" title="Global GTIN Master status">
                     <span>Global Master</span>
                     <strong id="headerMasterGTINStatus">SYNCING</strong>
                 </div>
 
-
                 <div
                     id="systemStatus"
                     class="systemStatus ready"
                 >
-
                     READY
-
                 </div>
-
 
             </div>
 
@@ -681,10 +634,33 @@
 
 
                     <div class="scanPanelFooter pfnActionBar">
-                        <button id="btnReceivingNeedsReview" class="pfnAction pfnActionReview" type="button">Needs Review <strong id="receivingNeedsReviewCount">0</strong></button>
-                        <button id="btnReceivedItems" class="pfnAction pfnActionReceived" type="button">Received Items</button>
-                        <button id="btnAdjustReceiving" class="pfnAction pfnActionAdjust" type="button">Adjust</button>
-                        <button id="btnReceivingReportAction" class="pfnAction pfnActionReport" type="button">Receiving Report</button>
+                        <div class="pfnReceivingActionGroup" aria-label="Receiving actions">
+                            <button id="btnReceivingNeedsReview" class="pfnAction pfnActionReview" type="button">Needs Review <strong id="receivingNeedsReviewCount">0</strong></button>
+                            <button id="btnReceivedItems" class="pfnAction pfnActionReceived" type="button">Received Items</button>
+                            <button id="btnAdjustReceiving" class="pfnAction pfnActionAdjust" type="button">Adjust</button>
+                            <button id="btnReceivingReportAction" class="pfnAction pfnActionReport" type="button">Receiving Report</button>
+                        </div>
+
+                        <div class="pfnOrderControlGroup" aria-label="Active order controls">
+                            <button id="pfnManageOrders" class="pfnManageOrdersButton" type="button">▣ <span>Manage Orders</span></button>
+
+                            <div class="headerInfo pfnOrderSelector">
+                                <span>Select Orders</span>
+                                <strong id="headerOrderId">No Active Order</strong>
+                                <div id="headerOrderPicker" class="headerOrderPicker" hidden>
+                                    <button id="headerOrderPickerButton" class="headerOrderPickerButton" type="button" aria-haspopup="true" aria-expanded="false">
+                                        <span id="headerOrderPickerLabel">All Orders</span>
+                                        <span class="headerOrderPickerChevron" aria-hidden="true">⌄</span>
+                                    </button>
+                                    <div id="headerOrderPickerMenu" class="headerOrderPickerMenu" role="menu" hidden></div>
+                                </div>
+                            </div>
+
+                            <div class="headerInfo pfnSessionStatus">
+                                <span>Session Status</span>
+                                <strong id="headerSessionId">INACTIVE</strong>
+                            </div>
+                        </div>
                     </div>
 
 
@@ -2748,7 +2724,7 @@
 
 <script src="js/router.js?v=B1"></script>
 
-<script src="js/ui.js?v=B10CLEAN9"></script>
+<script src="js/ui.js?v=B10CLEAN10"></script>
 
 <script src="js/excel.js?v=2C1054"></script>
 

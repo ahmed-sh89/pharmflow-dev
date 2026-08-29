@@ -1635,6 +1635,24 @@ function refreshEntireUI(){
 
 function refreshHeader(){
 
+    // Global pharmacy identity belongs to the shell and is visible on every module.
+    {
+        const ctx = window.AuthState?.context || {};
+        const pharmacyName = String(
+            ctx.pharmacy_name ||
+            document.getElementById("accountPharmacyName")?.textContent ||
+            "Pharmacy"
+        ).trim() || "Pharmacy";
+        const pharmacyCode = String(
+            ctx.pharmacy_code ||
+            document.getElementById("settingsPharmacyCode")?.textContent ||
+            "—"
+        ).trim() || "—";
+
+        setElementText(document.getElementById("topBarPharmacyName"), pharmacyName);
+        setElementText(document.getElementById("topBarPharmacyCode"), pharmacyCode);
+    }
+
     // Approved compact Dashboard identity: show the signed-in pharmacy name.
     const dashboardActive = document.getElementById("page-dashboard")?.classList.contains("active");
     if(dashboardActive){
