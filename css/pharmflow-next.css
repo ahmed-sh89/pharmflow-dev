@@ -2883,12 +2883,12 @@ body:not(.zebraDevice) .finalizedEmailRichPreview span{
 }
 
 /* ============================================================
-   B10 CLEAN 12 — visual system + density ownership cleanup
-   This block REPLACES the Clean 11 shell/palette block.
+   B10 CLEAN 13 — visual system + row-guidance ownership cleanup
+   This block REPLACES the Clean 12 shell/palette block.
    - One semantic pastel palette across Top Bar, KPIs, Last Scan and actions.
-   - Total Items is steel-blue (not teal/green); Total Scans is indigo.
+   - Total Items is neutral slate (distinct from the blue sidebar); Total Scans remains indigo.
    - Pharmacy context uses lavender; Global Master uses cyan/teal.
-   - Compact Order Item Browser and Receiving Activity History rows.
+   - Compact Order Item Browser and Receiving Activity History rows, with stronger row tracking in Order Items.
    - Activity Item renders Item Code | Item Name on one line.
 ============================================================ */
 body:not(.zebraDevice).pfnCleanReceiving .topBar{
@@ -3001,9 +3001,12 @@ body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .headerOrderPicke
 body:not(.zebraDevice).pfnCleanReceiving .pfnOrderControlGroup .pfnSessionStatus{display:none!important}
 
 /* KPI semantic palette. */
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"]{background:#dcecff!important;border-color:#8fb9e5!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"] strong{color:#155f9f!important}
-body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="completed"]{background:#dff5e7!important;border-color:#99d3af!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"]{background:#e7edf2!important;border-color:#9aa9b7!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"] strong{color:#334e68!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="total"] .statIcon{background:#d5dee6!important;border-color:#a7b5c2!important;color:#334e68!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="completed"]{background:#c9eedb!important;border-color:#69bd8f!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="completed"] strong{color:#087a46!important}
+body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="completed"] .statIcon{background:#b8e6ce!important;border-color:#79c79d!important;color:#087a46!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="remaining"]{background:#ffefd0!important;border-color:#e4b85e!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="over"]{background:#ffe0e5!important;border-color:#e5939f!important}
 body:not(.zebraDevice).pfnCleanReceiving #page-dashboard .statCard[data-kpi="manual"]{background:#eee2ff!important;border-color:#c2a4eb!important}
@@ -3043,6 +3046,26 @@ body:not(.zebraDevice) .pfnCleanWorklist .phase263Table td{
 }
 body:not(.zebraDevice) .pfnCleanWorklist .pfnPrioritySegment{padding:2px!important;min-height:30px!important}
 body:not(.zebraDevice) .pfnCleanWorklist .pfnPriorityMark{min-height:26px!important;padding:2px 8px!important;line-height:1!important}
+/* Stronger row tracking without increasing row height. */
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr:nth-child(odd) td{
+  background:#f9fbfd!important;
+}
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr:nth-child(even) td{
+  background:#eaf2f8!important;
+}
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr td{
+  border-bottom:1px solid #c7d7e5!important;
+  transition:background-color .12s ease,box-shadow .12s ease!important;
+}
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr:hover td{
+  background:#dcebf7!important;
+}
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr:focus-within td{
+  background:#d6e8f6!important;
+}
+body:not(.zebraDevice) .pfnCleanWorklist .phase263Table tbody tr:focus-within td:first-child{
+  box-shadow:inset 3px 0 0 #4f83ad!important;
+}
 
 /* Dense Receiving Activity History. Item Code is left, visually separated from Item Name. */
 body:not(.zebraDevice) .pfnActivityWorklist .phase263Table th{
