@@ -660,8 +660,8 @@ function buildFinalizedDiscrepancyEmailHTML(report){
                     <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Item Name"]||"")}</td>
                     <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
                     <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Received Qty"]??0)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:700;color:${diff<0?"#c23a46":(diff>0?"#b56b08":"#198754")}">${diff>0?"+":""}${esc(diff)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:700">${esc(status)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:400;color:${diff<0?"#c23a46":(diff>0?"#b56b08":"#198754")}">${diff>0?"+":""}${esc(diff)}</td>
+                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:400">${esc(status)}</td>
                   </tr>`;
               }).join("")}
             </tbody>
@@ -673,24 +673,22 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#123a63;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
       <div dir="rtl" style="text-align:center;padding:18px 14px 8px">
         <div style="font-size:28px;line-height:1.45;font-weight:800;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
-        <div style="font-size:19px;line-height:1.7;font-weight:800;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
-        <div style="font-size:18px;line-height:1.9;font-weight:700;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
+        <div style="font-size:19px;line-height:1.7;font-weight:400;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
+        <div style="font-size:16px;line-height:1.9;font-weight:400;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
           يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.
         </div>
       </div>
 
       <div style="display:block;margin:12px 0;padding:12px 14px;border-radius:12px;background:#f4f9ff;border:1px solid #d8e8f6;text-align:center">
-        <span style="font-size:12px;color:#67819b">Orders with displayed results:</span>
-        <strong style="font-size:14px;color:#123a63">${groups.length}</strong>
-        <span style="font-size:12px;color:#67819b">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items:</span>
-        <strong style="font-size:14px;color:#123a63">${totalRows}</strong>
+        <span style="font-size:15px;color:#4f6f8d">Orders with displayed results: ${groups.length}</span>
+        <span style="font-size:15px;color:#4f6f8d">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items: ${totalRows}</span>
       </div>
 
       ${sections}
 
-      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:18px;line-height:1.9;color:#234a6f">
-        <div style="font-weight:700">للإفادة والمراجعة والتشييك.</div>
-        <div style="margin-top:8px;font-size:19px;font-weight:800;color:#123f6d">خالص الشكر والتقدير.</div>
+      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:16px;line-height:1.9;color:#234a6f;font-weight:400">
+        <div>للإفادة والمراجعة والتشييك.</div>
+        <div style="margin-top:8px;font-size:16px;font-weight:400;color:#123f6d">خالص الشكر والتقدير.</div>
       </div>
     </div>`;
 }

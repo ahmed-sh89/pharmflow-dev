@@ -2838,3 +2838,35 @@ body:not(.zebraDevice).pfnCleanReceiving #page-receiving #btnFinalizeReceiving{b
 @keyframes pfnSuccessIn{from{opacity:0;transform:scale(.985)}to{opacity:1;transform:scale(1)}}
 
 @media(max-width:860px){body:not(.zebraDevice) .pfnGroupedReview{grid-template-columns:1fr!important}.gtinExtraGrid{grid-template-columns:1fr!important}.finalizedEmailSummary{grid-template-columns:1fr 1fr!important}.finalizedEmailCompose{grid-template-columns:1fr!important}}
+
+/* B10 Clean 4.1 — Email preview scroll + typography root fix */
+body:not(.zebraDevice) .finalizedEmailPanel{
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+}
+body:not(.zebraDevice) .finalizedEmailHeader,
+body:not(.zebraDevice) .finalizedEmailSummary,
+body:not(.zebraDevice) .finalizedEmailCompose,
+body:not(.zebraDevice) .finalizedEmailFooter{
+  flex:0 0 auto!important;
+}
+body:not(.zebraDevice) .finalizedEmailLetter{
+  flex:1 1 auto!important;
+  min-height:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:stable!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview{
+  min-height:min-content!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview table td{
+  font-size:15px!important;
+  font-weight:400!important;
+}
+body:not(.zebraDevice) .finalizedEmailRichPreview table th{
+  font-size:15px!important;
+}
+
