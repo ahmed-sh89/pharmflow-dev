@@ -37,7 +37,13 @@ const PharmFlowCloudWorkspace = {
     receivingSyncTimer:null,
     receivingFlushPromise:null,
     lastReceivingSyncAt:null,
-    lastReceivingSyncError:null
+    lastReceivingSyncError:null,
+    /* B10 Clean 14 — server cursors prevent full-ledger/full-manifest downloads
+       on every poll. Cursors are runtime-only and reset on account change. */
+    receivingCursorCreatedAt:null,
+    receivingCursorTransactionId:null,
+    receivingBootstrapComplete:false,
+    manifestMetaBusy:false
 };
 
 function cloudWorkspacePharmacyId(){
@@ -366,6 +372,10 @@ function resetRuntimeForAuthenticatedContextChange(newScope){
         PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature="";
         PharmFlowCloudWorkspace.activeManifestRevision=0;
         PharmFlowCloudWorkspace.activeManifestPresent=false;
+        PharmFlowCloudWorkspace.receivingCursorCreatedAt=null;
+        PharmFlowCloudWorkspace.receivingCursorTransactionId=null;
+        PharmFlowCloudWorkspace.receivingBootstrapComplete=false;
+        PharmFlowCloudWorkspace.manifestMetaBusy=false;
         PharmFlowCloudWorkspace.generation=null;
         PharmFlowCloudWorkspace.loginAuthorityReady=false;
         PharmFlowCloudWorkspace.suppressNextClearRpc=true;
@@ -1598,12 +1608,6 @@ async function pullCloudWorkspaceTransactions(){
     PharmFlowCloudWorkspace.receivingSyncBusy=true;
 
     try{
-        /*
-           The original bug was here:
-           transaction pulling was blocked by hydratedPharmacyId, even when
-           PC2 already had its orders from the Active Order Manifest.
-           Receiving sync is now independent from the old workspace snapshot.
-        */
         if(
             !Array.isArray(AppState?.workspace?.orderData) ||
             !AppState.workspace.orderData.length
@@ -1620,31 +1624,59 @@ async function pullCloudWorkspaceTransactions(){
             return false;
         }
 
-        const rows=await authRpc(
-            "list_pharmflow_cloud_transactions_v2",
-            {
-                p_pharmacy_id:pharmacyId,
-                p_limit:5000
+        /* B10 Clean 14: the first read after login is a bounded bootstrap.
+           Every later poll asks only for rows AFTER the server-created cursor.
+           This preserves deterministic ledger authority without repeatedly
+           downloading up to 5,000 historical transactions every second. */
+        const pageLimit=500;
+        let changedAny=false;
+        let pages=0;
+
+        while(pages<10){
+            const rows=await authRpc(
+                "list_pharmflow_cloud_transactions_delta_v3",
+                {
+                    p_pharmacy_id:pharmacyId,
+                    p_after_created_at:PharmFlowCloudWorkspace.receivingBootstrapComplete
+                        ? PharmFlowCloudWorkspace.receivingCursorCreatedAt
+                        : null,
+                    p_after_transaction_id:PharmFlowCloudWorkspace.receivingBootstrapComplete
+                        ? PharmFlowCloudWorkspace.receivingCursorTransactionId
+                        : null,
+                    p_limit:pageLimit
+                }
+            );
+
+            const batch=Array.isArray(rows)?rows:[];
+            if(!batch.length){
+                PharmFlowCloudWorkspace.receivingBootstrapComplete=true;
+                break;
             }
-        );
 
-        PharmFlowCloudWorkspace.applyingRemote=true;
+            PharmFlowCloudWorkspace.applyingRemote=true;
+            if(mergeCloudReceivingLedger(batch)){
+                changedAny=true;
+            }
 
-        const changed=mergeCloudReceivingLedger(
-            Array.isArray(rows) ? rows : []
-        );
+            const last=batch[batch.length-1];
+            PharmFlowCloudWorkspace.receivingCursorCreatedAt=
+                last?.sync_created_at || PharmFlowCloudWorkspace.receivingCursorCreatedAt;
+            PharmFlowCloudWorkspace.receivingCursorTransactionId=
+                last?.transaction_id || PharmFlowCloudWorkspace.receivingCursorTransactionId;
+            PharmFlowCloudWorkspace.receivingBootstrapComplete=true;
+            pages+=1;
 
-        if(changed){
+            if(batch.length<pageLimit) break;
+        }
+
+        if(changedAny){
             rebuildStateIndexes();
             recalculateStatistics();
             saveWorkspaceSnapshot();
 
             AppEvents.emit(
                 "receiving:updated",
-                {
-                    source:"cloud-ledger",
-                    synchronized:true
-                }
+                {source:"cloud-ledger-delta",synchronized:true}
             );
 
             if(typeof refreshEntireUI==="function"){
@@ -1657,28 +1689,62 @@ async function pullCloudWorkspaceTransactions(){
 
         PharmFlowCloudWorkspace.lastReceivingSyncAt=nowISO();
         PharmFlowCloudWorkspace.lastReceivingSyncError=null;
-
         return true;
     }
     catch(error){
-        Logger.warn(
-            "Receiving transaction pull failed",
-            error
-        );
-
-        PharmFlowCloudWorkspace.lastReceivingSyncError=
-            error?.message || String(error);
-
-        setCloudWorkspaceStatus(
-            "offline",
-            "Receiving sync unavailable"
-        );
-
+        Logger.warn("Receiving delta pull failed",error);
+        PharmFlowCloudWorkspace.lastReceivingSyncError=error?.message || String(error);
+        setCloudWorkspaceStatus("offline","Receiving sync unavailable");
         return false;
     }
     finally{
         PharmFlowCloudWorkspace.applyingRemote=false;
         PharmFlowCloudWorkspace.receivingSyncBusy=false;
+    }
+}
+
+async function pollActiveOrderManifestMeta(){
+    const pharmacyId=cloudWorkspacePharmacyId();
+    if(
+        !navigator.onLine || !pharmacyId || typeof authRpc!=="function" ||
+        PharmFlowCloudWorkspace.manifestMetaBusy ||
+        PharmFlowCloudWorkspace.contextSwitching
+    ) return false;
+
+    PharmFlowCloudWorkspace.manifestMetaBusy=true;
+    try{
+        const result=await authRpc(
+            "get_pharmflow_active_order_manifest_meta_v1",
+            {p_pharmacy_id:pharmacyId}
+        );
+        const row=Array.isArray(result)?result[0]:result;
+        const serverPresent=!!row?.manifest_present;
+        const serverRevision=Number(row?.revision||0);
+        const localHasOrders=!!(
+            Array.isArray(AppState?.workspace?.orderData) &&
+            AppState.workspace.orderData.length
+        );
+
+        if(!serverPresent){
+            if(PharmFlowCloudWorkspace.activeManifestPresent || localHasOrders){
+                await pullActiveOrderManifest({clearIfMissing:true});
+            }
+            return true;
+        }
+
+        if(
+            !localHasOrders ||
+            !PharmFlowCloudWorkspace.activeManifestPresent ||
+            serverRevision>Number(PharmFlowCloudWorkspace.activeManifestRevision||0)
+        ){
+            await pullActiveOrderManifest({clearIfMissing:true});
+        }
+        return true;
+    }catch(error){
+        Logger.warn("Active Order Manifest metadata poll failed",error);
+        return false;
+    }finally{
+        PharmFlowCloudWorkspace.manifestMetaBusy=false;
     }
 }
 
@@ -2058,32 +2124,20 @@ function initializePharmFlowCloudWorkspace(){
         attemptCloudWorkspaceHydration,
         1200
     );
+    /* B10 Clean 14: lightweight authority watch. The old loop downloaded the
+       complete Active Order Manifest twice plus the legacy full Cloud Workspace
+       every 2.2 seconds. Poll only tiny generation/manifest metadata here;
+       full structural payloads are fetched only when their revision changes. */
     PharmFlowCloudWorkspace.pollTimer=setInterval(async()=>{
-        if(document.visibilityState!=="visible"){
-            return;
-        }
+        if(document.visibilityState!=="visible") return;
 
         ensureCloudAccountContextIsolation();
+        if(PharmFlowCloudWorkspace.contextSwitching) return;
 
-        const hasLocalOrders=
-            Array.isArray(AppState?.workspace?.orderFiles) &&
-            AppState.workspace.orderFiles.length &&
-            Array.isArray(AppState?.workspace?.orderData) &&
-            AppState.workspace.orderData.length;
-
-        if(!PharmFlowCloudWorkspace.contextSwitching){
-            if(!hasLocalOrders){
-                await bootstrapActiveOrdersOnEmptyDevice();
-            }
-            else{
-                await pullActiveOrderManifest({clearIfMissing:true});
-                await pullActiveOrderManifest();
-            }
-        }
-
+        await reconcileWorkspaceGeneration();
+        await pollActiveOrderManifestMeta();
         attemptCloudWorkspaceHydration();
-        await reconcileCloudWorkspaceAuthority();
-    },2200);
+    },3000);
 
     /*
        Receiving synchronization has its own independent loop.
