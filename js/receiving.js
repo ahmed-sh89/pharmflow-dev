@@ -227,6 +227,7 @@ async function receiveParsedBarcode(parsed){
 function clearHandheldActionCard(){
     document.getElementById("handheldReceivingReviewCard")?.remove();
     document.getElementById("handheldKnownExtraCard")?.remove();
+    document.body.classList.remove("handheldActionCardActive");
     window.__pfReceivingReviewDraft=null;
 }
 
@@ -411,6 +412,7 @@ function renderKnownNotInOrderHandheld(parsed,masterRecord){
     `;
 
     lastScan.insertAdjacentElement("afterend",card);
+    document.body.classList.add("handheldActionCardActive");
 
     const qty=card.querySelector("#handheldKnownExtraQty");
     card.querySelectorAll("[data-qty-step]").forEach(button=>{
@@ -588,6 +590,7 @@ async function renderUnknownGTINHandheld(parsed,options={}){
     `;
 
     lastScan.insertAdjacentElement("afterend",card);
+    document.body.classList.add("handheldActionCardActive");
     flashHandheldRed();
 
     const photoButton=card.querySelector("#btnHandheldReviewPhoto");

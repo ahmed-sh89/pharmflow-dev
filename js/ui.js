@@ -8245,8 +8245,13 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
               <div class="needsReviewInfo">
                 <span class="pfnReviewReason">${group.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"ITEM NOT RECOGNIZED"}</span>
                 <strong class="pfnReviewGTIN">${esc(group.gtin)}</strong>
-                <div class="pfnReviewQuantity">Total Quantity: <b>${group.total_quantity}</b></div>
-                <small>${group.rows.length} receiving entr${group.rows.length===1?"y":"ies"}${group.photos.length?` · ${group.photos.length} temporary photo${group.photos.length===1?"":"s"}`:""}${group.order_number?` · Order ${esc(group.order_number)}`:""}</small>
+                <div class="pfnReviewMeta">
+                  <div><span>Quantity</span><b>${group.total_quantity}</b></div>
+                  <div><span>Order</span><b>${group.order_number?esc(group.order_number):"Needs assignment"}</b></div>
+                  <div><span>Source</span><b>${esc(group.source||"Handheld")}</b></div>
+                  <div><span>Entries</span><b>${group.rows.length}</b></div>
+                </div>
+                <small class="pfnReviewSubline">${group.photos.length?`${group.photos.length} temporary photo${group.photos.length===1?"":"s"} · `:""}Resolve this case once; repeated scans are already grouped.</small>
               </div>
               <div class="needsReviewResolve">
                 ${group.photos.length?`<details class="pfnReviewPhotos"><summary>View temporary photo${group.photos.length===1?"":"s"}</summary><div class="pfnReviewPhotoGrid">${group.photos.map((path,pidx)=>`<button type="button" data-photo-open="${index}:${pidx}"><img data-photo="${index}:${pidx}" alt="Product review photo" hidden><span>Photo ${pidx+1}</span></button>`).join('')}</div></details>`:""}
