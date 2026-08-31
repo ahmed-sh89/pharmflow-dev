@@ -7102,22 +7102,26 @@ function initializeZebraInterface(){
         home.className = "zebraHome";
         home.innerHTML = `
             <div class="zebraBrandRow">
-                <img src="assets/pharmflow-mark.svg" alt="" aria-hidden="true">
-                <div><strong>PharmFlow</strong><span>Handheld Workspace</span></div>
+                <div class="zebraBrandLockup">
+                    <span class="zebraBrandMark"><img src="assets/pharmflow-mark.svg" alt="" aria-hidden="true"></span>
+                    <div><strong>PharmFlow</strong><span>Handheld Workspace</span></div>
+                </div>
             </div>
             <div class="zebraModeIntro">
-                <span>SELECT MODE</span>
-                <h1>What are you working on?</h1>
-                <p>Only the tools needed for the selected Handheld workflow will be shown.</p>
+                <span>WORK MODE</span>
+                <h1>Choose your workspace</h1>
+                <p>Fast access to the tools needed for the current task.</p>
             </div>
             <div class="zebraModeCards">
-                <button id="btnZebraReceivingMode" class="zebraModeCard" type="button">
-                    <span class="zebraModeIcon">▥</span>
-                    <div><strong>Receiving</strong><small>Open the pharmacy Active Orders and count live.</small></div>
+                <button id="btnZebraReceivingMode" class="zebraModeCard zebraModeReceiving" type="button">
+                    <span class="zebraModeIcon" aria-hidden="true">▥</span>
+                    <div><strong>Receiving</strong><small>Scan and count active orders.</small></div>
+                    <span class="zebraModeArrow" aria-hidden="true">›</span>
                 </button>
-                <button id="btnZebraExpiryMode" class="zebraModeCard" type="button">
-                    <span class="zebraModeIcon">◷</span>
-                    <div><strong>Expiry</strong><small>Scan products and capture quantity + expiry date.</small></div>
+                <button id="btnZebraExpiryMode" class="zebraModeCard zebraModeExpiry" type="button">
+                    <span class="zebraModeIcon" aria-hidden="true">◷</span>
+                    <div><strong>Expiry</strong><small>Capture quantity and expiry date.</small></div>
+                    <span class="zebraModeArrow" aria-hidden="true">›</span>
                 </button>
             </div>
             <button id="btnZebraSignOut" class="zebraSignOut" type="button">Sign Out</button>
@@ -7186,11 +7190,49 @@ function initializeZebraInterface(){
     setTimeout(()=>refreshUnifiedHandheldWorkspace({silent:true}),120);
 }
 
+/* ============================================================
+   B11 — HANDHELD WORKER PERMISSION BOUNDARY
+   Handheld workers receive operational scan/history controls only.
+   Desktop administrative controls are disabled at the DOM boundary,
+   not merely covered by visual CSS.
+============================================================ */
+function setHandheldWorkerSurface(active){
+    if(!isLikelyZebraDevice()) return;
+
+    const selectors=[
+        "#page-dashboard .scanPanelFooter.pfnActionBar",
+        "#pfnManageOrders",
+        "#btnReceivingNeedsReview",
+        "#btnAdjustReceiving",
+        "#btnReceivingReportAction",
+        ".pfnOrderControlGroup",
+        ".pfnSessionStatus"
+    ];
+
+    selectors.forEach(selector=>{
+        document.querySelectorAll(selector).forEach(el=>{
+            if(active){
+                el.dataset.handheldWorkerHidden="1";
+                el.hidden=true;
+                el.setAttribute("aria-hidden","true");
+                try{ el.inert=true; }catch(_){}
+            }else if(el.dataset.handheldWorkerHidden==="1"){
+                el.hidden=false;
+                el.removeAttribute("aria-hidden");
+                try{ el.inert=false; }catch(_){}
+                delete el.dataset.handheldWorkerHidden;
+            }
+        });
+    });
+}
+window.setHandheldWorkerSurface=setHandheldWorkerSurface;
+
 function clearZebraModeClasses(){
     document.body.classList.remove("zebraHomeActive","zebraJoinActive","zebraReceivingActive","zebraExpiryActive","zebraMode");
 }
 function setZebraHomeMode(){
     if(!isLikelyZebraDevice()){ return; }
+    setHandheldWorkerSurface(false);
 
     /*
        Strict mode isolation:
@@ -7325,6 +7367,7 @@ window.openUnifiedHandheldReceiving=openUnifiedHandheldReceiving;
 function setZebraReceivingMode(){
     if(!isLikelyZebraDevice()){ return; }
     clearZebraModeClasses();
+    setHandheldWorkerSurface(true);
     document.body.classList.add("zebraDevice","zebraReceivingActive","zebraMode");
     try{ window.scrollTo(0,0); }catch(_){}
     refreshZebraInterface();
@@ -7336,6 +7379,7 @@ function setZebraReceivingMode(){
 function setZebraExpiryMode(){
     if(!isLikelyZebraDevice()){ return; }
 
+    setHandheldWorkerSurface(false);
     clearZebraModeClasses();
     document.body.classList.add("zebraDevice","zebraExpiryActive");
 
@@ -7475,7 +7519,7 @@ function ensureHandheldReceivingTools(){
         recent.type="button";
         recent.setAttribute("aria-label","Open recent scans");
         recent.innerHTML=`
-            <span>RECENT</span>
+            <span>HISTORY</span>
             <strong id="handheldTotalScansValue">0</strong>
         `;
         header.appendChild(recent);
@@ -7564,7 +7608,7 @@ function openHandheldScansPanel(initialTab="THIS"){
                     </div>
                     <div class="handheldRecentQty">+${qty}</div>
                     ${canUndo
-                      ? `<button type="button" class="handheldUndoItem" data-undo-item="${esc(row?.transactionId||"")}">Undo</button>`
+                      ? `<button type="button" class="handheldUndoItem" data-undo-item="${esc(row?.transactionId||"")}" aria-label="Undo this scan"><span aria-hidden="true">↶</span> UNDO</button>`
                       : `<span class="handheldRecentViewOnly">View</span>`}
                   </article>`;
               }).join("") : `<div class="handheldScansEmpty">No recent scans.</div>`}
@@ -7639,7 +7683,7 @@ function openHandheldScansPanel(initialTab="THIS"){
                 },250);
             }else{
                 btn.disabled=false;
-                btn.textContent="Undo";
+                btn.innerHTML='<span aria-hidden="true">↶</span> UNDO';
             }
         });
     };
@@ -8271,6 +8315,37 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
 }
 
 window.refreshNeedsReviewCounters=refreshNeedsReviewCounters;
+
+/* B11: lightweight cross-device Needs Review awareness.
+   Full review rows are fetched only when the PC panel is opened; the watcher
+   asks Supabase for a tiny count so a Handheld submission becomes visible on
+   the PC without refreshing the whole workspace. */
+let needsReviewCloudWatchTimer=null;
+let needsReviewCloudWatchBusy=false;
+async function refreshNeedsReviewCountFromCloud(){
+    if(typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice()) return;
+    if(document.hidden || needsReviewCloudWatchBusy || typeof nrV2Count!=="function") return;
+    needsReviewCloudWatchBusy=true;
+    try{
+        const count=await nrV2Count("RECEIVING");
+        setElementText(document.getElementById("receivingNeedsReviewCount"),count);
+        document.getElementById("btnReceivingNeedsReview")?.classList.toggle("hasItems",count>0);
+    }catch(error){
+        Logger?.warn?.("Needs Review count sync failed",error);
+    }finally{
+        needsReviewCloudWatchBusy=false;
+    }
+}
+function startNeedsReviewCloudWatch(){
+    if(typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice()) return;
+    clearInterval(needsReviewCloudWatchTimer);
+    refreshNeedsReviewCountFromCloud();
+    needsReviewCloudWatchTimer=setInterval(refreshNeedsReviewCountFromCloud,6000);
+}
+window.startNeedsReviewCloudWatch=startNeedsReviewCloudWatch;
+window.addEventListener("focus",refreshNeedsReviewCountFromCloud);
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden) refreshNeedsReviewCountFromCloud(); });
+setTimeout(startNeedsReviewCloudWatch,1200);
 window.openNeedsReviewPanel=openNeedsReviewPanel;
 
 function refreshOrderScopeControl(){

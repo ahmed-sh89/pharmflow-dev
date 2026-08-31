@@ -394,10 +394,14 @@ function renderKnownNotInOrderHandheld(parsed,masterRecord){
            </div>`
         : ""
       }
-      <label class="handheldReviewQtyLabel">
+      <div class="handheldReviewQtyLabel">
         <span>PHYSICAL QTY</span>
-        <input id="handheldKnownExtraQty" type="number" min="1" step="1" inputmode="numeric" value="1">
-      </label>
+        <div class="handheldReviewQtyStepper">
+          <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
+          <input id="handheldKnownExtraQty" type="number" min="1" step="1" inputmode="numeric" value="1">
+          <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>
+        </div>
+      </div>
       <button id="btnHandheldAddExtra" class="handheldReviewSave" type="button">
         ${needsPharmacistTarget ? "SAVE EXTRA FOR REVIEW" : "ADD EXTRA & NEXT"}
       </button>
@@ -409,6 +413,12 @@ function renderKnownNotInOrderHandheld(parsed,masterRecord){
     lastScan.insertAdjacentElement("afterend",card);
 
     const qty=card.querySelector("#handheldKnownExtraQty");
+    card.querySelectorAll("[data-qty-step]").forEach(button=>{
+        button.addEventListener("click",()=>{
+            const next=Math.max(1,(Number(qty?.value||1)||1)+Number(button.dataset.qtyStep||0));
+            if(qty) qty.value=String(next);
+        });
+    });
 
     const submit=async()=>{
         const button=card.querySelector("#btnHandheldAddExtra");
@@ -555,7 +565,7 @@ async function renderUnknownGTINHandheld(parsed,options={}){
         <div class="handheldUnknownGTIN">
           <span>GTIN</span>
           <strong>${escapeHTML(gtin)}</strong>
-          <small>✓ SAVED TO NEEDS REVIEW</small>
+          <small>NOT FOUND IN GLOBAL GTIN MASTER</small>
         </div>
 
         <button id="btnHandheldReviewPhoto" class="handheldPhotoButton" type="button">
@@ -563,12 +573,16 @@ async function renderUnknownGTINHandheld(parsed,options={}){
         </button>
         <input id="handheldReviewPhotoInput" type="file" accept="image/*" capture="environment" hidden>
 
-        <label class="handheldReviewQtyLabel">
+        <div class="handheldReviewQtyLabel">
           <span>PHYSICAL QTY</span>
-          <input id="handheldReviewQty" type="number" min="1" step="1" inputmode="numeric" value="1">
-        </label>
+          <div class="handheldReviewQtyStepper">
+            <button type="button" data-qty-step="-1" aria-label="Decrease quantity">−</button>
+            <input id="handheldReviewQty" type="number" min="1" step="1" inputmode="numeric" value="1">
+            <button type="button" data-qty-step="1" aria-label="Increase quantity">+</button>
+          </div>
+        </div>
 
-        <button id="btnSaveHandheldReview" class="handheldReviewSave" type="button">SAVE &amp; NEXT</button>
+        <button id="btnSaveHandheldReview" class="handheldReviewSave" type="button">SAVE &amp; SEND TO NEEDS REVIEW</button>
         <button id="btnCancelHandheldReview" class="handheldReviewCancel" type="button">CANCEL SCAN</button>
       </div>
     `;
@@ -581,6 +595,12 @@ async function renderUnknownGTINHandheld(parsed,options={}){
     const qty=card.querySelector("#handheldReviewQty");
     const saveButton=card.querySelector("#btnSaveHandheldReview");
     const cancelButton=card.querySelector("#btnCancelHandheldReview");
+    card.querySelectorAll("[data-qty-step]").forEach(button=>{
+        button.addEventListener("click",()=>{
+            const next=Math.max(1,(Number(qty?.value||1)||1)+Number(button.dataset.qtyStep||0));
+            if(qty) qty.value=String(next);
+        });
+    });
     let uploadedPhotoPath=null;
 
     photoButton?.addEventListener("click",()=>photoInput?.click());
@@ -610,7 +630,7 @@ async function renderUnknownGTINHandheld(parsed,options={}){
             const quantity=Math.max(1,Number(qty?.value||1)||1);
             await nrV2SetQty(draft.review_id,quantity);
 
-            card.querySelector(".handheldReviewStatus").textContent="SAVED FOR REVIEW ✓";
+            card.querySelector(".handheldReviewStatus").textContent="SAVED TO NEEDS REVIEW ✓";
             card.classList.remove("urgent");
             card.classList.add("saved");
 
@@ -772,18 +792,18 @@ function openQuickGTINResolver(parsed,knownRecord=null){
           <button type="button" class="gtinResolutionScrim" data-close aria-label="Close"></button>
           <aside class="gtinResolutionPanel">
             <header class="gtinResolutionHeader">
-              <div><span class="gtinActionBadge">ITEM NOT RECOGNIZED</span><h2>GTIN Not Found</h2><p>Search the current order or add an extra item.</p></div>
+              <div><span class="gtinActionBadge">ACTION REQUIRED</span><h2>Match this GTIN</h2><p>One quick decision, then scanning resumes automatically.</p></div>
               <button type="button" class="gtinCloseButton" data-close aria-label="Close">✕</button>
             </header>
             <div class="gtinReadout"><span>SCANNED GTIN</span><strong>${escapeHTML(gtin)}</strong></div>
             ${knownBlock}
             <section class="gtinResolutionSection">
-              <label class="gtinResolutionLabel" for="gtinResolutionSearch">Search Current Order</label>
-              <input id="gtinResolutionSearch" data-search class="gtinResolutionSearch" placeholder="Search by Item Name or Item Number" autocomplete="off">
+              <label class="gtinResolutionLabel" for="gtinResolutionSearch">Find item in current order</label>
+              <input id="gtinResolutionSearch" data-search class="gtinResolutionSearch" placeholder="Search item name or item code" autocomplete="off">
               <div data-results class="gtinResolutionResults"></div>
             </section>
-            ${knownCode ? "" : `<details class="gtinResolutionSection gtinManualExtra"><summary>+ Add Extra Item</summary><div class="gtinExtraGrid"><input data-code placeholder="Item Code" autocomplete="off"><input data-name placeholder="Item Name" autocomplete="off"><button type="button" class="gtinSecondaryAction" data-extra>Add Extra &amp; Receive +1</button></div></details>`}
-            <footer class="gtinResolutionFooter"><span>Resolve now or save this GTIN for later review.</span><div><button type="button" data-review>Save for Review</button><button type="button" data-close>Cancel</button></div></footer>
+            ${knownCode ? "" : `<section class="gtinResolutionSection gtinManualExtra"><div><span class="gtinMiniLabel">NOT IN THE ORDER?</span><strong>Add new Extra item</strong></div><div class="gtinExtraGrid"><input data-code placeholder="Item Code" autocomplete="off"><input data-name placeholder="Item Name" autocomplete="off"><button type="button" class="gtinSecondaryAction" data-extra>Add Extra &amp; Receive +1</button></div></section>`}
+            <footer class="gtinResolutionFooter"><span>Resolve now or send this scan to Needs Review.</span><div><button type="button" data-review>Save for Review</button><button type="button" data-close>Cancel</button></div></footer>
           </aside>`;
         document.body.appendChild(panel);
 
@@ -812,14 +832,8 @@ function openQuickGTINResolver(parsed,knownRecord=null){
         };
         const render=()=>{
             const q=toSafeString(search.value).toLowerCase().trim();
-            if(!q){
-                results.innerHTML='';
-                results.hidden=true;
-                return;
-            }
-            const items=(AppState.workspace.orderData||[]).filter(i=>toSafeString(i.itemName).toLowerCase().includes(q)||toSafeString(i.itemCode).toLowerCase().includes(q)).slice(0,6);
-            results.hidden=false;
-            results.innerHTML=items.length?items.map((i,n)=>`<button type="button" class="gtinResult" data-i="${n}"><span><strong>${escapeHTML(i.itemName)}</strong><small>Item ${escapeHTML(i.itemCode)}</small></span><b>Select &amp; Receive +1</b></button>`).join(''):'<div class="gtinNoResult">No matching item in the current order.</div>';
+            const items=(AppState.workspace.orderData||[]).filter(i=>!q||toSafeString(i.itemName).toLowerCase().includes(q)||toSafeString(i.itemCode).toLowerCase().includes(q)).slice(0,8);
+            results.innerHTML=items.length?items.map((i,n)=>`<button type="button" class="gtinResult" data-i="${n}"><span><strong>${escapeHTML(i.itemName)}</strong><small>Item ${escapeHTML(i.itemCode)}</small></span><b>Link GTIN &amp; Receive +1</b></button>`).join(''):'<div class="gtinNoResult">No matching order item.</div>';
             results.querySelectorAll('[data-i]').forEach(btn=>btn.onclick=()=>receiveMatched(items[Number(btn.dataset.i)],false));
         };
         search.oninput=render; render();
@@ -1671,8 +1685,7 @@ function decreaseItemQuantity(
 
 function setItemReceivedQuantity(
     itemCode,
-    newQuantity,
-    adjustmentReason = ""
+    newQuantity
 ){
 
     const item =
@@ -1773,10 +1786,7 @@ function setItemReceivedQuantity(
             :
             ReceivingEngine
                 .adjustmentSources
-                .editDecrease,
-
-        reason:
-            toSafeString(adjustmentReason||"").trim()
+                .editDecrease
 
     });
 
@@ -2137,9 +2147,6 @@ function applyQuantityAdjustment(options){
                 options.source
                 ||
                 "MANUAL_ADJUSTMENT",
-
-            adjustmentReason:
-                toSafeString(options.reason||"").trim(),
 
             deviceId:
                 (typeof ensureDeviceId === "function" ? ensureDeviceId() : AppState.session.deviceId),
