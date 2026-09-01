@@ -362,35 +362,6 @@ function prepareManualExtraItem(itemCode,itemName,gtin,targetOrderOverride=""){
     return item;
 }
 
-function recordHandheldReviewAudit(entry={}){
-    try{
-        const key="PHARMFLOW_HANDHELD_REVIEW_AUDIT_V1";
-        const current=JSON.parse(sessionStorage.getItem(key)||"[]");
-        const row={
-            transactionId:String(entry.reviewId||entry.transactionId||("REVIEW_"+Date.now())),
-            reviewId:String(entry.reviewId||""),
-            itemCode:String(entry.itemCode||""),
-            itemName:String(entry.itemName||entry.gtin||"Needs Review"),
-            gtin:String(entry.gtin||""),
-            quantity:Math.max(1,Number(entry.quantity||1)||1),
-            dateTime:entry.dateTime||new Date().toISOString(),
-            deviceId:typeof ensureDeviceId==="function"?String(ensureDeviceId()||""):String(AppState?.session?.deviceId||""),
-            deviceType:"HANDHELD",
-            outcome:"REVIEW"
-        };
-        const next=[row,...(Array.isArray(current)?current:[]).filter(item=>String(item?.transactionId||"")!==row.transactionId)].slice(0,40);
-        sessionStorage.setItem(key,JSON.stringify(next));
-        return row;
-    }catch(_){ return null; }
-}
-
-function getHandheldReviewAuditRows(){
-    try{
-        const rows=JSON.parse(sessionStorage.getItem("PHARMFLOW_HANDHELD_REVIEW_AUDIT_V1")||"[]");
-        return Array.isArray(rows)?rows:[];
-    }catch(_){ return []; }
-}
-
 function renderKnownNotInOrderHandheld(parsed,masterRecord){
     clearHandheldActionCard();
 
@@ -478,7 +449,6 @@ function renderKnownNotInOrderHandheld(parsed,masterRecord){
                 }
 
                 await nrV2SetQty(draft.review_id,quantity);
-                recordHandheldReviewAudit({reviewId:draft.review_id,itemCode:code,itemName:name,gtin,quantity});
                 refreshNeedsReviewCounters?.();
 
                 card.querySelector(".handheldKnownExtraStatus").textContent=
@@ -662,7 +632,6 @@ async function renderUnknownGTINHandheld(parsed,options={}){
         try{
             const quantity=Math.max(1,Number(qty?.value||1)||1);
             await nrV2SetQty(draft.review_id,quantity);
-            recordHandheldReviewAudit({reviewId:draft.review_id,itemCode:options.itemCode||"",itemName:options.itemName||gtin,gtin,quantity});
 
             card.querySelector(".handheldReviewStatus").textContent="SAVED TO NEEDS REVIEW ✓";
             card.classList.remove("urgent");
