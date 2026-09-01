@@ -380,3 +380,94 @@ body.zebraDevice #authGate #authLoginForm .authPrimaryButton{height:37px!importa
 body.zebraDevice #authGate #authLoginForm .authSecondaryLink{height:27px!important;min-height:27px!important;margin-top:0!important;font-size:9.5px!important;}
 body.zebraDevice #authGate #authLoginForm .authSignupLink{height:32px!important;min-height:32px!important;margin-top:2px!important;border:1px solid #d3deeb!important;border-radius:8px!important;background:#f8fbff!important;}
 @media(max-width:900px) and (min-width:761px){body:not(.zebraDevice) #authGate .authShell{grid-template-columns:1fr!important;max-width:620px!important;min-height:0!important}body:not(.zebraDevice) #authGate .authBrandPanel{padding:24px 30px!important}body:not(.zebraDevice) #authGate .authFormPanel{padding:30px 36px!important}}
+
+/* =============================================================
+   PHARMFLOW B11 CLEAN 7 — LIGHT PREMIUM AUTH
+   Login-only visual rebuild. No auth/session/business logic changes.
+============================================================= */
+:root{
+  --pf-login-ink:#18324f;
+  --pf-login-muted:#70849b;
+  --pf-login-blue:#2f6fd0;
+  --pf-login-blue-strong:#245eb6;
+  --pf-login-line:#d8e5f1;
+  --pf-login-email:#eef7ff;
+  --pf-login-password:#f4f1ff;
+  --pf-login-surface:#ffffff;
+}
+body:not(.zebraDevice) #authGate.authGate{
+  padding:clamp(22px,3.2vw,48px)!important;
+  background:
+    radial-gradient(circle at 8% 12%,rgba(124,185,239,.22),transparent 28%),
+    radial-gradient(circle at 92% 88%,rgba(181,166,237,.16),transparent 30%),
+    linear-gradient(135deg,#f7fbff 0%,#edf6fc 48%,#f7f4ff 100%)!important;
+}
+body:not(.zebraDevice) #authGate .authShell{
+  width:min(1080px,94vw)!important;min-height:610px!important;max-height:88vh!important;
+  grid-template-columns:minmax(330px,.78fr) minmax(480px,1.22fr)!important;
+  border:1px solid rgba(177,201,222,.72)!important;border-radius:30px!important;
+  background:rgba(255,255,255,.94)!important;
+  box-shadow:0 28px 75px rgba(72,104,136,.16),0 2px 10px rgba(72,104,136,.06)!important;
+}
+body:not(.zebraDevice) #authGate .authBrandPanel{
+  padding:52px!important;color:var(--pf-login-ink)!important;
+  background:
+    radial-gradient(circle at 20% 15%,rgba(255,255,255,.88),transparent 24%),
+    linear-gradient(160deg,#eaf6ff 0%,#e5f2fb 54%,#eeeaff 100%)!important;
+  border-right:1px solid #dce8f2!important;
+}
+body:not(.zebraDevice) #authGate .authBrandPanel:before{content:""!important;position:absolute!important;inset:22px!important;border:1px solid rgba(105,154,199,.15)!important;border-radius:24px!important;pointer-events:none!important;}
+body:not(.zebraDevice) #authGate .authBrandPanel:after{width:330px!important;height:330px!important;right:-175px!important;bottom:-180px!important;background:rgba(91,142,196,.08)!important;}
+body:not(.zebraDevice) #authGate .authBrandLogoCard{background:rgba(255,255,255,.78)!important;border:1px solid #d3e4f1!important;box-shadow:0 10px 28px rgba(65,110,151,.10)!important;}
+body:not(.zebraDevice) #authGate .authBrandLogoCard img{filter:none!important;}
+body:not(.zebraDevice) #authGate .authBrandName{color:#173d68!important;font-size:42px!important;}
+body:not(.zebraDevice) #authGate .authBrandTagline{color:#70869e!important;}
+body:not(.zebraDevice) #authGate .authFormPanel{padding:48px 66px!important;background:rgba(255,255,255,.96)!important;}
+body:not(.zebraDevice) #authGate .authFormPanelInner{max-width:500px!important;}
+body:not(.zebraDevice) #authGate .authEyebrow{color:#527fb5!important;}
+body:not(.zebraDevice) #authGate .authFormPanel h2{color:var(--pf-login-ink)!important;font-size:38px!important;}
+body:not(.zebraDevice) #authGate .authLead{color:var(--pf-login-muted)!important;margin-bottom:25px!important;}
+body:not(.zebraDevice) #authGate .authField label{color:#395570!important;}
+body:not(.zebraDevice) #authGate #authEmail,
+body:not(.zebraDevice) #authGate #publicSignupEmail,
+body:not(.zebraDevice) #authGate #inviteSignupEmail,
+body:not(.zebraDevice) #authGate #ownerSignupEmail{
+  background:var(--pf-login-email)!important;border-color:#c9dfef!important;
+}
+body:not(.zebraDevice) #authGate #authPassword,
+body:not(.zebraDevice) #authGate #publicSignupPassword,
+body:not(.zebraDevice) #authGate #inviteSignupPassword,
+body:not(.zebraDevice) #authGate #ownerSignupPassword,
+body:not(.zebraDevice) #authGate #authRecoveryPassword,
+body:not(.zebraDevice) #authGate #authRecoveryPasswordConfirm{
+  background:var(--pf-login-password)!important;border-color:#d9d2f0!important;
+}
+body:not(.zebraDevice) #authGate .authField input{
+  color:#18324f!important;border-width:1px!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.75)!important;
+}
+body:not(.zebraDevice) #authGate .authField input:focus{
+  background:#fff!important;border-color:#6d9bd2!important;
+  box-shadow:0 0 0 4px rgba(82,127,181,.12),0 7px 18px rgba(72,112,151,.07)!important;
+}
+body:not(.zebraDevice) #authGate .authPasswordToggle{background:#e9effb!important;color:#486a98!important;}
+body:not(.zebraDevice) #authGate .authPrimaryButton{
+  background:linear-gradient(135deg,#3d7bd4 0%,#315fb8 100%)!important;
+  box-shadow:0 12px 25px rgba(49,95,184,.18)!important;
+}
+body:not(.zebraDevice) #authGate .authPrimaryButton:hover{filter:brightness(1.025)!important;transform:translateY(-1px)!important;}
+body:not(.zebraDevice) #authGate .authSignupLink{background:#f5f9fd!important;border-color:#d3e1ed!important;color:#315f91!important;}
+body:not(.zebraDevice) #authGate .authSecondaryLink{color:#55718e!important;}
+body:not(.zebraDevice) #authGate .authForgotPassword{color:#326bb9!important;}
+
+/* Handheld keeps the same identity but fits the operational screen. */
+body.zebraDevice #authGate.authGate{
+  background:linear-gradient(160deg,#f7fbff 0%,#eef7fc 58%,#f7f4ff 100%)!important;
+}
+body.zebraDevice #authGate .authShell{border:1px solid #d5e3ee!important;background:#fff!important;box-shadow:0 8px 24px rgba(70,103,135,.08)!important;}
+body.zebraDevice #authGate .authBrandPanel{background:linear-gradient(135deg,#eef8ff,#f4f1ff)!important;border-bottom-color:#dce7f0!important;}
+body.zebraDevice #authGate .authBrandName{color:#214b77!important;}
+body.zebraDevice #authGate #authLoginForm #authEmail{background:#eef7ff!important;border-color:#c9dfef!important;}
+body.zebraDevice #authGate #authLoginForm #authPassword{background:#f4f1ff!important;border-color:#d9d2f0!important;}
+body.zebraDevice #authGate #authLoginForm .authField input:focus{background:#fff!important;border-color:#6d9bd2!important;box-shadow:0 0 0 3px rgba(82,127,181,.10)!important;}
+body.zebraDevice #authGate #authLoginForm .authPrimaryButton{background:linear-gradient(135deg,#3d7bd4,#315fb8)!important;}
+body.zebraDevice #authGate #authLoginForm .authSignupLink{background:#f6f9fd!important;border-color:#d5e2ed!important;}
