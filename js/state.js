@@ -850,16 +850,38 @@ function addReceivingTransaction(
 
 function setLastScan(data){
 
+    const incomingScanTime=data?.scanTime || nowISO();
+    const current=AppState?.workspace?.lastScan || null;
+    const incomingMs=new Date(incomingScanTime).getTime();
+    const currentMs=new Date(current?.scanTime||0).getTime();
+
+    /* B11 Clean5: Last Scan is monotonic device-local presentation state.
+       An older asynchronous/snapshot result must never replace a newer scan
+       that the worker has already seen. Receiving transactions themselves are
+       unaffected by this UI guard. */
+    if(
+        current &&
+        Number.isFinite(incomingMs) &&
+        Number.isFinite(currentMs) &&
+        incomingMs < currentMs
+    ){
+        if(typeof Logger!=="undefined" && typeof Logger.warn==="function"){
+            Logger.warn("Ignored stale Last Scan render",{
+                incomingItemCode:data?.itemCode||"",
+                incomingScanTime,
+                currentItemCode:current?.itemCode||"",
+                currentScanTime:current?.scanTime||""
+            });
+        }
+        return current;
+    }
+
     AppState.workspace.lastScan = {
-
         ...data,
-
-        scanTime:
-            data.scanTime
-            ||
-            nowISO()
-
+        scanTime:incomingScanTime
     };
+
+    return AppState.workspace.lastScan;
 
 }
 

@@ -490,13 +490,10 @@ function pcReceivingLastScanKey(scan){
 }
 
 function schedulePcReceivingAutoClear(scan){
-    let isHandheld=false;
-
-    try{
-        isHandheld=typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice();
-    }catch(_){}
-
-    if(isHandheld || !scan){
+    /* B11 Clean5: Last Scan auto-clear is shared PC/Handheld UI behavior.
+       It is intentionally UI-only: no transaction, quantity, history or
+       Supabase mutation. CLEAR SCREEN semantics remain unchanged. */
+    if(!scan){
         return;
     }
 
@@ -5047,7 +5044,7 @@ function createProfessionalLastScanLayout(){
             <div class="lastScanMetric lastScanMetricReceived">
 
                 <span>
-                    Received
+                    Total Received
                 </span>
 
                 <strong
@@ -5660,7 +5657,19 @@ function refreshLastScanQuantityControl(){
 
   /* 2C.11.1.3 — Handheld primary quantity is the worker's CURRENT LOCAL
      BATCH on this device. Shared totals remain informational below. */
-  const localBatchQty=getOperationalCurrentBatchQuantity(item.itemCode);
+  let localBatchQty=getOperationalCurrentBatchQuantity(item.itemCode);
+
+  /* B11 Clean5: a remote/PC correction can reduce the authoritative total
+     while this Handheld still has an older runtime batch in memory. A local
+     batch can never represent more packs than the current authoritative
+     Received Total. Clamp the device-only display state; never write back to
+     Supabase from this reconciliation. */
+  if(localBatchQty>totalReceived){
+      localBatchQty=Math.max(0,totalReceived);
+      if(typeof setCurrentLocalBatch==="function"){
+          setCurrentLocalBatch(item.itemCode,localBatchQty);
+      }
+  }
 
   button.textContent =
       String(localBatchQty);
@@ -7474,7 +7483,10 @@ function getAllWorkspaceScannerRows(){
 }
 
 function getHandheldTotalScans(){
-    return getHandheldDeviceScannerRows().length;
+    const counted=getHandheldDeviceScannerRows().length;
+    let review=0;
+    try{ review=typeof getHandheldReviewAuditRows==="function"?getHandheldReviewAuditRows().length:0; }catch(_){ review=0; }
+    return counted+review;
 }
 
 function ensureHandheldReceivingTools(){
@@ -7558,10 +7570,23 @@ function openHandheldScansPanel(initialTab="THIS"){
         return label==="This PC" ? "PC" : label;
     };
 
+    const getUndoState=row=>{
+        const id=String(row?.transactionId||"");
+        return !!ReceivingEngine?.recentScans?.find?.(item=>String(item?.transactionId||"")===id && item?.undone);
+    };
+
+    const reviewRows=()=>{
+        try{
+            return typeof getHandheldReviewAuditRows==="function"
+                ? getHandheldReviewAuditRows().map(row=>({...row,__reviewAudit:true}))
+                : [];
+        }catch(_){ return []; }
+    };
+
     const rowsFor=tab=>{
         const source=tab==="ALL"
             ? getAllWorkspaceScannerRows()
-            : getHandheldDeviceScannerRows();
+            : [...getHandheldDeviceScannerRows(),...reviewRows()];
 
         return source.slice()
             .sort((a,b)=>String(b?.dateTime||"").localeCompare(String(a?.dateTime||"")))
@@ -7578,12 +7603,12 @@ function openHandheldScansPanel(initialTab="THIS"){
         const recent=rowsFor(tab);
 
         overlay.innerHTML=`
-          <section class="handheldScansPanel handheldRecentPanel" role="dialog" aria-modal="true" aria-label="Recent scans">
+          <section class="handheldScansPanel handheldRecentPanel" role="dialog" aria-modal="true" aria-label="Recent receiving activity">
             <header>
               <div>
                 <span>RECEIVING HISTORY</span>
-                <strong>Recent Scans</strong>
-                <small>Last ${Math.min(recent.length,20)} scan transactions</small>
+                <strong>Recent Activity</strong>
+                <small>Counted, review and corrected items</small>
               </div>
               <button type="button" data-close aria-label="Close">✕</button>
             </header>
@@ -7598,26 +7623,28 @@ function openHandheldScansPanel(initialTab="THIS"){
             <div class="handheldRecentList">
               ${recent.length ? recent.map((row,index)=>{
                 const qty=Math.max(1,Number(row?.quantity||1)||1);
-                const canUndo=tab==="THIS" && String(row?.deviceId||"")===ownDeviceId;
+                const undone=!row?.__reviewAudit && getUndoState(row);
+                const review=!!row?.__reviewAudit || String(row?.outcome||"").toUpperCase()==="REVIEW";
+                const canUndo=!review && !undone && tab==="THIS" && String(row?.deviceId||"")===ownDeviceId;
+                const outcome=undone?"UNDONE":(review?"SENT TO REVIEW":"COUNTED");
+                const outcomeClass=undone?"undone":(review?"review":"counted");
                 return `
-                  <article class="handheldRecentRow">
+                  <article class="handheldRecentRow ${outcomeClass}">
                     <div class="handheldRecentIndex">${index+1}</div>
                     <div class="handheldRecentInfo">
-                      <strong>${esc(row?.itemName||"Item")}</strong>
-                      <span>${esc(row?.itemCode||"")} · ${esc(formatTime(row?.dateTime))} · ${esc(deviceLabel(row))}</span>
+                      <strong>${esc(row?.itemName||row?.gtin||"Item")}</strong>
+                      <span>${esc(row?.itemCode||row?.gtin||"")} · ${esc(formatTime(row?.dateTime))} · ${esc(review?"Handheld":deviceLabel(row))}</span>
                     </div>
-                    <div class="handheldRecentQty">+${qty}</div>
+                    <div class="handheldRecentOutcome ${outcomeClass}"><b>${esc(outcome)}</b><span>${undone?"−":"+"}${qty}</span></div>
                     ${canUndo
                       ? `<button type="button" class="handheldUndoItem" data-undo-item="${esc(row?.transactionId||"")}" aria-label="Undo this scan"><span aria-hidden="true">↶</span> UNDO</button>`
-                      : `<span class="handheldRecentViewOnly">View</span>`}
+                      : `<span class="handheldRecentNoAction">${undone?"CORRECTED":(review?"PC REVIEW":"VIEW")}</span>`}
                   </article>`;
-              }).join("") : `<div class="handheldScansEmpty">No recent scans.</div>`}
+              }).join("") : `<div class="handheldScansEmpty">No recent activity.</div>`}
             </div>
 
             <div class="handheldRecentFooter">
-              <span>${tab==="THIS"
-                ?"Undo is available only for this Handheld and remains in the audit trail."
-                :"All Devices is view-only to prevent accidental corrections to another device."}</span>
+              <span>COUNTED = included. SENT TO REVIEW = counted physically and waiting for pharmacist action. UNDONE = no longer included.</span>
               <button type="button" class="handheldPanelDone" data-close>DONE</button>
             </div>
           </section>`;
@@ -7635,52 +7662,25 @@ function openHandheldScansPanel(initialTab="THIS"){
         overlay.querySelectorAll("[data-undo-item]").forEach(btn=>btn.onclick=()=>{
             const transactionId=btn.getAttribute("data-undo-item");
             if(!transactionId || btn.disabled) return;
-
-            const row=recent.find(item=>
-                String(item?.transactionId||"")===String(transactionId)
-            );
+            const row=recent.find(item=>String(item?.transactionId||"")===String(transactionId));
             const qty=Math.max(1,Number(row?.quantity||1)||1);
-
             btn.disabled=true;
             btn.textContent="UNDOING…";
-
             const result=typeof undoRecentScannerTransaction==="function"
                 ? undoRecentScannerTransaction(transactionId)
                 : false;
-
             if(result){
-                /*
-                   Do not wait for Supabase/history hydration before giving the
-                   worker feedback. Mark this transaction locally as corrected,
-                   then refresh from authoritative history on the next event.
-                */
-                const localTx=ReceivingEngine?.recentScans?.find?.(item=>
-                    String(item?.transactionId||"")===String(transactionId)
-                );
-                if(localTx) localTx.undone=true;
-
-                btn.textContent=`UNDONE -${qty}`;
-                btn.classList.add("undone");
-                btn.disabled=true;
-
+                const feedbackText=`${qty} pack${qty===1?"":"s"} corrected — this row is now UNDONE`;
                 const feedback=overlay.querySelector("#handheldRecentFeedback");
-                if(feedback){
-                    feedback.textContent=`${qty} pack${qty===1?"":"s"} undone`;
-                    feedback.classList.add("show");
-                }
-
+                if(feedback){feedback.textContent=feedbackText;feedback.classList.add("show");}
                 refreshHandheldReceivingTools();
-
                 setTimeout(()=>{
                     if(document.body.contains(overlay)){
                         render();
                         const refreshedFeedback=overlay.querySelector("#handheldRecentFeedback");
-                        if(refreshedFeedback){
-                            refreshedFeedback.textContent=`${qty} pack${qty===1?"":"s"} undone`;
-                            refreshedFeedback.classList.add("show");
-                        }
+                        if(refreshedFeedback){refreshedFeedback.textContent=feedbackText;refreshedFeedback.classList.add("show");}
                     }
-                },250);
+                },80);
             }else{
                 btn.disabled=false;
                 btn.innerHTML='<span aria-hidden="true">↶</span> UNDO';
@@ -7691,7 +7691,6 @@ function openHandheldScansPanel(initialTab="THIS"){
     document.body.appendChild(overlay);
     render();
 }
-
 
 if(typeof AppEvents !== "undefined" && AppEvents?.on){
     AppEvents.on("receiving:updated", () => {
@@ -8172,6 +8171,20 @@ function nrV2HasTransactionId(transactionId){
     return (AppState?.workspace?.receivingHistory||[]).some(tx=>toSafeString(tx?.transactionId||"")===transactionId);
 }
 
+async function nrV2DeleteGroupPhotosStrict(group){
+    const paths=Array.from(new Set((group?.photos||[]).filter(Boolean)));
+    if(!paths.length) return true;
+    const failed=[];
+    for(const path of paths){
+        try{ await nrV2DeletePhoto(path); }
+        catch(error){ failed.push({path,error}); }
+    }
+    if(failed.length){
+        throw new Error("Temporary photo cleanup failed. Review case was kept open so no orphan photo is retained.");
+    }
+    return true;
+}
+
 async function nrV2ResolveGroupToOrderItem(group,item){
     const transactionId=nrV2GroupTransactionId(group);
     if(!nrV2HasTransactionId(transactionId)){
@@ -8187,11 +8200,9 @@ async function nrV2ResolveGroupToOrderItem(group,item){
         });
         if(!tx) throw new Error("Unable to apply reviewed quantity");
     }
+    await nrV2DeleteGroupPhotosStrict(group);
     for(const row of group.rows){
         await nrV2MarkResolved(row,item,"LINK_ORDER_ITEM",transactionId);
-    }
-    for(const path of group.photos){
-        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
     }
 }
 
@@ -8210,11 +8221,9 @@ async function nrV2ResolveGroupAsUnordered(group,itemCode,itemName,targetOrder="
         });
         if(!tx) throw new Error("Unable to add unordered item");
     }
+    await nrV2DeleteGroupPhotosStrict(group);
     for(const row of group.rows){
         await nrV2MarkResolved(row,{itemCode,itemName},"ADD_UNORDERED",transactionId);
-    }
-    for(const path of group.photos){
-        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
     }
 }
 
@@ -8235,18 +8244,18 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
       <button class="needsReviewScrim" data-close aria-label="Close"></button>
       <section class="needsReviewPanel needsReviewPanelV2 needsReviewWorkspace">
         <header>
-          <div><span>RECEIVING EXCEPTIONS</span><h2>Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each unknown GTIN once. Repeated scans are grouped automatically.</p></div>
+          <div><span>RECEIVING EXCEPTIONS</span><h2>Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each receiving exception once. Repeated scans are grouped automatically.</p></div>
           <button class="needsReviewClose" data-close>✕</button>
         </header>
         <div class="pfnNeedsReviewToolbar"><input type="search" data-review-filter placeholder="Search by GTIN, Item Number or Item Name"></div>
         <div class="needsReviewList" data-review-list>
           ${groups.length?groups.map((group,index)=>`
-            <section class="needsReviewRow needsReviewRowV2 pfnGroupedReview" data-i="${index}" data-search-text="${esc([group.gtin,group.master_item_code_hint,group.master_item_name_hint,group.order_number].join(' ').toLowerCase())}">
+            <section class="needsReviewRow needsReviewRowV2 pfnGroupedReview ${group.review_reason==="KNOWN_NOT_IN_ORDER"?"knownNotOrder":"unknownGTIN"}" data-i="${index}" data-search-text="${esc([group.gtin,group.master_item_code_hint,group.master_item_name_hint,group.order_number].join(' ').toLowerCase())}">
               <div class="needsReviewInfo">
                 <span class="pfnReviewReason">${group.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"ITEM NOT RECOGNIZED"}</span>
                 <strong class="pfnReviewGTIN">${esc(group.gtin)}</strong>
                 <div class="pfnReviewMeta">
-                  <div><span>Quantity</span><b>${group.total_quantity}</b></div>
+                  <div class="pfnReviewQtyCard"><span>Physical Quantity</span><b>${group.total_quantity}</b></div>
                   <div><span>Order</span><b>${group.order_number?esc(group.order_number):"Needs assignment"}</b></div>
                   <div><span>Source</span><b>${esc(group.source||"Handheld")}</b></div>
                   <div><span>Entries</span><b>${group.rows.length}</b></div>
@@ -8283,7 +8292,7 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
             document.getElementById("needsReviewPhotoViewer")?.remove();
             const viewer=document.createElement("div");viewer.id="needsReviewPhotoViewer";viewer.className="needsReviewPhotoViewer";
             viewer.innerHTML=`<button type="button" data-close aria-label="Close"></button><div><img src="${url}" alt="Product review photo"><button type="button" data-close>Close</button></div>`;
-            document.body.appendChild(viewer);viewer.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>viewer.remove());
+            overlay.appendChild(viewer);viewer.addEventListener("click",event=>{if(event.target===viewer) viewer.remove();});viewer.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>viewer.remove());
         }));
 
         const drawMatches=()=>{
@@ -8313,7 +8322,7 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
         overlay.querySelector(`[data-delete="${index}"]`)?.addEventListener('click',async event=>{
             const button=event.currentTarget;
             if(button.dataset.confirm!=="1"){button.dataset.confirm="1";button.textContent="Confirm delete";setTimeout(()=>{if(button.isConnected){button.dataset.confirm="";button.textContent="Delete review case";}},2500);return;}
-            try{for(const row of group.rows)await nrV2Delete(row.review_id);for(const path of group.photos){try{await nrV2DeletePhoto?.(path);}catch(_){}}section.remove();await refreshNeedsReviewCounters();}
+            try{await nrV2DeleteGroupPhotosStrict(group);for(const row of group.rows)await nrV2Delete(row.review_id);section.remove();await refreshNeedsReviewCounters();}
             catch(error){showToast?.(error?.message||"Unable to delete review","error");}
         });
     });
@@ -8631,3 +8640,71 @@ if(typeof AppEvents !== "undefined"){
         AppEvents.on?.("scan:processed",()=>setTimeout(()=>ensurePcClearScreenButton?.(),20));
     }catch(_){}
 }
+
+/* =====================================================
+   B11 CLEAN 4 — GTIN CORRECTIONS (PC ADMIN ONLY)
+   Repairs pharmacy-learned aliases only. System Global Master is untouched.
+===================================================== */
+function openGTINCorrectionsPanel(){
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()){
+        showToast?.("Pharmacy ADMIN access is required","warning"); return;
+    }
+    document.getElementById("gtinCorrectionOverlay")?.remove();
+    const overlay=document.createElement("div"); overlay.id="gtinCorrectionOverlay"; overlay.className="gtinCorrectionOverlay";
+    overlay.innerHTML=`<section class="gtinCorrectionPanel" role="dialog" aria-modal="true" aria-labelledby="gtinCorrectionTitle">
+      <h2 id="gtinCorrectionTitle">GTIN Corrections</h2>
+      <p>Correct a pharmacy-learned GTIN mistake. This does not modify the System Global GTIN Master.</p>
+      <div class="gtinCorrectionGrid">
+        <label>GTIN<input id="gtinCorrectionGTIN" inputmode="numeric" autocomplete="off" placeholder="Scan or enter GTIN"></label>
+        <label>Correct Item Number<input id="gtinCorrectionItemCode" autocomplete="off" placeholder="Item Number"></label>
+        <label>Correct Item Name<input id="gtinCorrectionItemName" autocomplete="off" placeholder="Item Name"></label>
+        <label>Reason<select id="gtinCorrectionReason"><option value="Wrong item selected in Needs Review">Wrong item selected in Needs Review</option><option value="Barcode mapping correction">Barcode mapping correction</option><option value="Other verified correction">Other verified correction</option></select></label>
+      </div>
+      <div id="gtinCorrectionCurrent" class="gtinCorrectionCurrent"><strong>Enter a GTIN to inspect the current pharmacy mapping.</strong><small>Only pharmacy-learned mappings can be corrected here.</small></div>
+      <div class="gtinCorrectionActions"><button type="button" class="gtinCorrectionRemove" id="gtinCorrectionRemove">Remove Incorrect Mapping</button><button type="button" class="gtinCorrectionSave" id="gtinCorrectionSave">Correct Mapping</button><button type="button" class="gtinCorrectionClose" id="gtinCorrectionClose">Close</button></div>
+    </section>`;
+    document.body.appendChild(overlay);
+    const gtinInput=overlay.querySelector("#gtinCorrectionGTIN"), codeInput=overlay.querySelector("#gtinCorrectionItemCode"), nameInput=overlay.querySelector("#gtinCorrectionItemName"), current=overlay.querySelector("#gtinCorrectionCurrent");
+    let lookupTimer=null;
+    async function inspect(){
+        const gtin=normalizeGTIN(gtinInput.value); if(!gtin){current.innerHTML='<strong>Enter a GTIN to inspect the current pharmacy mapping.</strong><small>Only pharmacy-learned mappings can be corrected here.</small>';return;}
+        current.innerHTML='<strong>Checking pharmacy mapping…</strong>';
+        const learned=await getPharmacyLearnedGTINRecord(gtin).catch(()=>null);
+        if(learned){current.innerHTML=`<strong>${escapeHtml(learned.itemName||"Unnamed item")}</strong><small>Current pharmacy mapping: ${escapeHtml(learned.itemCode)} · GTIN ${escapeHtml(gtin)}</small>`;}
+        else{current.innerHTML=`<strong>No pharmacy-learned mapping found.</strong><small>GTIN ${escapeHtml(gtin)} cannot be changed here. System Global Master remains protected.</small>`;}
+    }
+    gtinInput.addEventListener("input",()=>{clearTimeout(lookupTimer);lookupTimer=setTimeout(inspect,250)});
+    codeInput.addEventListener("input",()=>{
+        const code=normalizeItemCode(codeInput.value); if(!code)return;
+        const item=(AppState?.workspace?.orderData||[]).find(row=>normalizeItemCode(row?.itemCode)===code);
+        if(item && !nameInput.value.trim()) nameInput.value=item.itemName||"";
+    });
+    overlay.querySelector("#gtinCorrectionClose").onclick=()=>overlay.remove();
+    overlay.addEventListener("click",event=>{if(event.target===overlay)overlay.remove()});
+    overlay.querySelector("#gtinCorrectionSave").onclick=async event=>{
+        const gtin=normalizeGTIN(gtinInput.value), code=normalizeItemCode(codeInput.value), name=toSafeString(nameInput.value).trim(), reason=overlay.querySelector("#gtinCorrectionReason").value;
+        if(!gtin||!code||!name){showToast?.("Enter GTIN, correct Item Number and Item Name","warning");return;}
+        const learned=await getPharmacyLearnedGTINRecord(gtin).catch(()=>null); if(!learned){showToast?.("No pharmacy-learned mapping exists for this GTIN","warning");return;}
+        if(!window.confirm(`Correct this pharmacy GTIN mapping?\n\nGTIN: ${gtin}\nFROM: ${learned.itemCode} — ${learned.itemName||""}\nTO: ${code} — ${name}\n\nSystem Global Master will NOT be changed.`))return;
+        event.currentTarget.disabled=true;
+        try{await correctPharmacyLearnedGTIN(gtin,code,name,reason);showToast?.("Pharmacy GTIN mapping corrected","success");await inspect();}
+        catch(error){showToast?.(error?.message||"Unable to correct GTIN mapping","error");}
+        finally{event.currentTarget.disabled=false;}
+    };
+    overlay.querySelector("#gtinCorrectionRemove").onclick=async event=>{
+        const gtin=normalizeGTIN(gtinInput.value), reason=overlay.querySelector("#gtinCorrectionReason").value; if(!gtin){showToast?.("Enter GTIN first","warning");return;}
+        const learned=await getPharmacyLearnedGTINRecord(gtin).catch(()=>null); if(!learned){showToast?.("No pharmacy-learned mapping exists for this GTIN","warning");return;}
+        if(!window.confirm(`Remove this incorrect pharmacy mapping?\n\nGTIN: ${gtin}\nCURRENT: ${learned.itemCode} — ${learned.itemName||""}\n\nThe next scan will be unresolved unless another valid mapping exists. System Global Master will NOT be changed.`))return;
+        event.currentTarget.disabled=true;
+        try{await removePharmacyLearnedGTIN(gtin,reason);showToast?.("Incorrect pharmacy GTIN mapping removed","success");await inspect();}
+        catch(error){showToast?.(error?.message||"Unable to remove GTIN mapping","error");}
+        finally{event.currentTarget.disabled=false;}
+    };
+    gtinInput.focus();
+}
+window.openGTINCorrectionsPanel=openGTINCorrectionsPanel;
+setTimeout(()=>{
+    const button=document.getElementById("pfnGTINCorrections"); if(!button)return;
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()){button.hidden=true;return;}
+    button.addEventListener("click",openGTINCorrectionsPanel);
+},500);

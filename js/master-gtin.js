@@ -842,7 +842,13 @@ async function savePharmacyLearnedGTIN(gtin,itemCode,itemName){
     if(!normalized || !code || !name){ throw new Error("GTIN, Item Code and Item Name are required"); }
     if(typeof authRpc!=="function" || !AuthState?.context?.pharmacy_id){ throw new Error("Pharmacy context is unavailable"); }
     const result=await authRpc("learn_pharmacy_gtin",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_item_code:code,p_item_name:name});
+    const learnedRecord={gtin:normalized,itemCode:code,itemName:name,source:"PHARMACY_LEARNED"};
     addMappingRecord({itemCode:code,gtin:normalized,source:"PHARMACY_LEARNED"});
+    /* B11 Clean5: a GTIN may have been negatively cached before Needs Review
+       was resolved. The device that performs the resolution must see the new
+       mapping immediately. */
+    PharmFlowGTINScanCache.learnedMissUntil.delete(normalized);
+    cacheGTINScanRecord(normalized,learnedRecord);
     return Array.isArray(result)?result[0]:result;
 }
 
@@ -966,11 +972,17 @@ async function getMasterGTINRecordByGTIN(gtin){
        cache prevents repeated network waits when an unknown barcode is scanned
        more than once during the same receiving run.
     */
+    const isHandheld=(typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice());
     const missUntil=Number(
         PharmFlowGTINScanCache.learnedMissUntil.get(normalized)||0
     );
 
-    if(missUntil > Date.now()){
+    /* B11 Clean5: do not honor a stale negative learned-GTIN cache on the
+       Handheld. Needs Review can be resolved on the PC at any moment and the
+       very next Handheld scan must use the pharmacy-authoritative mapping.
+       This RPC is only on the Global-Master-miss path, so normal scans remain
+       local/cache fast and Clean14 egress behavior is preserved. */
+    if(!isHandheld && missUntil > Date.now()){
         return null;
     }
 
@@ -981,10 +993,12 @@ async function getMasterGTINRecordByGTIN(gtin){
         return learned;
     }
 
-    PharmFlowGTINScanCache.learnedMissUntil.set(
-        normalized,
-        Date.now()+120000
-    );
+    if(!isHandheld){
+        PharmFlowGTINScanCache.learnedMissUntil.set(
+            normalized,
+            Date.now()+120000
+        );
+    }
 
     return null;
 }
@@ -1233,3 +1247,41 @@ async function searchGlobalMasterItems(query, limit = 8){
     });
 }
 window.searchGlobalMasterItems=searchGlobalMasterItems;
+
+/* =====================================================
+   B11 CLEAN 4 — SAFE PHARMACY GTIN CORRECTIONS
+   Corrections are pharmacy-scoped and never mutate System Global Master.
+===================================================== */
+function purgePharmacyLearnedGTINFromWorkspace(gtin){
+    const normalized=normalizeGTIN(gtin);
+    if(!normalized) return;
+    if(Array.isArray(AppState?.workspace?.mappingData)){
+        AppState.workspace.mappingData=AppState.workspace.mappingData.filter(mapping=>
+            !(normalizeGTIN(mapping?.gtin)===normalized && String(mapping?.source||"").toUpperCase()==="PHARMACY_LEARNED")
+        );
+    }
+    PharmFlowGTINScanCache.records.delete(normalized);
+    PharmFlowGTINScanCache.learnedMissUntil.delete(normalized);
+}
+
+async function correctPharmacyLearnedGTIN(gtin,itemCode,itemName,reason){
+    const normalized=normalizeGTIN(gtin), code=normalizeItemCode(itemCode), name=toSafeString(itemName).trim(), why=toSafeString(reason).trim();
+    if(!normalized||!code||!name||!why) throw new Error("GTIN, Item Code, Item Name and Reason are required");
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
+    const result=await authRpc("correct_pharmacy_learned_gtin",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_new_item_code:code,p_new_item_name:name,p_reason:why});
+    purgePharmacyLearnedGTINFromWorkspace(normalized);
+    addMappingRecord({itemCode:code,gtin:normalized,source:"PHARMACY_LEARNED"});
+    cacheGTINScanRecord(normalized,{gtin:normalized,itemCode:code,itemName:name,source:"PHARMACY_LEARNED"});
+    return Array.isArray(result)?result[0]:result;
+}
+
+async function removePharmacyLearnedGTIN(gtin,reason){
+    const normalized=normalizeGTIN(gtin), why=toSafeString(reason).trim();
+    if(!normalized||!why) throw new Error("GTIN and Reason are required");
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
+    const result=await authRpc("remove_pharmacy_learned_gtin",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_reason:why});
+    purgePharmacyLearnedGTINFromWorkspace(normalized);
+    return Array.isArray(result)?result[0]:result;
+}
+window.correctPharmacyLearnedGTIN=correctPharmacyLearnedGTIN;
+window.removePharmacyLearnedGTIN=removePharmacyLearnedGTIN;

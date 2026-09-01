@@ -1919,10 +1919,16 @@ async function reconcileCloudWorkspaceAuthority(){
                 if(changed || !localHasOrder){
                     PharmFlowCloudWorkspace.applyingRemote=true;
 
-                    restoreWorkspaceState(cloudState);
+                    /* B11 Clean5: Last Scan is device-local UI state. Preserve
+                       the current device result while applying the legacy
+                       workspace snapshot; a remote snapshot must never clear
+                       or replace the operator's newer scan card. */
+                    const deviceLocalLastScan=AppState?.workspace?.lastScan
+                        ? deepClone(AppState.workspace.lastScan)
+                        : null;
 
-                    /* Last Scan is device-local. */
-                    AppState.workspace.lastScan=null;
+                    restoreWorkspaceState(cloudState);
+                    AppState.workspace.lastScan=deviceLocalLastScan;
 
                     saveWorkspaceSnapshot();
 
