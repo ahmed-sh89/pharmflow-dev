@@ -43,13 +43,7 @@ const PharmFlowCloudWorkspace = {
     receivingCursorCreatedAt:null,
     receivingCursorTransactionId:null,
     receivingBootstrapComplete:false,
-    manifestMetaBusy:false,
-    /* B10 Clean15 — adaptive request scheduler. Receiving stays responsive
-       while active, then backs off aggressively when the workstation is idle. */
-    lastUserActivityAt:Date.now(),
-    lastGenerationPollAt:0,
-    lastManifestMetaPollAt:0,
-    lastReceivingPollAt:0
+    manifestMetaBusy:false
 };
 
 function cloudWorkspacePharmacyId(){
@@ -791,6 +785,22 @@ function applyActiveOrderManifest(manifest,revision){
     };
 
     rebuildStateIndexes();
+
+    /* B10 Clean15.7 — the Active Order Manifest is structural authority only.
+       Its orderData carries the uploaded/order structure and can contain stale
+       receivedQty values. We deliberately preserved the device transaction
+       ledger above, so immediately project that ledger back onto the freshly
+       applied structure BEFORE statistics, persistence, events, or rendering.
+
+       Without this step a manifest refresh can visually roll Received back
+       (for example 3 -> 0/1) while the device-local Batch Qty correctly keeps
+       counting. The next scan then appears to restart Received from 1.
+       Rebuilding here preserves every successful local/cloud transaction and
+       keeps Batch Qty independent from the shared cumulative Received total. */
+    if(typeof rebuildReceivingQuantitiesFromLedger === "function"){
+        rebuildReceivingQuantitiesFromLedger();
+    }
+
     recalculateStatistics();
     saveWorkspaceSnapshot();
 
@@ -2130,77 +2140,43 @@ function initializePharmFlowCloudWorkspace(){
         },0);
     });
 
-    /* B10 Clean15 — RPC / Egress root fix.
-       Clean14 made payloads incremental, but fixed 1 s / 3 s polling still
-       multiplied into tens of thousands of RPCs per workstation per day.
-       Keep writes immediate; make READ reconciliation adaptive and single-loop.
-       Hidden tabs make zero polling requests. */
-    const markCloudActivity=()=>{
-        PharmFlowCloudWorkspace.lastUserActivityAt=Date.now();
-    };
-    ["pointerdown","keydown","touchstart"].forEach(type=>
-        document.addEventListener(type,markCloudActivity,{passive:true,capture:true})
-    );
-    AppEvents.on("receiving:transaction",markCloudActivity);
-
-    const runAdaptiveCloudSync=async()=>{
-        PharmFlowCloudWorkspace.pollTimer=null;
-        PharmFlowCloudWorkspace.receivingSyncTimer=null;
-
-        if(document.visibilityState!=="visible"){
-            PharmFlowCloudWorkspace.pollTimer=setTimeout(runAdaptiveCloudSync,15000);
-            return;
-        }
-
-        ensureCloudAccountContextIsolation();
-        if(PharmFlowCloudWorkspace.contextSwitching){
-            PharmFlowCloudWorkspace.pollTimer=setTimeout(runAdaptiveCloudSync,3000);
-            return;
-        }
-
-        const now=Date.now();
-        const active=(now-Number(PharmFlowCloudWorkspace.lastUserActivityAt||0))<120000;
-        const receivingEvery=active ? 3000 : 15000;
-        const manifestEvery=active ? 15000 : 60000;
-        const generationEvery=60000;
-
-        try{
-            /* Local writes are already flushed immediately by
-               queueCloudWorkspaceTransaction(). This pass is recovery + remote delta. */
-            await repairSharedReceivingLedgerFromLocal();
-            await flushCloudWorkspaceQueue();
-
-            if(now-PharmFlowCloudWorkspace.lastReceivingPollAt>=receivingEvery){
-                PharmFlowCloudWorkspace.lastReceivingPollAt=now;
-                await pullCloudWorkspaceTransactions();
-            }
-
-            if(now-PharmFlowCloudWorkspace.lastManifestMetaPollAt>=manifestEvery){
-                PharmFlowCloudWorkspace.lastManifestMetaPollAt=now;
-                await pollActiveOrderManifestMeta();
-            }
-
-            if(now-PharmFlowCloudWorkspace.lastGenerationPollAt>=generationEvery){
-                PharmFlowCloudWorkspace.lastGenerationPollAt=now;
-                await reconcileWorkspaceGeneration();
-            }
-
-            attemptCloudWorkspaceHydration();
-        }finally{
-            PharmFlowCloudWorkspace.pollTimer=setTimeout(
-                runAdaptiveCloudSync,
-                active ? 3000 : 15000
-            );
-        }
-    };
-
-    /* Hydration race safety net: 10 s instead of 1.2 s. Once hydrated, the
-       function is a local no-op; auth events/focus still trigger immediately. */
+    /* Context watcher is only a race-condition safety net.
+       250 ms caused unnecessary browser churn. */
     PharmFlowCloudWorkspace.contextWatchTimer=setInterval(
         attemptCloudWorkspaceHydration,
-        10000
+        1200
     );
-    runAdaptiveCloudSync();
+    /* B10 Clean 14: lightweight authority watch. The old loop downloaded the
+       complete Active Order Manifest twice plus the legacy full Cloud Workspace
+       every 2.2 seconds. Poll only tiny generation/manifest metadata here;
+       full structural payloads are fetched only when their revision changes. */
+    PharmFlowCloudWorkspace.pollTimer=setInterval(async()=>{
+        if(document.visibilityState!=="visible") return;
+
+        ensureCloudAccountContextIsolation();
+        if(PharmFlowCloudWorkspace.contextSwitching) return;
+
+        await reconcileWorkspaceGeneration();
+        await pollActiveOrderManifestMeta();
+        attemptCloudWorkspaceHydration();
+    },3000);
+
+    /*
+       Receiving synchronization has its own independent loop.
+       It no longer waits for workspace reconciliation to finish.
+    */
+    PharmFlowCloudWorkspace.receivingSyncTimer=setInterval(async()=>{
+        if(
+            document.visibilityState!=="visible" ||
+            PharmFlowCloudWorkspace.contextSwitching
+        ){
+            return;
+        }
+
+        await repairSharedReceivingLedgerFromLocal();
+        await flushCloudWorkspaceQueue();
+        await pullCloudWorkspaceTransactions();
+    },1000);
 
     window.addEventListener("focus",async()=>{
         const hasLocalOrders=
