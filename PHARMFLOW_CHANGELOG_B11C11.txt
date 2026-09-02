@@ -1,0 +1,7 @@
+B11 Clean11 — Responsive Auth + Mobile Application
+- Moved public-registration Back action to the top while preserving existing auth event wiring.
+- Added compact 2-column PC registration layout for short production viewports.
+- Added bounded secondary-auth form overflow to prevent clipped actions.
+- Rebuilt responsive.css with explicit phone-browser ownership, isolated from Handheld.
+- Added full-width mobile Dashboard/Receiving layout and wrapped controls.
+- No database, auth logic, receiving transaction, GTIN, sync, or persistence changes.

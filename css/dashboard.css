@@ -8534,3 +8534,6 @@ body.zebraDevice .handheldRecentList{display:grid!important;gap:5px!important;ma
 #needsReviewOverlay.needsReviewOverlayV2 .needsReviewDelete{justify-self:start!important;border:0!important;background:transparent!important;color:#b42318!important;font-size:10px!important;font-weight:800!important}
 #needsReviewOverlay.needsReviewOverlayV2 .needsReviewEmpty{padding:36px!important;border:1px dashed #c9d8e8!important;border-radius:14px!important;background:#fff!important;color:#64748b!important;text-align:center!important}
 @media(max-width:760px){#needsReviewOverlay.needsReviewOverlayV2{padding:8px!important}#needsReviewOverlay.needsReviewOverlayV2 .needsReviewPanelV2{height:94vh!important}#needsReviewOverlay.needsReviewOverlayV2 .needsReviewRowV2{grid-template-columns:1fr!important}#needsReviewOverlay.needsReviewOverlayV2 .pfnReviewMeta{grid-template-columns:1fr 1fr!important}}
+
+/* B11 CLEAN 11: phone-browser layout is owned by css/responsive.css.
+   Desktop and Handheld receiving owners remain unchanged here. */
