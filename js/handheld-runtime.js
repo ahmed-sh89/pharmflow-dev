@@ -22,7 +22,8 @@ const HandheldRuntime={
     terminationTimer:null,
     focusTimer:null,
     lastRaw:"",
-    lastAt:0
+    lastAt:0,
+    lastVisibleItemCode:""
 };
 
 function hhIsDevice(){
@@ -61,6 +62,16 @@ function hhSetVisualState(state,label){
 function hhRefreshReadyState(){
     const mode=hhMode();
     if(mode==="RECEIVING"){
+        const visibleCode=String(AppState?.workspace?.lastScan?.itemCode||"").trim();
+        if(HandheldRuntime.lastVisibleItemCode && !visibleCode){
+            /* Last Scan disappearing is a visual batch boundary only. Saved
+               quantities remain untouched; a later scan of the same item starts
+               a fresh local batch at 1. */
+            if(typeof resetCurrentLocalBatch==="function"){
+                resetCurrentLocalBatch();
+            }
+        }
+        HandheldRuntime.lastVisibleItemCode=visibleCode;
         const items=Array.isArray(AppState?.workspace?.orderData)?AppState.workspace.orderData.length:0;
         const orders=Array.isArray(AppState?.workspace?.orderFiles)?AppState.workspace.orderFiles.length:0;
         const authenticated=!!AuthState?.context?.pharmacy_id;
@@ -80,8 +91,10 @@ function hhRefreshReadyState(){
         }
         window.refreshHandheldWorkspaceStatus?.();
     }else if(mode==="EXPIRY"){
+        HandheldRuntime.lastVisibleItemCode="";
         hhSetVisualState("ready","READY TO SCAN");
     }else{
+        HandheldRuntime.lastVisibleItemCode="";
         hhSetVisualState("idle","");
     }
 }

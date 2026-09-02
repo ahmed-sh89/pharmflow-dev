@@ -5522,16 +5522,12 @@ function createLastScanQuantityControls(){
       .getElementById("btnHandheldClearLastScan")
       ?.addEventListener("click",function(){
 
-          /*
-             2C.11.1.7 — CLEAR SCREEN is visual only.
-             It MUST NOT:
-             - reverse a receiving transaction,
-             - change Received,
-             - create a correction,
-             - start a new local batch,
-             - alter history,
-             - write to Supabase.
-          */
+          /* CLEAR is data-safe: it never reverses a transaction or changes
+             Received/history. It does end the worker's visible local batch, so
+             the next scan of the same item correctly starts again at 1. */
+          if(typeof resetCurrentLocalBatch==="function"){
+              resetCurrentLocalBatch();
+          }
           AppState.workspace.lastScan=null;
 
           refreshEntireUI?.();
@@ -7323,7 +7319,7 @@ async function refreshUnifiedHandheldWorkspace(options={}){
     document.body.dataset.hhWorkspaceLoading="1";
     window.hhRefreshReadyState?.();
     try{
-        const loaded=await pullActiveOrderManifest({clearIfMissing:true});
+        await pullActiveOrderManifest({clearIfMissing:true});
         if(typeof pullCloudWorkspaceTransactions==="function"){
             await pullCloudWorkspaceTransactions();
         }
@@ -7331,8 +7327,14 @@ async function refreshUnifiedHandheldWorkspace(options={}){
         recalculateStatistics?.();
         refreshZebraInterface();
         window.hhRefreshReadyState?.();
+
+        /* Manifest refresh may legitimately report "unchanged". Readiness is
+           determined from the authoritative hydrated workspace, not from the
+           transport return flag. This prevents the false "No Active Order"
+           warning while Active Orders are already present. */
         return !!(
-            loaded &&
+            Array.isArray(AppState?.workspace?.orderFiles) &&
+            AppState.workspace.orderFiles.length>0 &&
             Array.isArray(AppState?.workspace?.orderData) &&
             AppState.workspace.orderData.length>0
         );
@@ -7532,7 +7534,6 @@ function ensureHandheldReceivingTools(){
         header.innerHTML=`
             <div class="zebraFinalHeader">
                 <div class="zebraFinalTitle">
-                    <strong>Receive Order</strong>
                     <span id="handheldWorkspaceStatus" class="zebraConnectedDot">SYNCING…</span>
                 </div>
                 <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>

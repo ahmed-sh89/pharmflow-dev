@@ -1814,10 +1814,27 @@ function unlockApplicationAfterAuth(){
 
     if(handheld){
         try{
-            initializeZebraInterface?.();
-            setZebraHomeMode?.();
+            /* Handheld auth resume is state-preserving. Background token/context
+               refresh during a scan must never route an active worker away from
+               Receiving. Initialize the Handheld shell once, then restore the
+               mode that was active before authentication resumed. */
+            const wasReceiving=document.body.classList.contains("zebraReceivingActive");
+            const wasExpiry=document.body.classList.contains("zebraExpiryActive");
+            const handheldInitialized=!!document.getElementById("zebraHome");
+
+            if(!handheldInitialized){
+                initializeZebraInterface?.();
+            }
+
+            if(wasReceiving){
+                setZebraReceivingMode?.();
+            }else if(wasExpiry){
+                setZebraExpiryMode?.();
+            }else if(!handheldInitialized){
+                setZebraHomeMode?.();
+            }
         }catch(error){
-            Logger?.warn?.("Unable to open Handheld workspace surface",error);
+            Logger?.warn?.("Unable to restore Handheld workspace surface",error);
         }
     }
 }
