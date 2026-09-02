@@ -528,6 +528,12 @@ function schedulePcReceivingAutoClear(scan){
             return;
         }
 
+        /* PC Last Scan clear ends the local operator batch only.
+           Receiving totals/history stay untouched; the next scan starts at 1. */
+        if(typeof resetCurrentLocalBatch === "function"){
+            resetCurrentLocalBatch();
+        }
+
         AppState.workspace.lastScan=null;
         cancelPcReceivingAutoClear();
 
@@ -569,6 +575,13 @@ function ensurePcClearScreenButton(){
            Visual-only clear. Does not modify receiving quantities/history.
         */
         cancelPcReceivingAutoClear();
+
+        /* CLEAR SCREEN is UI-only for shared receiving data, but it is an
+           explicit boundary for this PC's local current batch. */
+        if(typeof resetCurrentLocalBatch === "function"){
+            resetCurrentLocalBatch();
+        }
+
         AppState.workspace.lastScan=null;
         refreshEntireUI?.();
 
@@ -700,6 +713,28 @@ function bindSmartScanSelectionControls(){
         ?.addEventListener(
             "click",
             addSelectedSmartQuantity
+        );
+
+    document
+        .getElementById(
+            "smartQuantityInput"
+        )
+        ?.addEventListener(
+            "keydown",
+            function(event){
+                let isHandheld=false;
+                try{
+                    isHandheld=typeof isLikelyZebraDevice === "function" && isLikelyZebraDevice();
+                }catch(_){ }
+
+                if(isHandheld || event.key !== "Enter" || event.repeat){
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                addSelectedSmartQuantity();
+            }
         );
 
 }
