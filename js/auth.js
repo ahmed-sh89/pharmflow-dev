@@ -21,6 +21,10 @@ const AuthState = {
     contextLoading:false,
     ownerExists:true,
     refreshTimer:null,
+    /* B10 Clean15.1 — serialize token refreshes. Scan bursts can create
+       several concurrent authenticated RPCs; refresh-token rotation must
+       never let a losing refresh attempt clear an otherwise valid session. */
+    refreshPromise:null,
     busy:false,
     registration:null,
     ownerRegistrations:[],
@@ -789,24 +793,95 @@ async function signUpInitialOwner(){
     finally{ setAuthBusy(false); }
 }
 
+function readStoredAuthSession(){
+    try{
+        const raw=localStorage.getItem(AUTH_STORAGE_KEY);
+        if(!raw){ return null; }
+        const parsed=JSON.parse(raw);
+        return parsed && parsed.access_token && parsed.refresh_token
+            ? parsed
+            : null;
+    }catch(_){
+        return null;
+    }
+}
+
+function isIrrecoverableRefreshError(error){
+    const message=String(error?.message||"").toLowerCase();
+    return (
+        message.includes("invalid refresh token") ||
+        message.includes("refresh token not found") ||
+        message.includes("refresh token has expired") ||
+        message.includes("refresh_token_not_found")
+    );
+}
+
 async function refreshAuthToken(){
     if(!AuthState.session || !AuthState.session.refresh_token){ return false; }
-    try{
-        const session = await authRequest("/auth/v1/token?grant_type=refresh_token",{
-            method:"POST",
-            body:JSON.stringify({refresh_token:AuthState.session.refresh_token})
-        });
-        persistAuthSession(session);
-        return true;
+
+    /* B10 Clean15.1 — SINGLE-FLIGHT AUTH REFRESH.
+       A rapid Handheld scan burst can overlap write + delta-sync RPCs. If the
+       JWT expires in that window, several callers used to rotate the same
+       refresh token concurrently. The first refresh succeeded; a later losing
+       request could then execute persistAuthSession(null), forcing the scanner
+       back to Sign In despite a valid freshly-refreshed session.
+
+       All callers in this page now share one refresh promise. A failed attempt
+       also adopts a newer session from storage (e.g. another same-origin tab)
+       before deciding that authentication is actually lost. Transient network
+       failures never destroy the stored session. */
+    if(AuthState.refreshPromise){
+        return AuthState.refreshPromise;
     }
-    catch(_){
-        persistAuthSession(null);
-        AuthState.context = null;
-    AuthState.registration = null;
-        lockApplicationForAuth();
-        renderAuthState();
-        return false;
-    }
+
+    const startingSession=AuthState.session;
+    const startingAccessToken=String(startingSession?.access_token||"");
+    const startingRefreshToken=String(startingSession?.refresh_token||"");
+
+    AuthState.refreshPromise=(async()=>{
+        try{
+            const session=await authRequest("/auth/v1/token?grant_type=refresh_token",{
+                method:"POST",
+                body:JSON.stringify({refresh_token:startingRefreshToken})
+            });
+            persistAuthSession(session);
+            return true;
+        }catch(error){
+            /* If another context refreshed while this request was in flight,
+               adopt that newer session instead of treating this race as logout. */
+            const memorySession=AuthState.session;
+            if(
+                memorySession?.access_token &&
+                String(memorySession.access_token)!==startingAccessToken
+            ){
+                return true;
+            }
+
+            const storedSession=readStoredAuthSession();
+            if(
+                storedSession?.access_token &&
+                String(storedSession.access_token)!==startingAccessToken
+            ){
+                persistAuthSession(storedSession);
+                return true;
+            }
+
+            /* A temporary fetch/server error must not erase a valid refresh
+               token. Only a clear terminal refresh-token rejection signs out. */
+            if(isIrrecoverableRefreshError(error)){
+                persistAuthSession(null);
+                AuthState.context=null;
+                AuthState.registration=null;
+                lockApplicationForAuth();
+                renderAuthState();
+            }
+            return false;
+        }finally{
+            AuthState.refreshPromise=null;
+        }
+    })();
+
+    return AuthState.refreshPromise;
 }
 
 
