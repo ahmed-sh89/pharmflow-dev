@@ -7320,6 +7320,8 @@ async function refreshUnifiedHandheldWorkspace(options={}){
     if(typeof AuthState==="undefined" || !AuthState?.context?.pharmacy_id) return false;
     if(typeof pullActiveOrderManifest!=="function") return false;
 
+    document.body.dataset.hhWorkspaceLoading="1";
+    window.hhRefreshReadyState?.();
     try{
         const loaded=await pullActiveOrderManifest({clearIfMissing:true});
         if(typeof pullCloudWorkspaceTransactions==="function"){
@@ -7340,6 +7342,10 @@ async function refreshUnifiedHandheldWorkspace(options={}){
             showToast(error?.message||"Unable to load pharmacy Active Orders","error");
         }
         return false;
+    }finally{
+        delete document.body.dataset.hhWorkspaceLoading;
+        window.hhRefreshReadyState?.();
+        refreshHandheldWorkspaceStatus?.();
     }
 }
 
@@ -7477,6 +7483,35 @@ function getHandheldTotalScans(){
     return getHandheldDeviceScannerRows().length;
 }
 
+
+function refreshHandheldWorkspaceStatus(){
+    if(!isLikelyZebraDevice()) return;
+    const state=document.getElementById("handheldWorkspaceStatus");
+    if(!state) return;
+    const orders=Array.isArray(AppState?.workspace?.orderFiles)?AppState.workspace.orderFiles.length:0;
+    const authenticated=!!AuthState?.context?.pharmacy_id;
+    const loading=document.body.dataset.hhWorkspaceLoading==="1";
+    const online=navigator.onLine!==false;
+
+    state.classList.remove("isSyncing","isOffline","isEmpty");
+    if(loading){
+        state.textContent="SYNCING WORKSPACE…";
+        state.classList.add("isSyncing");
+    }else if(!online){
+        state.textContent="OFFLINE · RECONNECTING";
+        state.classList.add("isOffline");
+    }else if(!authenticated){
+        state.textContent="WORKSPACE NOT CONNECTED";
+        state.classList.add("isOffline");
+    }else if(orders>0){
+        state.textContent=`CONNECTED · ${orders} ACTIVE ORDER${orders===1?"":"S"}`;
+    }else{
+        state.textContent="CONNECTED · NO ACTIVE ORDERS";
+        state.classList.add("isEmpty");
+    }
+}
+window.refreshHandheldWorkspaceStatus=refreshHandheldWorkspaceStatus;
+
 function ensureHandheldReceivingTools(){
     if(!isLikelyZebraDevice()) return;
 
@@ -7498,15 +7533,14 @@ function ensureHandheldReceivingTools(){
             <div class="zebraFinalHeader">
                 <div class="zebraFinalTitle">
                     <strong>Receive Order</strong>
-                    <span class="zebraConnectedDot">ONLINE</span>
+                    <span id="handheldWorkspaceStatus" class="zebraConnectedDot">SYNCING…</span>
                 </div>
                 <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>
             </div>
         `;
         finalHeader=header.querySelector(".zebraFinalHeader");
     }else{
-        const state=header.querySelector(".zebraConnectedDot");
-        if(state){ state.textContent="ONLINE"; }
+        refreshHandheldWorkspaceStatus();
     }
 
     document.getElementById("btnZebraModes")?.addEventListener("click", setZebraHomeMode);

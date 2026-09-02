@@ -8534,3 +8534,11 @@ body.zebraDevice .handheldRecentList{display:grid!important;gap:5px!important;ma
 #needsReviewOverlay.needsReviewOverlayV2 .needsReviewDelete{justify-self:start!important;border:0!important;background:transparent!important;color:#b42318!important;font-size:10px!important;font-weight:800!important}
 #needsReviewOverlay.needsReviewOverlayV2 .needsReviewEmpty{padding:36px!important;border:1px dashed #c9d8e8!important;border-radius:14px!important;background:#fff!important;color:#64748b!important;text-align:center!important}
 @media(max-width:760px){#needsReviewOverlay.needsReviewOverlayV2{padding:8px!important}#needsReviewOverlay.needsReviewOverlayV2 .needsReviewPanelV2{height:94vh!important}#needsReviewOverlay.needsReviewOverlayV2 .needsReviewRowV2{grid-template-columns:1fr!important}#needsReviewOverlay.needsReviewOverlayV2 .pfnReviewMeta{grid-template-columns:1fr 1fr!important}}
+
+/* B10 Clean15.2 — Handheld workspace authority states */
+body.zebraDevice .zebraConnectedDot.isSyncing{background:#eef4ff;color:#315f9e}
+body.zebraDevice .zebraConnectedDot.isSyncing:before{background:#5b8fd6}
+body.zebraDevice .zebraConnectedDot.isOffline{background:#fff0f0;color:#a33b3b}
+body.zebraDevice .zebraConnectedDot.isOffline:before{background:#d14b4b}
+body.zebraDevice .zebraConnectedDot.isEmpty{background:#fff7e8;color:#8a641c}
+body.zebraDevice .zebraConnectedDot.isEmpty:before{background:#d69a2d}

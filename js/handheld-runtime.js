@@ -63,11 +63,22 @@ function hhRefreshReadyState(){
     if(mode==="RECEIVING"){
         const items=Array.isArray(AppState?.workspace?.orderData)?AppState.workspace.orderData.length:0;
         const orders=Array.isArray(AppState?.workspace?.orderFiles)?AppState.workspace.orderFiles.length:0;
-        if(hhReceivingSessionReady()){
-            hhSetVisualState("ready",`ONLINE · WORKSPACE SYNCED · ${orders} ORDERS · ${items} ITEMS`);
+        const authenticated=!!AuthState?.context?.pharmacy_id;
+        const online=navigator.onLine!==false;
+        const initializing=document.body.dataset.hhWorkspaceLoading==="1";
+
+        if(initializing){
+            hhSetVisualState("syncing","SYNCING WORKSPACE…");
+        }else if(!online){
+            hhSetVisualState("offline",`OFFLINE · ${orders} ACTIVE ORDER${orders===1?"":"S"}`);
+        }else if(!authenticated){
+            hhSetVisualState("blocked","WORKSPACE NOT CONNECTED");
+        }else if(hhReceivingSessionReady()){
+            hhSetVisualState("ready",`WORKSPACE CONNECTED · ${orders} ACTIVE ORDER${orders===1?"":"S"}`);
         }else{
-            hhSetVisualState("blocked",`WAITING FOR ACTIVE ORDER · ${orders} ORDERS · ${items} ITEMS`);
+            hhSetVisualState("blocked","WORKSPACE CONNECTED · NO ACTIVE ORDERS");
         }
+        window.refreshHandheldWorkspaceStatus?.();
     }else if(mode==="EXPIRY"){
         hhSetVisualState("ready","READY TO SCAN");
     }else{

@@ -868,12 +868,15 @@ async function refreshAuthToken(){
 
             /* A temporary fetch/server error must not erase a valid refresh
                token. Only a clear terminal refresh-token rejection signs out. */
+            /* B10 Clean15.2 — AUTH IS NEVER DESTROYED BY A BACKGROUND RPC.
+               Refresh-token rejection can be transient/stale while a scan write,
+               delta pull, visibility wake, or another tab is rotating credentials.
+               Background synchronization must never navigate an authenticated
+               Handheld away from Receiving. Keep the last known session/context;
+               the failed RPC may retry on the next sync pass. Explicit Sign Out
+               remains the only runtime path that clears a working user session. */
             if(isIrrecoverableRefreshError(error)){
-                persistAuthSession(null);
-                AuthState.context=null;
-                AuthState.registration=null;
-                lockApplicationForAuth();
-                renderAuthState();
+                Logger?.warn?.("Auth refresh rejected; preserving active UI session",error);
             }
             return false;
         }finally{
@@ -1790,13 +1793,31 @@ function unlockApplicationAfterAuth(){
     // makes the main content look frozen while the sidebar remains interactive.
     resetResponsiveSidebarAfterAuth();
     document.body.classList.remove("authLocked");
-    openDashboardAfterAuthentication();
     const overlay = document.getElementById("authGate");
     if(overlay){ overlay.classList.remove("visible"); }
+
+    /* B10 Clean15.2 — Handheld boot must not expose the desktop Dashboard
+       with placeholder zero KPIs while Active Order authority is hydrating.
+       Boot the protected app first, then route Handhelds directly to their
+       dedicated mode surface. Desktop keeps the existing Dashboard route. */
+    const handheld = typeof isLikelyZebraDevice === "function" && isLikelyZebraDevice();
+    if(!handheld){
+        openDashboardAfterAuthentication();
+    }
+
     if(typeof window.bootProtectedApplication === "function"){
         window.bootProtectedApplication();
     }
     else if(typeof refreshEntireUI === "function"){
         refreshEntireUI();
+    }
+
+    if(handheld){
+        try{
+            initializeZebraInterface?.();
+            setZebraHomeMode?.();
+        }catch(error){
+            Logger?.warn?.("Unable to open Handheld workspace surface",error);
+        }
     }
 }
