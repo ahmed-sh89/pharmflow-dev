@@ -8701,11 +8701,23 @@ body.zebraDevice .handheldRecentList{display:grid!important;gap:5px!important;ma
   }
   body:not(.zebraDevice) .quickKpiHeader h3{font-size:21px!important;line-height:1.1!important}
   body:not(.zebraDevice) .quickKpiClose{width:40px!important;height:40px!important}
-  body:not(.zebraDevice) .pfnBrowserControls{display:grid!important;gap:8px!important}
-  body:not(.zebraDevice) .pfnBrowserControlRow{display:grid!important;grid-template-columns:1fr 1fr!important;gap:7px!important}
-  body:not(.zebraDevice) .pfnBrowserControlRow label{min-width:0!important;font-size:9px!important}
-  body:not(.zebraDevice) .pfnBrowserControlRow select,
-  body:not(.zebraDevice) .pfnHighPriorityFilter{width:100%!important;min-width:0!important;min-height:42px!important;font-size:12px!important}
+  body:not(.zebraDevice) .pfnBrowserControls{display:grid!important;gap:8px!important;min-width:0!important}
+  body:not(.zebraDevice) .pfnBrowserControlRow{
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    gap:7px!important;
+    width:100%!important;
+    min-width:0!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    padding:0 0 4px!important;
+    scrollbar-width:thin!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  body:not(.zebraDevice) .pfnBrowserControlRow label{flex:0 0 148px!important;min-width:148px!important;font-size:8px!important}
+  body:not(.zebraDevice) .pfnBrowserControlRow label:last-child{flex-basis:172px!important;min-width:172px!important}
+  body:not(.zebraDevice) .pfnBrowserControlRow select{width:100%!important;min-width:0!important;min-height:38px!important;font-size:11px!important;padding:6px 26px 6px 8px!important}
+  body:not(.zebraDevice) .pfnHighPriorityFilter{flex:0 0 118px!important;width:118px!important;min-width:118px!important;min-height:38px!important;font-size:10px!important;padding:6px 8px!important}
   body:not(.zebraDevice) .pfnWideSearch,
   body:not(.zebraDevice) .phase263Search{width:100%!important;min-width:0!important;height:46px!important;font-size:14px!important}
   body:not(.zebraDevice) .phase263TableWrap{max-height:none!important;border:0!important;overflow:visible!important;background:transparent!important}
@@ -8718,48 +8730,55 @@ body.zebraDevice .handheldRecentList{display:grid!important;gap:5px!important;ma
     gap:0!important;
     width:100%!important;
     min-width:0!important;
-    padding:8px 10px!important;
+    padding:5px 8px!important;
     border:1px solid #d6e3ef!important;
-    border-radius:12px!important;
+    border-radius:11px!important;
     background:#fff!important;
-    box-shadow:0 3px 12px rgba(31,72,108,.045)!important;
+    box-shadow:0 2px 8px rgba(31,72,108,.035)!important;
     box-sizing:border-box!important;
   }
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>td{
     display:flex!important;
     min-width:0!important;
-    align-items:flex-start!important;
+    align-items:center!important;
     justify-content:space-between!important;
-    gap:8px!important;
-    padding:8px 4px!important;
+    gap:6px!important;
+    padding:5px 3px!important;
     border:0!important;
     border-bottom:1px solid #edf2f7!important;
     white-space:normal!important;
     overflow-wrap:anywhere!important;
-    font-size:12px!important;
+    font-size:10px!important;
+    line-height:1.15!important;
     text-align:right!important;
   }
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>td::before{
     content:attr(data-label)!important;
     flex:0 0 auto!important;
     color:#6b7d90!important;
-    font-size:8px!important;
+    font-size:7px!important;
     font-weight:900!important;
-    letter-spacing:.06em!important;
+    letter-spacing:.05em!important;
     text-transform:uppercase!important;
     text-align:left!important;
   }
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName{
     grid-column:1/-1!important;
     display:block!important;
+    min-width:0!important;
     text-align:left!important;
-    padding-bottom:10px!important;
+    padding:6px 3px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    white-space:nowrap!important;
+    scrollbar-width:thin!important;
+    -webkit-overflow-scrolling:touch!important;
   }
-  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName::before{display:block!important;margin-bottom:4px!important}
-  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName b{font-size:16px!important;color:#14395e!important;line-height:1.2!important}
+  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName::before{display:inline-block!important;margin:0 8px 0 0!important;vertical-align:middle!important}
+  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName b{display:inline-block!important;font-size:13px!important;color:#14395e!important;line-height:1.15!important;white-space:nowrap!important;overflow-wrap:normal!important}
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnPriorityCell{grid-column:1/-1!important;align-items:center!important}
   body:not(.zebraDevice) .pfnPrioritySegment{margin-left:auto!important;display:flex!important;gap:5px!important}
-  body:not(.zebraDevice) .pfnPriorityMark{min-height:34px!important;padding:0 9px!important;font-size:10px!important}
+  body:not(.zebraDevice) .pfnPriorityMark{min-height:30px!important;padding:0 8px!important;font-size:9px!important}
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnPriorityGroup{display:block!important;background:transparent!important;border:0!important}
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnPriorityGroup>td{display:flex!important;justify-content:space-between!important;padding:6px 2px!important;border:0!important}
   body:not(.zebraDevice) .phase263Table tbody>tr:has(.tableEmptyState){display:block!important}
@@ -8773,8 +8792,8 @@ body.zebraDevice .handheldRecentList{display:grid!important;gap:5px!important;ma
   body:not(.zebraDevice) .topBarRight{grid-template-columns:minmax(0,1.45fr) minmax(0,.9fr) auto!important}
   body:not(.zebraDevice) #page-dashboard .statCard{min-height:70px!important;padding:10px!important}
   body:not(.zebraDevice) #page-dashboard .statCard strong{font-size:25px!important}
-  body:not(.zebraDevice) .pfnBrowserControlRow{grid-template-columns:1fr!important}
-  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard{grid-template-columns:1fr!important}
+  body:not(.zebraDevice) .pfnBrowserControlRow{display:flex!important}
+  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard{grid-template-columns:1fr 1fr!important}
   body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnItemName,
-  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnPriorityCell{grid-column:auto!important}
+  body:not(.zebraDevice) .phase263Table tbody>tr.pfnMobileItemCard>.pfnPriorityCell{grid-column:1/-1!important}
 }
