@@ -487,10 +487,16 @@ async function authRequest(path, options = {}){
     try{ data = text ? JSON.parse(text) : null; }
     catch(_){ data = text; }
     if(!response.ok){
-        throw new Error(
+        const error = new Error(
             (data && (data.msg || data.message || data.error_description || data.error || data.hint)) ||
             ("Authentication request failed (" + response.status + ")")
         );
+        /* B10 Clean15.11 — preserve the transport status so authenticated RPC
+           recovery can distinguish a real 401 from membership/business errors. */
+        error.status = response.status;
+        error.statusCode = response.status;
+        error.payload = data;
+        throw error;
     }
     return data;
 }
@@ -506,6 +512,34 @@ async function publicRpc(functionName, params = {}){
     });
 }
 
+function getJwtExpiryMs(token){
+    try{
+        const part=String(token||"").split(".")[1];
+        if(!part){ return 0; }
+        const normalized=part.replace(/-/g,"+").replace(/_/g,"/");
+        const padded=normalized+"=".repeat((4-normalized.length%4)%4);
+        const payload=JSON.parse(atob(padded));
+        return Number(payload?.exp||0)*1000;
+    }catch(_){
+        return 0;
+    }
+}
+
+async function ensureFreshAuthSessionForProtectedRpc(){
+    if(!AuthState.session?.access_token || !AuthState.session?.refresh_token){
+        return false;
+    }
+
+    const expiresAt=getJwtExpiryMs(AuthState.session.access_token);
+    /* Refresh before the first protected bootstrap RPC when the restored JWT is
+       already expired or inside a small safety window. Unknown-expiry tokens are
+       allowed through and the bounded 401 recovery below remains authoritative. */
+    if(expiresAt && expiresAt <= Date.now()+90000){
+        return await refreshAuthToken();
+    }
+    return true;
+}
+
 async function authRpc(functionName, params = {}){
     const execute = async () => {
         const token = getSupabaseAccessToken();
@@ -517,27 +551,33 @@ async function authRpc(functionName, params = {}){
         });
     };
 
+    /* B10 Clean15.11 — hard reloads restore a persisted session synchronously.
+       Validate/refresh that session before the first protected RPC instead of
+       sending a known-expired JWT and misclassifying the resulting 401. */
+    await ensureFreshAuthSessionForProtectedRpc();
+
     try{
         return await execute();
     }catch(error){
         const message = String(error?.message || "").toLowerCase();
+        const unauthorized = Number(error?.status||error?.statusCode||0) === 401;
         const looksExpired =
+            unauthorized ||
             message.includes("jwt expired") ||
             message.includes("token is expired") ||
             message.includes("invalid jwt");
 
         if(!looksExpired){ throw error; }
 
-        const refreshed =
-            typeof refreshAuthToken === "function"
-                ? await refreshAuthToken()
-                : false;
-
+        /* Exactly one single-flight refresh + one replay. No recursive retry, no
+           polling, and no false Complete-access decision from an auth 401. */
+        const refreshed = await refreshAuthToken();
         if(!refreshed){
-            throw new Error("Your sign-in expired. Please sign in again.");
+            const authError=new Error("Your sign-in could not be restored. Please sign in again.");
+            authError.code="AUTH_SESSION_RECOVERY_REQUIRED";
+            throw authError;
         }
-
-        return execute();
+        return await execute();
     }
 }
 
@@ -1002,10 +1042,8 @@ async function loadMyAppContext(){
     catch(error){
         AuthState.contextError = error;
         AuthState.contextResolved = false;
-        if(/jwt|token|expired/i.test(error.message || "")){
-            const refreshed = await refreshAuthToken();
-            if(refreshed){ return loadMyAppContext(); }
-        }
+        /* Clean15.11: authRpc owns the single bounded 401 refresh/replay. Keep
+           context loading free of a second recursive refresh layer. */
         throw error;
     }
     finally{

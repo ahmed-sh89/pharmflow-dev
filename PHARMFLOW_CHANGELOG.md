@@ -1,9 +1,13 @@
-# PHARMFLOW CHANGELOG
+# B10 Clean15.7
 
-## B10 Clean15.10 — Auth Workspace Refresh Root Fix
-- Added explicit `contextResolved` / `contextError` state to authentication context resolution.
-- Prevented `renderAuthState()` from rendering Complete access while authenticated workspace context is unresolved.
-- Replaced the swallowed bootstrap context error with a bounded three-attempt context bootstrap retry.
-- No perpetual polling or new background timer was introduced.
-- Unified local asset release token to `B10CLEAN15_10` so the auth fix is loaded without manual cache clearing.
-- No SQL, Supabase schema, receiving, Handheld scan, quantity, manifest, ledger, or Egress polling logic changed.
+Fixed a reconciliation boundary in `applyActiveOrderManifest()` where fresh structural orderData could temporarily overwrite current cumulative receiving quantities. The preserved transaction ledger is now reapplied before the workspace is rendered or persisted.
+
+
+## B10 Clean15.11 — Auth Session Bootstrap Root Fix
+- Root cause confirmed from Supabase log: `get_my_app_context` returned HTTP 401 on iPhone hard refresh.
+- Preserve HTTP status on auth request failures.
+- Validate restored JWT expiry before protected RPCs and refresh when expired/near expiry.
+- On protected RPC 401, perform exactly one serialized refresh and one replay.
+- Removed duplicate recursive token-refresh layer from `loadMyAppContext`; `authRpc` is the single recovery owner.
+- No polling, Receiving, ledger, manifest, SQL, or Supabase schema changes.
+- Unified local asset cache token to `B10CLEAN15_11`.

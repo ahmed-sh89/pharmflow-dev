@@ -1,8 +1,21 @@
-# PHARMFLOW MASTER SPEC — Auth Refresh Addendum
+# PHARMFLOW MASTER SPEC — EXPIRY CURRENT OVERRIDE
 
-- Project B remains isolated from Project A.
-- Supabase remains authoritative for authentication and pharmacy membership.
-- Hard refresh must restore the stored authenticated session and resolve `get_my_app_context` before making an access decision.
-- Transient API/Auth/network failures must fail closed without falsely showing Complete access.
-- Complete access is valid only when context resolution succeeds and confirms no active pharmacy workspace.
-- Cache-busting release tokens must be updated with each deployment containing changed local assets.
+Updated: 21 August 2026
+
+## Handheld Expiry Capture
+- Handheld-first professional compact UI.
+- Worker selection is one compact row and remembered per device.
+- Full medicine GS1/2D automatically extracts available GTIN, Batch/Lot, Expiry and Serial.
+- When expiry is encoded, worker enters Quantity only then Save.
+- GTIN-only uses Quantity + Month dropdown (1 Jan–12 Dec) + Year dropdown.
+- Quantity numeric keyboard MUST NOT open automatically after scan; only intentional tap may open it.
+- Manual CLEAR SCREEN is visible and UI-only.
+- After successful Save, visual saved state auto-clears after 30 seconds of inactivity on PC and Handheld.
+- Auto Clear never deletes saved records and never discards an active unsaved/editing form.
+- Operational history is recent/scoped, not a replacement for Reports.
+- History can distinguish HANDHELD / PC / ALL DEVICES and Today / 7 Days / All History.
+- Full historical reporting is handled by Expiry Reports.
+
+
+### Auth bootstrap invariant (Clean15.11)
+A persisted browser session is not sufficient authority for a protected workspace RPC until its JWT is usable. On reload, expired/near-expiry access tokens are refreshed before protected RPCs. A protected RPC HTTP 401 permits one serialized refresh and one replay; it must never be interpreted as “no pharmacy workspace.”

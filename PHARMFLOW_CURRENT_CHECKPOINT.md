@@ -1,15 +1,8 @@
 # PHARMFLOW CURRENT CHECKPOINT
 
-Checkpoint: **B10 Clean15.10 — Auth Workspace Refresh Root Fix**
-Date: 2026-09-03
-Target: **Project B / pharmflow-dev only**
-Status: **PLANNED — requires USER VERIFICATION**
+## B10 Clean15.11 — AUTH SESSION BOOTSTRAP ROOT FIX
+Status: REQUIRES USER VERIFICATION
 
-## Root cause fixed
-On hard refresh, `bootstrapMedryvo()` swallowed a failed `get_my_app_context` call. `renderAuthState()` then interpreted `context = null` as a genuine no-pharmacy result and rendered **Complete access** even though the Supabase session was still authenticated.
+Confirmed root cause: on mobile hard refresh, `POST /rest/v1/rpc/get_my_app_context` returned HTTP 401 while a persisted authenticated account was still shown locally. Clean15.11 makes protected RPC auth recovery authoritative and bounded: preflight refresh for expired/near-expiry restored JWTs, then one single-flight refresh + one replay on HTTP 401. A 401 is never treated as proof that the user has no pharmacy membership.
 
-## New invariant
-An authenticated account can render **Complete access** only after workspace context has successfully resolved. A transient Auth/API/network failure remains in the protected boot state and receives a bounded bootstrap retry instead of being misclassified as unassigned.
-
-## Preserved
-Clean15 Egress polling, Clean15.7 Received reconciliation, Clean15.8 cache strategy, Clean15.9 Handheld Last Scan auto-clear, tenant isolation, Project A isolation, receiving quantities and Supabase authority are unchanged.
+Preserve Clean15.9 Handheld Last Scan auto-clear, Clean15.8 cache discipline, Clean15 Egress controls, Receiving sync, Active Order Manifest, and Project A isolation.
