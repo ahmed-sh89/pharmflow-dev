@@ -1,11 +1,15 @@
-# PharmFlow Project B — B10 Clean15.7
+# PHARMFLOW CURRENT CHECKPOINT
 
-Handheld Received sync root fix.
+Checkpoint: **B10 Clean15.10 — Auth Workspace Refresh Root Fix**
+Date: 2026-09-03
+Target: **Project B / pharmflow-dev only**
+Status: **PLANNED — requires USER VERIFICATION**
 
-- Active Order Manifest remains structural authority only.
-- When a manifest is applied, preserved receivingHistory is immediately re-projected onto orderData before statistics/render/save.
-- Prevents a structural manifest refresh from rolling cumulative Received backward while local Batch Qty continues correctly.
-- No change to Batch Qty semantics, transaction writes, Supabase RPCs, polling cadence, Egress Clean15 behavior, PC receiving logic, or Project A.
+## Root cause fixed
+On hard refresh, `bootstrapMedryvo()` swallowed a failed `get_my_app_context` call. `renderAuthState()` then interpreted `context = null` as a genuine no-pharmacy result and rendered **Complete access** even though the Supabase session was still authenticated.
 
-### B10 Clean15.9 — Pending User Verification
-Handheld Receiving Last Scan uses the same 30-second inactivity boundary as PC. Timer identity is bound to the actual Last Scan transaction so cloud/workspace re-renders do not postpone auto-clear. Auto-clear is UI/local-batch only; Received/history remain authoritative and unchanged. Asset cache token is B10CLEAN15_9.
+## New invariant
+An authenticated account can render **Complete access** only after workspace context has successfully resolved. A transient Auth/API/network failure remains in the protected boot state and receives a bounded bootstrap retry instead of being misclassified as unassigned.
+
+## Preserved
+Clean15 Egress polling, Clean15.7 Received reconciliation, Clean15.8 cache strategy, Clean15.9 Handheld Last Scan auto-clear, tenant isolation, Project A isolation, receiving quantities and Supabase authority are unchanged.
