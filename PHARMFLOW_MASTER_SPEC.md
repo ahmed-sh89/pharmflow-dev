@@ -16,6 +16,5 @@ Updated: 21 August 2026
 - History can distinguish HANDHELD / PC / ALL DEVICES and Today / 7 Days / All History.
 - Full historical reporting is handled by Expiry Reports.
 
-
-### Auth bootstrap invariant (Clean15.11)
-A persisted browser session is not sufficient authority for a protected workspace RPC until its JWT is usable. On reload, expired/near-expiry access tokens are refreshed before protected RPCs. A protected RPC HTTP 401 permits one serialized refresh and one replay; it must never be interpreted as “no pharmacy workspace.”
+### Auth refresh invariant — Clean15.12
+A terminal Supabase refresh-token rejection must stop further refresh attempts for that local session. It must not be represented as missing pharmacy access and must not delete server workspace/membership data.

@@ -16,5 +16,4 @@ not delete or modify saved Expiry data.
 
 **Non-regression:** Do not copy `js/dev-isolation.js` or its script include into Production repository A.
 
-
-- Clean15.11: `authRpc` is the single owner of protected-RPC 401 recovery. One serialized token refresh and one replay only; callers must not stack recursive refresh layers.
+- B10 Clean15.12: Server-confirmed `refresh_token_not_found` is terminal. Never preserve/retry that credential; clear local auth only and require Sign In. Protected RPC 401 recovery has one owner and refresh is single-flight.

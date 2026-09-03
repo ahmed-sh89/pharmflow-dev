@@ -1,8 +1,11 @@
-# PHARMFLOW CURRENT CHECKPOINT
+# PharmFlow Project B — B10 Clean15.7
 
-## B10 Clean15.11 — AUTH SESSION BOOTSTRAP ROOT FIX
-Status: REQUIRES USER VERIFICATION
+Handheld Received sync root fix.
 
-Confirmed root cause: on mobile hard refresh, `POST /rest/v1/rpc/get_my_app_context` returned HTTP 401 while a persisted authenticated account was still shown locally. Clean15.11 makes protected RPC auth recovery authoritative and bounded: preflight refresh for expired/near-expiry restored JWTs, then one single-flight refresh + one replay on HTTP 401. A 401 is never treated as proof that the user has no pharmacy membership.
+- Active Order Manifest remains structural authority only.
+- When a manifest is applied, preserved receivingHistory is immediately re-projected onto orderData before statistics/render/save.
+- Prevents a structural manifest refresh from rolling cumulative Received backward while local Batch Qty continues correctly.
+- No change to Batch Qty semantics, transaction writes, Supabase RPCs, polling cadence, Egress Clean15 behavior, PC receiving logic, or Project A.
 
-Preserve Clean15.9 Handheld Last Scan auto-clear, Clean15.8 cache discipline, Clean15 Egress controls, Receiving sync, Active Order Manifest, and Project A isolation.
+## B10 Clean15.12 — Pending User Verification
+Auth refresh-storm root fix. A Supabase `refresh_token_not_found` response is now terminal for the stale local credential: stop retries, clear local auth only, and require one fresh Sign In. Verify repeated page refreshes no longer create repeated token 400s and workspace access restores after sign-in.

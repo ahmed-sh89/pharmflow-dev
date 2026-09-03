@@ -19,11 +19,6 @@ const AuthState = {
     user:null,
     context:null,
     contextLoading:false,
-    /* B10 Clean15.10 — distinguish "workspace resolved with no access" from
-       "workspace context has not been resolved yet / failed transiently".
-       A hard refresh must never render Complete access from an unresolved RPC. */
-    contextResolved:false,
-    contextError:null,
     ownerExists:true,
     refreshTimer:null,
     /* B10 Clean15.1 — serialize token refreshes. Scan bursts can create
@@ -491,10 +486,8 @@ async function authRequest(path, options = {}){
             (data && (data.msg || data.message || data.error_description || data.error || data.hint)) ||
             ("Authentication request failed (" + response.status + ")")
         );
-        /* B10 Clean15.11 — preserve the transport status so authenticated RPC
-           recovery can distinguish a real 401 from membership/business errors. */
         error.status = response.status;
-        error.statusCode = response.status;
+        error.code = data && (data.code || data.error_code) || "";
         error.payload = data;
         throw error;
     }
@@ -512,34 +505,6 @@ async function publicRpc(functionName, params = {}){
     });
 }
 
-function getJwtExpiryMs(token){
-    try{
-        const part=String(token||"").split(".")[1];
-        if(!part){ return 0; }
-        const normalized=part.replace(/-/g,"+").replace(/_/g,"/");
-        const padded=normalized+"=".repeat((4-normalized.length%4)%4);
-        const payload=JSON.parse(atob(padded));
-        return Number(payload?.exp||0)*1000;
-    }catch(_){
-        return 0;
-    }
-}
-
-async function ensureFreshAuthSessionForProtectedRpc(){
-    if(!AuthState.session?.access_token || !AuthState.session?.refresh_token){
-        return false;
-    }
-
-    const expiresAt=getJwtExpiryMs(AuthState.session.access_token);
-    /* Refresh before the first protected bootstrap RPC when the restored JWT is
-       already expired or inside a small safety window. Unknown-expiry tokens are
-       allowed through and the bounded 401 recovery below remains authoritative. */
-    if(expiresAt && expiresAt <= Date.now()+90000){
-        return await refreshAuthToken();
-    }
-    return true;
-}
-
 async function authRpc(functionName, params = {}){
     const execute = async () => {
         const token = getSupabaseAccessToken();
@@ -551,33 +516,28 @@ async function authRpc(functionName, params = {}){
         });
     };
 
-    /* B10 Clean15.11 — hard reloads restore a persisted session synchronously.
-       Validate/refresh that session before the first protected RPC instead of
-       sending a known-expired JWT and misclassifying the resulting 401. */
-    await ensureFreshAuthSessionForProtectedRpc();
-
     try{
         return await execute();
     }catch(error){
         const message = String(error?.message || "").toLowerCase();
-        const unauthorized = Number(error?.status||error?.statusCode||0) === 401;
         const looksExpired =
-            unauthorized ||
+            Number(error?.status) === 401 ||
             message.includes("jwt expired") ||
             message.includes("token is expired") ||
             message.includes("invalid jwt");
 
         if(!looksExpired){ throw error; }
 
-        /* Exactly one single-flight refresh + one replay. No recursive retry, no
-           polling, and no false Complete-access decision from an auth 401. */
-        const refreshed = await refreshAuthToken();
+        const refreshed =
+            typeof refreshAuthToken === "function"
+                ? await refreshAuthToken()
+                : false;
+
         if(!refreshed){
-            const authError=new Error("Your sign-in could not be restored. Please sign in again.");
-            authError.code="AUTH_SESSION_RECOVERY_REQUIRED";
-            throw authError;
+            throw new Error("Your sign-in expired. Please sign in again.");
         }
-        return await execute();
+
+        return execute();
     }
 }
 
@@ -853,12 +813,34 @@ function readStoredAuthSession(){
 
 function isIrrecoverableRefreshError(error){
     const message=String(error?.message||"").toLowerCase();
+    const code=String(error?.code||error?.payload?.code||error?.payload?.error_code||"").toLowerCase();
     return (
+        code === "refresh_token_not_found" ||
         message.includes("invalid refresh token") ||
         message.includes("refresh token not found") ||
         message.includes("refresh token has expired") ||
         message.includes("refresh_token_not_found")
     );
+}
+
+function invalidateStaleAuthSession(){
+    /* B10 Clean15.12 — terminal refresh-token rejection is an authentication
+       boundary, not a workspace-access state. Clear only the local auth
+       credentials, cancel scheduled refresh work, and force the normal Sign In
+       gate. Server pharmacy membership and operational data are untouched. */
+    if(AuthState.refreshTimer){ clearTimeout(AuthState.refreshTimer); }
+    AuthState.refreshTimer=null;
+    AuthState.session=null;
+    AuthState.user=null;
+    AuthState.context=null;
+    AuthState.contextLoading=false;
+    AuthState.lastContextScope="";
+    try{ localStorage.removeItem(AUTH_STORAGE_KEY); }catch(_){}
+    try{
+        if(typeof AppState !== "undefined"){ AppState.account=null; }
+    }catch(_){}
+    try{ lockApplicationForAuth(true); }catch(_){}
+    try{ renderAuthState(); }catch(_){}
 }
 
 async function refreshAuthToken(){
@@ -911,18 +893,18 @@ async function refreshAuthToken(){
                 return true;
             }
 
-            /* A temporary fetch/server error must not erase a valid refresh
-               token. Only a clear terminal refresh-token rejection signs out. */
-            /* B10 Clean15.2 — AUTH IS NEVER DESTROYED BY A BACKGROUND RPC.
-               Refresh-token rejection can be transient/stale while a scan write,
-               delta pull, visibility wake, or another tab is rotating credentials.
-               Background synchronization must never navigate an authenticated
-               Handheld away from Receiving. Keep the last known session/context;
-               the failed RPC may retry on the next sync pass. Explicit Sign Out
-               remains the only runtime path that clears a working user session. */
+            /* Clean15.12: a server-confirmed missing/invalid refresh token is
+               terminal. Preserving it caused every protected RPC/timer to retry
+               the same dead credential, producing the observed /auth/v1/token
+               400 storm and misleading Complete access screen. */
             if(isIrrecoverableRefreshError(error)){
-                Logger?.warn?.("Auth refresh rejected; preserving active UI session",error);
+                Logger?.warn?.("Auth refresh token rejected; clearing stale local session",error);
+                invalidateStaleAuthSession();
+                return false;
             }
+
+            /* Network/server failures remain non-destructive and may recover on
+               a later user action or scheduled refresh. */
             return false;
         }finally{
             AuthState.refreshPromise=null;
@@ -970,14 +952,10 @@ async function loadMyAppContext(){
     if(!getSupabaseAccessToken()){
         AuthState.context = null;
         AuthState.contextLoading = false;
-        AuthState.contextResolved = true;
-        AuthState.contextError = null;
         return null;
     }
 
     AuthState.contextLoading = true;
-    AuthState.contextResolved = false;
-    AuthState.contextError = null;
     try{
         const rows = await authRpc("get_my_app_context",{});
         const row = Array.isArray(rows) ? rows[0] : rows;
@@ -986,8 +964,6 @@ async function loadMyAppContext(){
         );
 
         AuthState.context = row || null;
-        AuthState.contextResolved = true;
-        AuthState.contextError = null;
 
         /*
            DEVISO3 AUTHENTICATION BOUNDARY HOOK
@@ -1040,36 +1016,13 @@ async function loadMyAppContext(){
         return row;
     }
     catch(error){
-        AuthState.contextError = error;
-        AuthState.contextResolved = false;
-        /* Clean15.11: authRpc owns the single bounded 401 refresh/replay. Keep
-           context loading free of a second recursive refresh layer. */
+        /* Clean15.12: authRpc is the single owner of protected-RPC 401 recovery.
+           Do not start a second refresh/retry chain from the context loader. */
         throw error;
     }
     finally{
         AuthState.contextLoading = false;
     }
-}
-
-async function loadMyAppContextForBoot(){
-    /* B10 Clean15.10 — bounded bootstrap retry. A transient network/API/Auth
-       failure is not evidence that a valid user lost pharmacy membership.
-       Retry only during authenticated boot; no perpetual polling is introduced. */
-    const delays=[0,350,900];
-    let lastError=null;
-    for(let attempt=0; attempt<delays.length; attempt+=1){
-        if(delays[attempt]){
-            await new Promise(resolve=>setTimeout(resolve,delays[attempt]));
-        }
-        try{
-            return await loadMyAppContext();
-        }catch(error){
-            lastError=error;
-        }
-    }
-    AuthState.contextError=lastError;
-    AuthState.contextResolved=false;
-    throw lastError || new Error("Unable to resolve pharmacy workspace.");
 }
 
 function normalizeAccountContext(row){
@@ -1619,22 +1572,13 @@ function isPharmacyAdmin(){
 }
 
 function renderAuthState(){
+    finishAuthBootState();
+
     if(AuthState.recoveryActive || window.__MEDRYVO_RECOVERY_ACTIVE){
-        finishAuthBootState();
         lockApplicationForAuth(true);
         showAuthPanel("recovery",{history:"replace"});
         return;
     }
-
-    /* B10 Clean15.10 — fail closed while authenticated workspace context is
-       unresolved. Previously bootstrap swallowed a transient context RPC error,
-       then this renderer treated context=null as a real "no pharmacy" result and
-       showed Complete access on hard refresh. */
-    if(AuthState.session && (AuthState.contextLoading || !AuthState.contextResolved)){
-        return;
-    }
-
-    finishAuthBootState();
     const overlay = document.getElementById("authGate");
     const accessPanel = document.getElementById("authAccessPanel");
     const formsPanel = document.getElementById("authFormsPanel");

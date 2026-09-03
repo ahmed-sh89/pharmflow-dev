@@ -6,10 +6,9 @@
 4. PC: verify cumulative Received matches Handheld after sync.
 5. Active Order add/remove and Clean15 Egress behavior: no regression.
 
-
-## Clean15.11 verification
-- Mobile authenticated hard refresh x5: workspace restores; no false Complete access screen.
-- Supabase API log after refresh: `get_my_app_context` should resolve 200 after any bounded token refresh; no repeated 401 loop.
-- Leave app idle 5 minutes: no new auth retry loop.
-- Handheld Last Scan auto-clear remains 30 seconds.
-- Receiving quantities/sync unchanged.
+### B10 Clean15.12 — Auth Refresh Storm
+- [ ] Existing stale iPhone session: first terminal refresh rejection routes to Sign In, not Complete access.
+- [ ] Sign in once: authenticated pharmacy workspace restores.
+- [ ] Five hard refreshes: workspace restores each time.
+- [ ] Supabase logs: no repeated `refresh_token_not_found` storm after terminal rejection/sign-in.
+- [ ] Receiving/Handheld quantities and sync unchanged.
