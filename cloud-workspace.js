@@ -56,6 +56,10 @@ const PharmFlowCloudWorkspace = {
     startupAuthorityPromise:null,
     startupAuthorityReady:false,
     lastSavedWorkspaceSignature:"",
+    /* B10 Clean21 — compatibility Cloud Workspace writes are structural and
+       dirty-driven only. Local autosave/heartbeat events must never create
+       Supabase writes while the operator is idle. */
+    lastStructuralCloudSignature:"",
     /* B10 Clean18 — canonical read gates. These live at the RPC-owning
        functions, so legacy/startup/UI callers cannot recreate 1 s / 3 s
        bursts by bypassing the adaptive scheduler. */
@@ -365,6 +369,7 @@ function stopCloudWorkspacePendingOperations(){
     PharmFlowCloudWorkspace.startupAuthorityPromise=null;
     PharmFlowCloudWorkspace.startupAuthorityReady=false;
     PharmFlowCloudWorkspace.lastSavedWorkspaceSignature="";
+    PharmFlowCloudWorkspace.lastStructuralCloudSignature="";
     PharmFlowCloudWorkspace.generationCheckBusy=false;
     PharmFlowCloudWorkspace.applyingRemote=false;
 }
@@ -1264,6 +1269,7 @@ async function forceCloudWorkspaceSnapshot(reason="manual"){
                 serializeCurrentWorkspace(),
                 {}
             );
+        markCurrentStructureCloudSynced();
 
         setCloudWorkspaceStatus("synced",reason);
         return true;
@@ -1342,6 +1348,7 @@ async function syncCloudWorkspaceAfterStructuralChange(reason="Workspace structu
 
         PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature=
             stableCloudWorkspaceSignature(snapshot,{});
+        markCurrentStructureCloudSynced();
 
         PharmFlowCloudWorkspace.lastCloudUpdate=nowISO();
 
@@ -1399,18 +1406,17 @@ function currentCloudWorkspaceSignature(){
     return stableCloudWorkspaceSignature(serializeCurrentWorkspace(),{});
 }
 
-function scheduleCloudWorkspaceSnapshot(){
-    const pharmacyId=cloudWorkspacePharmacyId();
-    if(PharmFlowCloudWorkspace.applyingRemote || !pharmacyId) return;
-    if(PharmFlowCloudWorkspace.hydratedPharmacyId!==pharmacyId) return;
+function currentStructuralCloudSignature(){
+    try{
+        return JSON.stringify(serializeActiveOrderManifest());
+    }catch(_){
+        return "";
+    }
+}
 
-    /* Local autosave emits workspace:saved even when nothing changed.
-       Do not turn that persistence heartbeat into a Supabase write. */
-    const signature=currentCloudWorkspaceSignature();
-    if(signature===PharmFlowCloudWorkspace.lastSavedWorkspaceSignature) return;
-
-    clearTimeout(PharmFlowCloudWorkspace.saveTimer);
-    PharmFlowCloudWorkspace.saveTimer=setTimeout(saveCloudWorkspaceSnapshot,700);
+function markCurrentStructureCloudSynced(){
+    PharmFlowCloudWorkspace.lastStructuralCloudSignature=
+        currentStructuralCloudSignature();
 }
 
 async function saveCloudWorkspaceSnapshot(){
@@ -1892,6 +1898,7 @@ async function restoreCloudWorkspaceOnLogin(){
                     stableCloudWorkspaceSignature(cloudState,row);
                 PharmFlowCloudWorkspace.lastSavedWorkspaceSignature=
                     PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature;
+                markCurrentStructureCloudSynced();
                 PharmFlowCloudWorkspace.applyingRemote=false;
             }
 
@@ -2139,8 +2146,10 @@ function initializePharmFlowCloudWorkspace(){
     if(PharmFlowCloudWorkspace.initialized) return;
     PharmFlowCloudWorkspace.initialized=true;
     AppEvents.on("receiving:transaction",queueCloudWorkspaceTransaction);
-    AppEvents.on("workspace:saved",scheduleCloudWorkspaceSnapshot);
 
+    /* B10 Clean21 — do not bridge the 5-second local autosave heartbeat to
+       Supabase. Receiving deltas already have their own authoritative queue,
+       and structural workspace changes are handled below. */
     AppEvents.on("files:updated",event=>{
         try{
             saveWorkspaceSnapshot?.();
@@ -2160,12 +2169,28 @@ function initializePharmFlowCloudWorkspace(){
             return;
         }
 
+        const structuralSignature=currentStructuralCloudSignature();
+        if(
+            structuralSignature &&
+            structuralSignature===PharmFlowCloudWorkspace.lastStructuralCloudSignature
+        ){
+            return;
+        }
+
         setTimeout(async()=>{
             if(
                 PharmFlowCloudWorkspace.loginAuthorityReady!==true ||
                 PharmFlowCloudWorkspace.contextSwitching ||
                 PharmFlowCloudWorkspace.applyingRemote ||
                 PharmFlowCloudWorkspace.generation===null
+            ){
+                return;
+            }
+
+            const latestStructuralSignature=currentStructuralCloudSignature();
+            if(
+                latestStructuralSignature &&
+                latestStructuralSignature===PharmFlowCloudWorkspace.lastStructuralCloudSignature
             ){
                 return;
             }
