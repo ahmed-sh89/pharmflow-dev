@@ -65,27 +65,30 @@ async function bootstrapMedryvo(){
         if(typeof initializeAuth === "function"){
             await initializeAuth();
 
+            /* B10 Clean15.13 — one ordered authenticated bootstrap. Do not
+               swallow an auth-boundary failure and continue into the next
+               protected RPC; that behavior created the observed 401/400 storm
+               and eventually rendered Complete access from false null state. */
             if(typeof finishPendingAccessIfPossible === "function" && getSupabaseAccessToken()){
-                await finishPendingAccessIfPossible().catch(()=>{});
+                await finishPendingAccessIfPossible();
+            }
+
+            if(typeof AuthState !== "undefined" && AuthState.authGateClosed){
+                renderAuthState?.();
+                return;
             }
 
             if(typeof loadMyAppContext === "function" && getSupabaseAccessToken()){
-                try{
-                    if(typeof loadMyAppContextForBoot === "function"){
-                        await loadMyAppContextForBoot();
-                    }else{
-                        await loadMyAppContext();
-                    }
-                }catch(error){
-                    /* B10 Clean15.10 — a transient context-load failure must not
-                       become a false Complete access decision. renderAuthState
-                       keeps the authenticated boot surface fail-closed. */
-                    console.warn("PharmFlow workspace context is temporarily unavailable",error);
-                }
+                await loadMyAppContext();
+            }
+
+            if(typeof AuthState !== "undefined" && AuthState.authGateClosed){
+                renderAuthState?.();
+                return;
             }
 
             if(typeof loadMyRegistrationStatus === "function" && getSupabaseAccessToken()){
-                await loadMyRegistrationStatus().catch(()=>{});
+                await loadMyRegistrationStatus();
             }
 
             if(typeof renderAuthState === "function"){
@@ -104,6 +107,10 @@ async function bootstrapMedryvo(){
     }
     catch(error){
         console.error("PharmFlow authentication bootstrap failed", error);
+        if(typeof AuthState !== "undefined" && (AuthState.authGateClosed || error?.authRequired)){
+            try{ lockApplicationForAuth(true); }catch(_){}
+            try{ renderAuthState(); }catch(_){}
+        }
         if(typeof setAuthMessage === "function"){
             setAuthMessage(error.message || "Unable to initialize secure access.", "error");
         }
@@ -123,21 +130,6 @@ window.bootProtectedApplication = async function(){
 async function startApplication(){
 
     if(PharmacyApp.initialized){
-        /*
-           Re-authentication in the same tab must also be server-first.
-           Never render the previous/stale runtime before cloud authority.
-        */
-        ensureCloudAccountContextIsolation?.();
-
-        if(typeof restoreCloudWorkspaceOnLogin==="function"){
-            await restoreCloudWorkspaceOnLogin();
-        }
-
-        if(typeof restoreHistoricalArchive==="function"){
-            await Promise.resolve(restoreHistoricalArchive());
-        }
-
-        refreshEntireUI?.();
         return;
     }
 
@@ -157,17 +149,8 @@ async function startApplication(){
 
         PharmacyApp.modules.state = true;
 
-        /*
-           2C.11.4.8 — BLOCK FIRST UI RENDER UNTIL SERVER AUTHORITY.
-           cloud-workspace.js is loaded before app.js, so the function is
-           available here. An empty runtime is hydrated from the authoritative
-           Active Order Manifest / Cloud Workspace before router/UI startup.
-        */
-        if(typeof restoreCloudWorkspaceOnLogin==="function"){
-            await restoreCloudWorkspaceOnLogin();
-        }
-
-        /* Legacy compatibility guard, after authoritative hydration only. */
+        /* Phase 2C.5.3.1: Supabase is authoritative across PCs.
+           Validate any restored local workspace before exposing it. */
         if(typeof reconcileRestoredWorkspaceWithCloud === "function"){
             await reconcileRestoredWorkspaceWithCloud({reason:"startup"});
         }
@@ -726,209 +709,109 @@ function requestResetWorkspace(){
 
 async function resetCurrentWorkspace(){
 
-    const activeOrderNumbers=(()=>{
-        const seen=new Set();
-        const values=[];
-        const files=Array.isArray(AppState?.workspace?.orderFiles)
+    /* Phase 2C.5.4.5
+       Reset/close of an UNFINALIZED workspace is an intentional discard.
+       Supabase must be cleared first so the order number does not remain as
+       an orphan active registry record and falsely block a future upload.
+       Finalized/received orders are protected by the RPC and remain history. */
+
+    const activeOrderNumbers = (()=>{
+        const seen = new Set();
+        const values = [];
+        const files = Array.isArray(AppState?.workspace?.orderFiles)
             ? AppState.workspace.orderFiles
             : [];
-
         files.forEach(file=>{
-            const raw=file?.documentId || file?.orderNumber || "";
-            const value=typeof normalizeOrderNumber==="function"
+            const raw = file?.documentId || file?.orderNumber || "";
+            const value = typeof normalizeOrderNumber === "function"
                 ? normalizeOrderNumber(raw)
                 : String(raw||"").trim().toUpperCase().replace(/\s+/g,"");
-
             if(value && !seen.has(value)){
                 seen.add(value);
                 values.push(value);
             }
         });
-
         return values;
     })();
 
-    const withTimeout=(promise,ms,message)=>Promise.race([
-        Promise.resolve(promise),
-        new Promise((_,reject)=>setTimeout(
-            ()=>reject(new Error(message)),
-            ms
-        ))
-    ]);
-
     try{
-        showLoading("Resetting current workspace...");
+        showLoading("Closing current workspace...");
 
+        /* If this PC owns a live Handheld session, end it authoritatively
+           before discarding the unfinished order. */
         if(
-            typeof authRpc!=="function" ||
-            typeof AuthState==="undefined" ||
-            !AuthState.context?.pharmacy_id
+            AppState?.session?.cloud === true &&
+            AppState?.session?.role === "PC" &&
+            typeof leaveCloudSession === "function"
         ){
-            throw new Error(
-                "Pharmacy cloud context is unavailable. Sign in again before resetting."
-            );
-        }
-
-        const pharmacyId=AuthState.context.pharmacy_id;
-
-        /* A live PC/Handheld link should be ended, but it must never hold the
-           entire Reset screen for a minute. */
-        if(
-            AppState?.session?.cloud===true &&
-            AppState?.session?.role==="PC" &&
-            typeof leaveCloudSession==="function"
-        ){
-            try{
-                await withTimeout(
-                    leaveCloudSession(),
-                    6500,
-                    "Live session did not close in time"
-                );
-            }catch(error){
-                Logger.warn("Reset continuing after session-close timeout",error);
+            const ended = await leaveCloudSession();
+            if(ended === false){
+                throw new Error("Unable to end the live session. Current workspace was not cleared.");
             }
         }
 
-        if(typeof cancelPendingCloudWorkspaceSave==="function"){
-            cancelPendingCloudWorkspaceSave();
-        }
+        if(activeOrderNumbers.length){
+            if(
+                typeof authRpc !== "function" ||
+                typeof AuthState === "undefined" ||
+                !AuthState.context?.pharmacy_id
+            ){
+                throw new Error("Pharmacy cloud context is unavailable. Sign in again before closing the current order.");
+            }
 
-        /* Temporary review media is Storage API owned. Clean it before the
-           database reset so SQL never attempts forbidden storage.objects DML. */
-        if(typeof nrV2ClearReceivingQueue==="function"){
-            await withTimeout(
-                nrV2ClearReceivingQueue(),
-                12000,
-                "Needs Review cleanup timed out"
-            );
-        }
-
-        if(typeof PharmFlowCloudWorkspace!=="undefined"){
-            PharmFlowCloudWorkspace.suppressNextClearRpc=true;
-        }
-
-        /*
-           ONE server transaction:
-           - increments workspace generation
-           - discards unfinished order/source registry
-           - clears shared cloud workspace
-
-           A stale PC with the old generation is then physically unable
-           to save its old order back to Supabase.
-        */
-        const resetReceipt=await withTimeout(
-            authRpc("atomic_reset_pharmflow_current_workspace_v4",{
-                p_pharmacy_id:pharmacyId,
-                p_confirmation:"RESET CURRENT WORKSPACE"
-            }),
-            15000,
-            "Cloud reset timed out. Nothing was cleared locally — please try again."
-        );
-
-        const receipt=Array.isArray(resetReceipt)?resetReceipt[0]:resetReceipt;
-        if(!receipt || receipt.success!==true){
-            throw new Error("Server did not confirm the workspace reset");
-        }
-        const newGeneration=Number(receipt.generation||0);
-
-        if(typeof PharmFlowCloudWorkspace!=="undefined"){
-            PharmFlowCloudWorkspace.generation=
-                Number.isFinite(newGeneration) ? newGeneration : 0;
-
-            PharmFlowCloudWorkspace.hydratedPharmacyId=pharmacyId;
-            PharmFlowCloudWorkspace.lastCloudUpdate=null;
-
-            if(typeof writeCloudQueue==="function"){
-                writeCloudQueue([]);
+            for(const orderNumber of activeOrderNumbers){
+                await authRpc("discard_pharmflow_active_order",{
+                    p_pharmacy_id:AuthState.context.pharmacy_id,
+                    p_order_number:orderNumber,
+                    p_confirmation:orderNumber
+                });
             }
         }
 
-        if(typeof resetOperationalStateToDefault==="function"){
+        if(typeof resetOperationalStateToDefault === "function"){
             resetOperationalStateToDefault();
         }else{
             clearCurrentWorkspace();
-            AppState.session=createEmptySession();
+            AppState.session = createEmptySession();
             ensureDeviceId();
             deleteWorkspaceSnapshot();
         }
-
-        /* Server reset is authoritative. Never retain a connected local session
-           or stale operational counters after a confirmed reset. */
-        AppState.session=createEmptySession();
-        ensureDeviceId();
-        AppState.workspace.active=false;
-        AppState.workspace.orderData=[];
-        AppState.workspace.orderFiles=[];
-        AppState.workspace.receivingHistory=[];
-        AppState.workspace.selectedOrderNumbers=[];
-        AppState.workspace.selectedOrderNumber="";
-        resetStatistics?.();
-        deleteWorkspaceSnapshot?.();
-        stopCloudPolling?.();
 
         if(typeof ReceivingEngine!=="undefined"){
             ReceivingEngine.recentScans=[];
             ReceivingEngine.lastTransaction=null;
         }
 
+        if(typeof refreshOrderLifecycleRegistry === "function"){
+            await refreshOrderLifecycleRegistry();
+        }
+
         refreshEntireUI();
         navigateTo("dashboard");
-        if(typeof refreshNeedsReviewCounters==="function"){
-            await refreshNeedsReviewCounters();
-        }
-        hideLoading();
-
-        const resetMessage=
-            "Current workspace reset successfully · Active orders removed: "+
-            Number(receipt.active_orders_deleted||0)+
-            " · Receiving transactions removed: "+
-            Number(receipt.receiving_transactions_deleted||0)+
-            " · Needs Review cleared";
-
-        showToast(resetMessage,"success",12000);
-        if(typeof showPharmFlowOperationReceipt==="function"){
-            showPharmFlowOperationReceipt(resetMessage,"success");
-        }
-
-        /* Everything below is background maintenance only.
-           Reset success does not wait for it. */
-        Promise.resolve().then(async()=>{
-            try{
-                if(typeof refreshOrderLifecycleRegistry==="function"){
-                    await refreshOrderLifecycleRegistry();
-                }
-            }catch(_){}
-
-            try{
-                if(typeof restoreHistoricalArchive==="function"){
-                    await restoreHistoricalArchive();
-                }
-            }catch(_){}
-
-            try{
-                if(typeof syncGlobalMasterGTINFromCloud==="function"){
-                    await syncGlobalMasterGTINFromCloud();
-                }
-            }catch(_){}
-        });
-
+        showToast(
+            activeOrderNumbers.length
+                ? "Unfinalized order discarded — it can be uploaded again"
+                : "Current workspace reset",
+            "success"
+        );
         focusScannerInput();
         return true;
 
-    }catch(error){
+    }
+    catch(error){
         Logger.error("Workspace reset failed",error);
-
         showToast(
             error?.message || "Unable to reset workspace",
             "error"
         );
-
         return false;
-
-    }finally{
+    }
+    finally{
         hideLoading();
     }
+
 }
+
 
 
 /* =====================================================
@@ -937,27 +820,20 @@ async function resetCurrentWorkspace(){
 
 function requestDeleteAllHistory(){
 
-    const previousReceipt=document.getElementById("historicalDeleteReceipt");
-    if(previousReceipt){
-        previousReceipt.hidden=true;
-        previousReceipt.textContent="";
-        previousReceipt.className="operationReceipt";
-    }
-
     showConfirmModal(
 
         "Delete All Historical Data",
 
         "This will permanently delete all RECEIVED order history for this pharmacy from Supabase and this browser. Active uploaded orders, Global GTIN Master, Returns Archive, users, and other pharmacies are not affected. This action cannot be undone.",
 
-        async function(){
+        function(){
 
             if(
                 typeof deleteAllHistoricalData ===
                 "function"
             ){
 
-                await deleteAllHistoricalData();
+                deleteAllHistoricalData();
 
             }
             else{
@@ -1313,57 +1189,6 @@ function bindCoreApplicationButtons(){
                 }
             }
         );
-
-    /* Phase 2C.9.8:
-       Zebra QR/DataWedge may type the Session Number without Enter.
-       A fast complete numeric scanner burst joins automatically. */
-    {
-        const joinInput = document.getElementById("cloudSessionCodeInput");
-        if(joinInput && joinInput.dataset.directQrJoinBound !== "1"){
-            joinInput.dataset.directQrJoinBound = "1";
-
-            let joinScanTimer = null;
-            let burstStartedAt = 0;
-            let previousLength = 0;
-
-            joinInput.addEventListener("input",function(event){
-                if(
-                    typeof isLikelyZebraDevice !== "function" ||
-                    !isLikelyZebraDevice()
-                ){
-                    return;
-                }
-
-                const input = event.currentTarget;
-                const digits = String(input.value || "").replace(/\D/g,"");
-                input.value = digits;
-
-                const now = Date.now();
-                if(previousLength === 0 || digits.length <= previousLength){
-                    burstStartedAt = now;
-                }
-                previousLength = digits.length;
-
-                clearTimeout(joinScanTimer);
-
-                if(digits.length >= 6){
-                    joinScanTimer = setTimeout(()=>{
-                        const current = String(input.value || "").replace(/\D/g,"");
-                        const elapsed = Date.now() - burstStartedAt;
-
-                        if(
-                            current.length >= 6 &&
-                            elapsed <= 1200 &&
-                            typeof joinCloudReceivingSession === "function"
-                        ){
-                            try{ input.blur(); }catch(_){}
-                            joinCloudReceivingSession(current);
-                        }
-                    },140);
-                }
-            });
-        }
-    }
 
 
     document

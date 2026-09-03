@@ -1,10 +1,9 @@
-# B10 Clean15.7
 
-Fixed a reconciliation boundary in `applyActiveOrderManifest()` where fresh structural orderData could temporarily overwrite current cumulative receiving quantities. The preserved transaction ledger is now reapplied before the workspace is rendered or persisted.
-
-## B10 Clean15.12 — Auth Refresh Storm Root Fix (2026-09-03)
-- USER evidence: `/auth/v1/token?grant_type=refresh_token` repeatedly returned HTTP 400 `refresh_token_not_found`, followed by protected RPC 401s.
-- Terminal refresh-token rejection now clears only stale local auth credentials and routes to Sign In instead of preserving/retrying a dead session.
-- `authRpc` is the single protected-RPC 401 recovery owner; duplicate context-loader refresh recursion removed.
-- Refresh remains single-flight. Transient network/server refresh failures remain non-destructive.
-- No Receiving, Handheld quantity, ledger, manifest, SQL, schema, or Egress polling changes.
+## B10 Clean15.13 — Unified Auth Gate Root Fix
+- Root evidence: repeated `/auth/v1/token` 400 `refresh_token_not_found` plus protected workspace RPC 401s during the same mobile refresh.
+- Removed the duplicate refresh fallback from `resumeAuthenticatedApp`; `authRpc` is now the sole 401 refresh owner.
+- Added a terminal per-boot auth gate: once a refresh credential is rejected, no later protected startup RPC can run with the stale session.
+- Bootstrap no longer swallows auth-boundary failures and continues into context/registration RPCs.
+- Registration/admin-assignment loaders no longer convert auth failure into a false "no pharmacy" state.
+- Terminal auth failure renders Sign In, never Complete access.
+- No Receiving, Handheld quantity, manifest/ledger, SQL, or Egress polling logic changed.

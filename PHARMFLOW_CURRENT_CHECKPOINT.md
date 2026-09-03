@@ -1,11 +1,3 @@
-# PharmFlow Project B — B10 Clean15.7
 
-Handheld Received sync root fix.
-
-- Active Order Manifest remains structural authority only.
-- When a manifest is applied, preserved receivingHistory is immediately re-projected onto orderData before statistics/render/save.
-- Prevents a structural manifest refresh from rolling cumulative Received backward while local Batch Qty continues correctly.
-- No change to Batch Qty semantics, transaction writes, Supabase RPCs, polling cadence, Egress Clean15 behavior, PC receiving logic, or Project A.
-
-## B10 Clean15.12 — Pending User Verification
-Auth refresh-storm root fix. A Supabase `refresh_token_not_found` response is now terminal for the stale local credential: stop retries, clear local auth only, and require one fresh Sign In. Verify repeated page refreshes no longer create repeated token 400s and workspace access restores after sign-in.
+### B10 Clean15.13 — Awaiting user verification
+Unified Auth Gate root fix applied after Supabase logs confirmed refresh-token rejection (400) followed by protected RPC 401s. Expected result: stale session causes one terminal auth recovery to Sign In; no Complete access false state and no refresh-token request storm. Receiving/Handheld operational paths unchanged.

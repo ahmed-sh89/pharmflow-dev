@@ -25,6 +25,10 @@ const AuthState = {
        several concurrent authenticated RPCs; refresh-token rotation must
        never let a losing refresh attempt clear an otherwise valid session. */
     refreshPromise:null,
+    /* B10 Clean15.13 — terminal auth failures close the protected-RPC gate for
+       the remainder of this page boot. Only a successful password/session
+       persist may reopen it. */
+    authGateClosed:false,
     busy:false,
     registration:null,
     ownerRegistrations:[],
@@ -451,6 +455,7 @@ function restoreAuthSession(){
 
 function persistAuthSession(session){
     AuthState.session = session || null;
+    if(session){ AuthState.authGateClosed=false; }
     AuthState.user = session && session.user ? session.user : null;
     if(session){
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
@@ -506,9 +511,18 @@ async function publicRpc(functionName, params = {}){
 }
 
 async function authRpc(functionName, params = {}){
+    /* Clean15.13: every protected RPC crosses one auth gate. Once Supabase has
+       rejected the refresh credential, no later startup task may keep sending
+       stale protected requests during the same boot. */
+    if(AuthState.authGateClosed){
+        const error=new Error("Your sign-in expired. Please sign in again.");
+        error.authRequired=true;
+        throw error;
+    }
+
     const execute = async () => {
         const token = getSupabaseAccessToken();
-        if(!token){ throw new Error("Please sign in first"); }
+        if(!token){ const e=new Error("Please sign in first"); e.authRequired=true; throw e; }
         return authRequest("/rest/v1/rpc/" + encodeURIComponent(functionName), {
             method:"POST",
             headers:{"Authorization":"Bearer " + token,"Accept":"application/json"},
@@ -534,7 +548,9 @@ async function authRpc(functionName, params = {}){
                 : false;
 
         if(!refreshed){
-            throw new Error("Your sign-in expired. Please sign in again.");
+            const e=new Error("Your sign-in expired. Please sign in again.");
+            e.authRequired=true;
+            throw e;
         }
 
         return execute();
@@ -674,7 +690,13 @@ async function loadMyRegistrationStatus(){
         AuthState.registration = row || null;
         return AuthState.registration;
     }
-    catch(_){ AuthState.registration=null; return null; }
+    catch(error){
+        /* Clean15.13: never translate an auth boundary failure into
+           "no pharmacy registration"; that false null fed Complete access. */
+        if(error?.authRequired || AuthState.authGateClosed){ throw error; }
+        AuthState.registration=null;
+        return null;
+    }
 }
 
 async function signUpInvitedUser(){
@@ -830,6 +852,7 @@ function invalidateStaleAuthSession(){
        gate. Server pharmacy membership and operational data are untouched. */
     if(AuthState.refreshTimer){ clearTimeout(AuthState.refreshTimer); }
     AuthState.refreshTimer=null;
+    AuthState.authGateClosed=true;
     AuthState.session=null;
     AuthState.user=null;
     AuthState.context=null;
@@ -844,6 +867,7 @@ function invalidateStaleAuthSession(){
 }
 
 async function refreshAuthToken(){
+    if(AuthState.authGateClosed){ return false; }
     if(!AuthState.session || !AuthState.session.refresh_token){ return false; }
 
     /* B10 Clean15.1 — SINGLE-FLIGHT AUTH REFRESH.
@@ -1064,6 +1088,7 @@ async function claimAssignedAdminIfAvailable(throwIfMissing=false){
         const row = Array.isArray(rows) ? rows[0] : rows;
         return row || null;
     }catch(error){
+        if(error?.authRequired || AuthState.authGateClosed){ throw error; }
         const message = String(error && error.message || "");
         if(!throwIfMissing && /no pending admin assignment|not assigned|assignment/i.test(message)){
             return null;
@@ -1074,8 +1099,12 @@ async function claimAssignedAdminIfAvailable(throwIfMissing=false){
 }
 
 async function finishPendingAccessIfPossible(){
-    if(!getSupabaseAccessToken()){ return; }
-    await claimAssignedAdminIfAvailable(false).catch(()=>{});
+    if(AuthState.authGateClosed || !getSupabaseAccessToken()){ return; }
+    try{
+        await claimAssignedAdminIfAvailable(false);
+    }catch(error){
+        if(error?.authRequired || AuthState.authGateClosed){ throw error; }
+    }
     if(localStorage.getItem(AUTH_PENDING_OWNER_KEY)){
         await loadPublicSetupStatus().catch(()=>{});
         if(!AuthState.ownerExists){
@@ -1092,7 +1121,11 @@ async function finishPendingAccessIfPossible(){
     if(localStorage.getItem(AUTH_PENDING_INVITE_KEY)){
         await redeemPendingInvite();
     }
-    await loadMyRegistrationStatus().catch(()=>{});
+    try{
+        await loadMyRegistrationStatus();
+    }catch(error){
+        if(error?.authRequired || AuthState.authGateClosed){ throw error; }
+    }
 }
 
 async function completePendingOwnerSetup(){
@@ -1275,16 +1308,14 @@ async function resumeAuthenticatedApp(){
         lockApplicationForAuth(false);
         return false;
     }
-    catch(_){
-        const refreshed = await refreshAuthToken();
-        if(refreshed){
-            await finishPendingAccessIfPossible().catch(()=>{});
-            await loadMyAppContext();
+    catch(error){
+        /* Clean15.13: authRpc already owns the single refresh + retry. The old
+           resume fallback started a second refresh chain after a failed RPC,
+           which is the direct source of repeated /auth/v1/token 400s. */
+        if(error?.authRequired || AuthState.authGateClosed || !AuthState.session){
+            lockApplicationForAuth(true);
             renderAuthState();
-            if(hasApplicationAccess()){
-                unlockApplicationAfterAuth();
-                return true;
-            }
+            return false;
         }
         lockApplicationForAuth();
         return false;
@@ -1609,7 +1640,7 @@ function renderAuthState(){
         return;
     }
 
-    if(!AuthState.session){
+    if(AuthState.authGateClosed || !AuthState.session){
         clearSensitiveAuthFields();
         if(overlay){ overlay.classList.add("visible"); }
         if(formsPanel){ formsPanel.hidden = false; }
