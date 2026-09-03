@@ -46,7 +46,7 @@ const PharmFlowCloudWorkspace = {
     manifestMetaBusy:false,
     /* B10 Clean16 — one adaptive READ scheduler + foreground de-duplication.
        Prevent refresh/focus/visibility from starting overlapping authority reads. */
-    lastUserActivityAt:Date.now(),
+    lastReceivingActivityAt:0,
     lastGenerationPollAt:0,
     lastManifestMetaPollAt:0,
     lastReceivingPollAt:0,
@@ -2216,17 +2216,17 @@ function initializePharmFlowCloudWorkspace(){
         ensureStartupCloudAuthority();
     });
 
-    /* B10 Clean16 — Egress / request root fix.
+    /* B10 Clean20 — Idle polling consolidation (building on Clean16).
        Clean14 already made receiving reads incremental, but this branch had
        regressed to independent fixed 1 s + 3 s loops. Restore one adaptive
        scheduler: immediate writes remain immediate; background READs back off. */
-    const markCloudActivity=()=>{
-        PharmFlowCloudWorkspace.lastUserActivityAt=Date.now();
+    /* B10 Clean20 — receiving activity, not generic page activity, owns the
+       fast-sync window. Merely touching/focusing the page must not keep a
+       workstation in 3-second cloud polling indefinitely. */
+    const markReceivingCloudActivity=()=>{
+        PharmFlowCloudWorkspace.lastReceivingActivityAt=Date.now();
     };
-    ["pointerdown","keydown","touchstart"].forEach(type=>
-        document.addEventListener(type,markCloudActivity,{passive:true,capture:true})
-    );
-    AppEvents.on("receiving:transaction",markCloudActivity);
+    AppEvents.on("receiving:transaction",markReceivingCloudActivity);
 
     const runAdaptiveCloudSync=async()=>{
         PharmFlowCloudWorkspace.pollTimer=null;
@@ -2249,9 +2249,9 @@ function initializePharmFlowCloudWorkspace(){
         }
 
         const now=Date.now();
-        const active=(now-Number(PharmFlowCloudWorkspace.lastUserActivityAt||0))<120000;
-        const receivingEvery=active ? 3000 : 15000;
-        const manifestEvery=active ? 15000 : 60000;
+        const receivingActive=(now-Number(PharmFlowCloudWorkspace.lastReceivingActivityAt||0))<30000;
+        const receivingEvery=receivingActive ? 3000 : 15000;
+        const manifestEvery=60000;
         const generationEvery=60000;
 
         try{
@@ -2274,7 +2274,7 @@ function initializePharmFlowCloudWorkspace(){
         }finally{
             PharmFlowCloudWorkspace.pollTimer=setTimeout(
                 runAdaptiveCloudSync,
-                active ? 3000 : 15000
+                receivingActive ? 3000 : 15000
             );
         }
     };
@@ -2290,7 +2290,6 @@ function initializePharmFlowCloudWorkspace(){
             return Promise.resolve(true);
         }
         PharmFlowCloudWorkspace.lastForegroundSyncAt=now;
-        PharmFlowCloudWorkspace.lastUserActivityAt=now;
 
         PharmFlowCloudWorkspace.foregroundSyncPromise=(async()=>{
             if(PharmFlowCloudWorkspace.startupAuthorityReady!==true){

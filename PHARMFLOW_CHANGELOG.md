@@ -1,5 +1,10 @@
-# Changelog
-## B10 Clean19
-- Confirmed deployment-path root cause behind persistent 1s/3s RPC fingerprint.
-- Canonical cloud sync owner now loaded from repository root for iPhone GitHub upload workflow.
-- Preserves Clean16 adaptive polling and Clean17/18 dedupe/read gates.
+# PharmFlow Changelog
+
+## B10 Clean20 — Idle Polling Consolidation
+- Removed generic UI activity as the owner of fast receiving cloud polling.
+- Limited fast 3s delta sync to a short 30s window after a real receiving transaction.
+- Kept idle receiving delta sync at 15s.
+- Reduced Needs Review cloud count polling from 6s to 30s with focus/visibility dedupe.
+- Set Active Order manifest metadata background cadence to 60s.
+- Kept immediate writes and Supabase authority unchanged.
+- Loaded modified root `ui.js` and `cloud-workspace.js` explicitly for mobile GitHub deployment consistency.
