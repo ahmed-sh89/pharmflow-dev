@@ -7,12 +7,5 @@ Handheld Received sync root fix.
 - Prevents a structural manifest refresh from rolling cumulative Received backward while local Batch Qty continues correctly.
 - No change to Batch Qty semantics, transaction writes, Supabase RPCs, polling cadence, Egress Clean15 behavior, PC receiving logic, or Project A.
 
-# PharmFlow Project B — B10 Clean15.8
-
-Asset cache version root fix.
-
-- All local JS/CSS references in `index.html` use one release token: `B10CLEAN15_8`.
-- Prevents mixed-version browser cache after Project B deployments.
-- No Service Worker or Cache API was introduced.
-- No receiving, Handheld, PC, Supabase, sync, polling, Egress, SQL, or business logic was changed.
-- Clean15.7 Received reconciliation remains preserved unchanged.
+### B10 Clean15.9 — Pending User Verification
+Handheld Receiving Last Scan uses the same 30-second inactivity boundary as PC. Timer identity is bound to the actual Last Scan transaction so cloud/workspace re-renders do not postpone auto-clear. Auto-clear is UI/local-batch only; Received/history remain authoritative and unchanged. Asset cache token is B10CLEAN15_9.

@@ -466,16 +466,16 @@ function createSmartScanSearchUI(){
 ===================================================== */
 
 
-let pcReceivingAutoClearTimer=null;
-let pcReceivingAutoClearKey="";
+let receivingAutoClearTimer=null;
+let receivingAutoClearKey="";
 
-function cancelPcReceivingAutoClear(){
-    clearTimeout(pcReceivingAutoClearTimer);
-    pcReceivingAutoClearTimer=null;
-    pcReceivingAutoClearKey="";
+function cancelReceivingAutoClear(){
+    clearTimeout(receivingAutoClearTimer);
+    receivingAutoClearTimer=null;
+    receivingAutoClearKey="";
 }
 
-function pcReceivingLastScanKey(scan){
+function receivingLastScanKey(scan){
     if(!scan) return "";
 
     return toSafeString(
@@ -489,58 +489,54 @@ function pcReceivingLastScanKey(scan){
     );
 }
 
-function schedulePcReceivingAutoClear(scan){
-    let isHandheld=false;
+function scheduleReceivingAutoClear(scan){
+    if(!scan) return;
 
-    try{
-        isHandheld=typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice();
-    }catch(_){}
+    const key=receivingLastScanKey(scan);
 
-    if(isHandheld || !scan){
-        return;
-    }
+    /* Cloud/workspace refreshes may render Last Scan repeatedly. The timer is
+       tied to the actual scan identity, so sync cannot postpone the 30-second
+       operator inactivity boundary. */
+    if(!key || key===receivingAutoClearKey) return;
 
-    const key=pcReceivingLastScanKey(scan);
+    cancelReceivingAutoClear();
+    receivingAutoClearKey=key;
 
-    if(!key || key===pcReceivingAutoClearKey){
-        return;
-    }
-
-    cancelPcReceivingAutoClear();
-    pcReceivingAutoClearKey=key;
-
-    pcReceivingAutoClearTimer=setTimeout(()=>{
+    receivingAutoClearTimer=setTimeout(()=>{
         const current=AppState?.workspace?.lastScan;
 
-        if(
-            !current ||
-            pcReceivingLastScanKey(current)!==key
-        ){
-            return;
+        if(!current || receivingLastScanKey(current)!==key) return;
+
+        let isHandheld=false;
+        try{
+            isHandheld=typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice();
+        }catch(_){}
+
+        /* PC quantity editing is deliberate activity. Handheld has no modal
+           dependency here, so its Last Scan always clears after 30 seconds. */
+        if(!isHandheld){
+            const quantityModal=document.getElementById("quantityAdjustmentModal");
+            if(quantityModal?.classList?.contains("open")){
+                receivingAutoClearKey="";
+                scheduleReceivingAutoClear(current);
+                return;
+            }
         }
 
-        /* Do not clear while the pharmacist is actively adjusting quantity. */
-        const quantityModal=document.getElementById("quantityAdjustmentModal");
-
-        if(quantityModal?.classList?.contains("open")){
-            pcReceivingAutoClearKey="";
-            schedulePcReceivingAutoClear(current);
-            return;
-        }
-
-        /* PC Last Scan clear ends the local operator batch only.
-           Receiving totals/history stay untouched; the next scan starts at 1. */
-        if(typeof resetCurrentLocalBatch === "function"){
-            resetCurrentLocalBatch();
-        }
+        /* UI/local-batch boundary only. Never reverse a receiving transaction
+           or change cumulative Received/history. */
+        if(typeof resetCurrentLocalBatch==="function") resetCurrentLocalBatch();
 
         AppState.workspace.lastScan=null;
-        cancelPcReceivingAutoClear();
-
+        cancelReceivingAutoClear();
         refreshEntireUI?.();
+        window.hhRefreshReadyState?.();
 
         try{ document.activeElement?.blur?.(); }catch(_){}
-        setTimeout(()=>focusScannerInput?.(),30);
+        setTimeout(()=>{
+            focusScannerInput?.();
+            if(isHandheld) window.hhRepairScannerFocus?.("last-scan-auto-clear");
+        },30);
     },30000);
 }
 
@@ -574,7 +570,7 @@ function ensurePcClearScreenButton(){
         /*
            Visual-only clear. Does not modify receiving quantities/history.
         */
-        cancelPcReceivingAutoClear();
+        cancelReceivingAutoClear();
 
         /* CLEAR SCREEN is UI-only for shared receiving data, but it is an
            explicit boundary for this PC's local current batch. */
@@ -2094,7 +2090,7 @@ function refreshLastScan(){
 
     if(!scan){
 
-        cancelPcReceivingAutoClear();
+        cancelReceivingAutoClear();
         clearLastScanUI();
 
         refreshProfessionalLastScan(
@@ -2106,7 +2102,7 @@ function refreshLastScan(){
         return;
     }
 
-    schedulePcReceivingAutoClear(scan);
+    scheduleReceivingAutoClear(scan);
 
     /*
        Keep legacy elements updated for compatibility
@@ -5563,6 +5559,7 @@ function createLastScanQuantityControls(){
           if(typeof resetCurrentLocalBatch==="function"){
               resetCurrentLocalBatch();
           }
+          cancelReceivingAutoClear();
           AppState.workspace.lastScan=null;
 
           refreshEntireUI?.();
