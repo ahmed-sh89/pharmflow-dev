@@ -1,5 +1,5 @@
-# PharmFlow Changelog — B10 Clean18
-- Added canonical RPC read gates in cloud-workspace.js.
-- Prevented caller-level bypass from recreating cloud read bursts.
-- Reset read gates on authenticated context change.
-- Bumped cloud-workspace asset version to B10CLEAN18.
+# Changelog
+## B10 Clean19
+- Confirmed deployment-path root cause behind persistent 1s/3s RPC fingerprint.
+- Canonical cloud sync owner now loaded from repository root for iPhone GitHub upload workflow.
+- Preserves Clean16 adaptive polling and Clean17/18 dedupe/read gates.
