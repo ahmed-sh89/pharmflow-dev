@@ -492,7 +492,15 @@ async function authRequest(path, options = {}){
             ("Authentication request failed (" + response.status + ")")
         );
         error.status = response.status;
-        error.code = data && (data.code || data.error_code) || "";
+        /* B10 Clean15.14 — Supabase Auth can expose the canonical failure code
+           only in the response header (observed: refresh_token_not_found).
+           Preserve body codes as fallback, but make the header authoritative so
+           terminal refresh rejection closes the auth gate immediately. */
+        const headerErrorCode =
+            response.headers.get("x-sb-error-code") ||
+            response.headers.get("x_sb_error_code") ||
+            "";
+        error.code = headerErrorCode || (data && (data.code || data.error_code)) || "";
         error.payload = data;
         throw error;
     }

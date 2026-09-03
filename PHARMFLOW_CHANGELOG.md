@@ -7,3 +7,11 @@
 - Registration/admin-assignment loaders no longer convert auth failure into a false "no pharmacy" state.
 - Terminal auth failure renders Sign In, never Complete access.
 - No Receiving, Handheld quantity, manifest/ledger, SQL, or Egress polling logic changed.
+
+
+## B10 Clean15.14 — Auth Header Error Code Root Fix
+- Root cause confirmed from Supabase logs: refresh-token rejection code was supplied as response header `x-sb-error-code: refresh_token_not_found`, while the client read only JSON body error codes.
+- `authRequest()` now captures the Supabase response-header error code first.
+- Existing terminal stale-session handling can now close the auth gate on the first confirmed invalid refresh token.
+- Bumped auth/app asset versions to B10CLEAN15_14.
+- No operational Receiving/Handheld/SQL changes.
