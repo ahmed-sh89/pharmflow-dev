@@ -55,7 +55,13 @@ const PharmFlowCloudWorkspace = {
     /* B10 Clean17 — one startup authority flight and dirty-only compatibility saves. */
     startupAuthorityPromise:null,
     startupAuthorityReady:false,
-    lastSavedWorkspaceSignature:""
+    lastSavedWorkspaceSignature:"",
+    /* B10 Clean18 — canonical read gates. These live at the RPC-owning
+       functions, so legacy/startup/UI callers cannot recreate 1 s / 3 s
+       bursts by bypassing the adaptive scheduler. */
+    lastGenerationReadAt:0,
+    lastManifestFullReadAt:0,
+    lastTransactionReadAt:0
 };
 
 function cloudWorkspacePharmacyId(){
@@ -392,6 +398,9 @@ function resetRuntimeForAuthenticatedContextChange(newScope){
         PharmFlowCloudWorkspace.receivingBootstrapComplete=false;
         PharmFlowCloudWorkspace.manifestMetaBusy=false;
         PharmFlowCloudWorkspace.generation=null;
+        PharmFlowCloudWorkspace.lastGenerationReadAt=0;
+        PharmFlowCloudWorkspace.lastManifestFullReadAt=0;
+        PharmFlowCloudWorkspace.lastTransactionReadAt=0;
         PharmFlowCloudWorkspace.loginAuthorityReady=false;
         PharmFlowCloudWorkspace.suppressNextClearRpc=true;
 
@@ -495,9 +504,19 @@ function stableCloudWorkspaceSignature(cloudState,row){
 window.ensureCloudAccountContextIsolation=ensureCloudAccountContextIsolation;
 
 
-async function getCloudWorkspaceGeneration(){
+async function getCloudWorkspaceGeneration(options={}){
     const pharmacyId=cloudWorkspacePharmacyId();
     if(!navigator.onLine || !pharmacyId || typeof authRpc!=="function") return null;
+
+    const now=Date.now();
+    if(
+        options?.force!==true &&
+        PharmFlowCloudWorkspace.generation!==null &&
+        now-Number(PharmFlowCloudWorkspace.lastGenerationReadAt||0)<30000
+    ){
+        return Number(PharmFlowCloudWorkspace.generation||0);
+    }
+    PharmFlowCloudWorkspace.lastGenerationReadAt=now;
 
     const value=await authRpc("get_pharmflow_workspace_generation",{
         p_pharmacy_id:pharmacyId
@@ -843,6 +862,15 @@ function applyActiveOrderManifest(manifest,revision){
 
 async function pullActiveOrderManifest(options={}){
     const pharmacyId=cloudWorkspacePharmacyId();
+    const now=Date.now();
+
+    if(
+        options?.force!==true &&
+        PharmFlowCloudWorkspace.lastManifestFullReadAt>0 &&
+        now-PharmFlowCloudWorkspace.lastManifestFullReadAt<10000
+    ){
+        return PharmFlowCloudWorkspace.activeManifestPresent===true;
+    }
 
     if(
         !navigator.onLine ||
@@ -855,6 +883,7 @@ async function pullActiveOrderManifest(options={}){
     }
 
     PharmFlowCloudWorkspace.activeManifestBusy=true;
+    PharmFlowCloudWorkspace.lastManifestFullReadAt=now;
 
     try{
         const result=await authRpc(
@@ -1639,8 +1668,17 @@ async function repairSharedReceivingLedgerFromLocal(){
     return await flushCloudWorkspaceQueue();
 }
 
-async function pullCloudWorkspaceTransactions(){
+async function pullCloudWorkspaceTransactions(options={}){
     const pharmacyId=cloudWorkspacePharmacyId();
+    const now=Date.now();
+
+    if(
+        options?.force!==true &&
+        PharmFlowCloudWorkspace.lastTransactionReadAt>0 &&
+        now-PharmFlowCloudWorkspace.lastTransactionReadAt<2500
+    ){
+        return true;
+    }
 
     if(
         !navigator.onLine ||
@@ -1653,6 +1691,7 @@ async function pullCloudWorkspaceTransactions(){
     }
 
     PharmFlowCloudWorkspace.receivingSyncBusy=true;
+    PharmFlowCloudWorkspace.lastTransactionReadAt=now;
 
     try{
         if(

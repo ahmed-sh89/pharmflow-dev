@@ -1,9 +1,5 @@
-# PharmFlow Changelog — B10 Clean17
-
-## B10 Clean17
-- Added single-flight startup cloud authority reconciliation.
-- Removed duplicate app-level startup/focus authority path.
-- Gated adaptive/foreground reads until startup authority is complete.
-- Added dirty-signature suppression for unchanged cloud workspace snapshots.
-- Retained Clean16 adaptive polling and hidden-tab suppression.
-- No SQL/schema, Auth policy, quantity semantics, or UI changes.
+# PharmFlow Changelog — B10 Clean18
+- Added canonical RPC read gates in cloud-workspace.js.
+- Prevented caller-level bypass from recreating cloud read bursts.
+- Reset read gates on authenticated context change.
+- Bumped cloud-workspace asset version to B10CLEAN18.
