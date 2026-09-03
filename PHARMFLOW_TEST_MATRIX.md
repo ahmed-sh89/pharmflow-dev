@@ -1,21 +1,10 @@
+# B10 Clean17 Test Matrix
 
-## B10 Clean15.13 Auth Gate verification
-- [ ] Mobile stale-session refresh routes to Sign In, not Complete access.
-- [ ] After one fresh Sign In, 5 consecutive page refreshes restore the same pharmacy workspace.
-- [ ] Supabase logs show no repeated 400 refresh-token storm during refresh.
-- [ ] `get_my_app_context` / registration RPCs do not continue after terminal auth rejection in the same boot.
-- [ ] Receiving PC/Handheld behavior remains unchanged.
-
-
-### B10 Clean15.14 verification
-- Stale refresh token: first `/auth/v1/token` 400 `refresh_token_not_found` must route to Sign In, not Complete access.
-- No repeated refresh-token storm after terminal rejection.
-- After one fresh sign-in, repeated page refreshes must restore the pharmacy workspace normally.
-
-
-### B10 Clean15.15 verification
-- Clean browser session: Sign In -> workspace: expected PASS.
-- Hard Refresh while signed in: Preparing PharmFlow -> workspace; no Sign In flash: USER VERIFICATION REQUIRED.
-- Hard Refresh while signed in: no Complete access flash: USER VERIFICATION REQUIRED.
-- Signed-out load: Preparing PharmFlow -> Sign In: USER VERIFICATION REQUIRED.
-- No extra Supabase Auth/RPC requests attributable to the UI gate: USER VERIFICATION REQUIRED.
+- [ ] Sign in reaches correct pharmacy workspace.
+- [ ] Refresh shows Preparing PharmFlow then returns to workspace without Complete Access/sign-in regression.
+- [ ] One visible idle tab for 30 seconds shows no startup RPC burst pattern.
+- [ ] save_pharmflow_cloud_workspace_guarded does not repeat from unchanged local autosave.
+- [ ] PC receiving transaction remains immediate and quantities remain correct.
+- [ ] Handheld receiving remains synchronized.
+- [ ] Active Order Manifest remains correct after refresh.
+- [ ] Hidden tab produces no periodic cloud reads.

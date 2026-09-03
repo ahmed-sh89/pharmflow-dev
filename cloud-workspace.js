@@ -51,7 +51,11 @@ const PharmFlowCloudWorkspace = {
     lastManifestMetaPollAt:0,
     lastReceivingPollAt:0,
     foregroundSyncPromise:null,
-    lastForegroundSyncAt:0
+    lastForegroundSyncAt:0,
+    /* B10 Clean17 — one startup authority flight and dirty-only compatibility saves. */
+    startupAuthorityPromise:null,
+    startupAuthorityReady:false,
+    lastSavedWorkspaceSignature:""
 };
 
 function cloudWorkspacePharmacyId(){
@@ -352,6 +356,9 @@ function stopCloudWorkspacePendingOperations(){
 
     PharmFlowCloudWorkspace.hydrationPromise=null;
     PharmFlowCloudWorkspace.reconcilePromise=null;
+    PharmFlowCloudWorkspace.startupAuthorityPromise=null;
+    PharmFlowCloudWorkspace.startupAuthorityReady=false;
+    PharmFlowCloudWorkspace.lastSavedWorkspaceSignature="";
     PharmFlowCloudWorkspace.generationCheckBusy=false;
     PharmFlowCloudWorkspace.applyingRemote=false;
 }
@@ -1359,10 +1366,20 @@ async function syncCloudWorkspaceAfterFinalize(reason="Finalize synchronized"){
 window.syncCloudWorkspaceAfterFinalize=syncCloudWorkspaceAfterFinalize;
 
 
+function currentCloudWorkspaceSignature(){
+    return stableCloudWorkspaceSignature(serializeCurrentWorkspace(),{});
+}
+
 function scheduleCloudWorkspaceSnapshot(){
     const pharmacyId=cloudWorkspacePharmacyId();
     if(PharmFlowCloudWorkspace.applyingRemote || !pharmacyId) return;
     if(PharmFlowCloudWorkspace.hydratedPharmacyId!==pharmacyId) return;
+
+    /* Local autosave emits workspace:saved even when nothing changed.
+       Do not turn that persistence heartbeat into a Supabase write. */
+    const signature=currentCloudWorkspaceSignature();
+    if(signature===PharmFlowCloudWorkspace.lastSavedWorkspaceSignature) return;
+
     clearTimeout(PharmFlowCloudWorkspace.saveTimer);
     PharmFlowCloudWorkspace.saveTimer=setTimeout(saveCloudWorkspaceSnapshot,700);
 }
@@ -1373,6 +1390,10 @@ async function saveCloudWorkspaceSnapshot(){
     if(PharmFlowCloudWorkspace.hydratedPharmacyId!==pharmacyId) return;
     /* Explicit clear has its own RPC. A fresh empty PC must never erase the cloud. */
     if(!Array.isArray(AppState?.workspace?.orderData) || !AppState.workspace.orderData.length) return;
+
+    const signature=currentCloudWorkspaceSignature();
+    if(signature===PharmFlowCloudWorkspace.lastSavedWorkspaceSignature) return;
+
     try{
         setCloudWorkspaceStatus("syncing");
         if(PharmFlowCloudWorkspace.generation===null){
@@ -1386,6 +1407,8 @@ async function saveCloudWorkspaceSnapshot(){
             p_expected_generation:Number(PharmFlowCloudWorkspace.generation||0)
         });
 
+        PharmFlowCloudWorkspace.lastSavedWorkspaceSignature=signature;
+        PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature=signature;
         setCloudWorkspaceStatus("synced");
     }catch(error){
         const message=String(error?.message||"");
@@ -1828,6 +1851,8 @@ async function restoreCloudWorkspaceOnLogin(){
                 PharmFlowCloudWorkspace.lastCloudUpdate=row.updated_at||null;
                 PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature=
                     stableCloudWorkspaceSignature(cloudState,row);
+                PharmFlowCloudWorkspace.lastSavedWorkspaceSignature=
+                    PharmFlowCloudWorkspace.lastAppliedWorkspaceSignature;
                 PharmFlowCloudWorkspace.applyingRemote=false;
             }
 
@@ -1873,6 +1898,52 @@ async function restoreCloudWorkspaceOnLogin(){
     return PharmFlowCloudWorkspace.hydrationPromise;
 }
 
+
+async function ensureStartupCloudAuthority(){
+    ensureCloudAccountContextIsolation();
+    const pharmacyId=cloudWorkspacePharmacyId();
+    if(!pharmacyId) return false;
+
+    if(
+        PharmFlowCloudWorkspace.startupAuthorityReady===true &&
+        PharmFlowCloudWorkspace.hydratedPharmacyId===pharmacyId
+    ){
+        return true;
+    }
+
+    if(PharmFlowCloudWorkspace.startupAuthorityPromise){
+        return PharmFlowCloudWorkspace.startupAuthorityPromise;
+    }
+
+    PharmFlowCloudWorkspace.startupAuthorityPromise=(async()=>{
+        PharmFlowCloudWorkspace.loginAuthorityReady=false;
+        try{
+            const restored=await restoreCloudWorkspaceOnLogin();
+            if(restored!==true) return false;
+            await repairSharedReceivingLedgerFromLocal();
+            await flushCloudWorkspaceQueue();
+            PharmFlowCloudWorkspace.loginAuthorityReady=true;
+            PharmFlowCloudWorkspace.startupAuthorityReady=true;
+            const now=Date.now();
+            PharmFlowCloudWorkspace.lastGenerationPollAt=now;
+            PharmFlowCloudWorkspace.lastManifestMetaPollAt=now;
+            PharmFlowCloudWorkspace.lastReceivingPollAt=now;
+            setCloudWorkspaceStatus("synced","Server authority reconciled after sign-in");
+            return true;
+        }catch(error){
+            PharmFlowCloudWorkspace.loginAuthorityReady=false;
+            PharmFlowCloudWorkspace.startupAuthorityReady=false;
+            Logger.error("Sign-in cloud authority bootstrap failed",error);
+            setCloudWorkspaceStatus("offline",error?.message||"Unable to reconcile server authority");
+            return false;
+        }finally{
+            PharmFlowCloudWorkspace.startupAuthorityPromise=null;
+        }
+    })();
+
+    return PharmFlowCloudWorkspace.startupAuthorityPromise;
+}
+window.ensureStartupCloudAuthority=ensureStartupCloudAuthority;
 
 async function reconcileCloudWorkspaceAuthority(){
     ensureCloudAccountContextIsolation();
@@ -2102,50 +2173,8 @@ function initializePharmFlowCloudWorkspace(){
     window.addEventListener("offline",()=>setCloudWorkspaceStatus("offline"));
     window.addEventListener("auth:context-ready",()=>{
         ensureCloudAccountContextIsolation();
-        PharmFlowCloudWorkspace.loginAuthorityReady=false;
-
-        setTimeout(async()=>{
-            try{
-                /* Phase 2C.10.4.7 — generation FIRST, server Manifest SECOND,
-                   structural writes LAST. This prevents sign-in from saving a
-                   valid Active Order with a stale pre-login generation. */
-                await reconcileWorkspaceGeneration();
-
-                const hasLocalOrders=
-                    Array.isArray(AppState?.workspace?.orderFiles) &&
-                    AppState.workspace.orderFiles.length &&
-                    Array.isArray(AppState?.workspace?.orderData) &&
-                    AppState.workspace.orderData.length;
-
-                if(hasLocalOrders){
-                    await pullActiveOrderManifest({clearIfMissing:true});
-                }
-                else{
-                    await bootstrapActiveOrdersOnEmptyDevice();
-                }
-
-                /* Close a Reset race while the Manifest request was in flight. */
-                await reconcileWorkspaceGeneration();
-
-                PharmFlowCloudWorkspace.loginAuthorityReady=true;
-
-                await repairSharedReceivingLedgerFromLocal();
-                attemptCloudWorkspaceHydration();
-
-                setCloudWorkspaceStatus(
-                    "synced",
-                    "Server authority reconciled after sign-in"
-                );
-            }
-            catch(error){
-                PharmFlowCloudWorkspace.loginAuthorityReady=false;
-                Logger.error("Sign-in cloud authority bootstrap failed",error);
-                setCloudWorkspaceStatus(
-                    "offline",
-                    error?.message||"Unable to reconcile server authority"
-                );
-            }
-        },0);
+        PharmFlowCloudWorkspace.startupAuthorityReady=false;
+        ensureStartupCloudAuthority();
     });
 
     /* B10 Clean16 — Egress / request root fix.
@@ -2170,6 +2199,11 @@ function initializePharmFlowCloudWorkspace(){
         }
 
         ensureCloudAccountContextIsolation();
+        if(PharmFlowCloudWorkspace.startupAuthorityReady!==true){
+            await ensureStartupCloudAuthority();
+            PharmFlowCloudWorkspace.pollTimer=setTimeout(runAdaptiveCloudSync,3000);
+            return;
+        }
         if(PharmFlowCloudWorkspace.contextSwitching){
             PharmFlowCloudWorkspace.pollTimer=setTimeout(runAdaptiveCloudSync,3000);
             return;
@@ -2220,6 +2254,9 @@ function initializePharmFlowCloudWorkspace(){
         PharmFlowCloudWorkspace.lastUserActivityAt=now;
 
         PharmFlowCloudWorkspace.foregroundSyncPromise=(async()=>{
+            if(PharmFlowCloudWorkspace.startupAuthorityReady!==true){
+                return await ensureStartupCloudAuthority();
+            }
             const hasLocalOrders=
                 Array.isArray(AppState?.workspace?.orderFiles) &&
                 AppState.workspace.orderFiles.length &&
