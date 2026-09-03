@@ -22,3 +22,11 @@
 - Added one explicit bootstrap presentation gate: while `body.authBooting` is active, both Sign In forms and Complete access are suppressed and only `Preparing PharmFlow` may render.
 - No Auth RPC, token refresh, workspace membership, Receiving, Handheld, SQL, manifest/ledger, or Egress polling behavior changed.
 - Unified local asset cache token in `index.html` to `B10CLEAN15_15` so the UI-gate release cannot mix prior cached assets.
+
+## B10 Clean16 — Egress request de-duplication (2026-09-03)
+- Restored the adaptive cloud READ scheduler that had regressed to fixed 1s receiving + 3s authority polling in the latest branch.
+- Receiving delta reads: 3s while active, 15s while idle; hidden tabs perform no periodic cloud reads.
+- Active manifest metadata: 15s active, 60s idle; workspace generation: 60s.
+- Coalesced simultaneous mobile `focus` + `visibilitychange` into one foreground authority sync.
+- Immediate receiving writes remain unchanged.
+- No Auth, quantity, Receiving UI, Handheld UI, SQL, or Supabase schema changes.
