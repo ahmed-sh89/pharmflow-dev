@@ -15,3 +15,10 @@
 - Existing terminal stale-session handling can now close the auth gate on the first confirmed invalid refresh token.
 - Bumped auth/app asset versions to B10CLEAN15_14.
 - No operational Receiving/Handheld/SQL changes.
+
+
+## B10 Clean15.15 — Auth Bootstrap UI Gate
+- User verification in a clean Incognito session confirmed authentication and workspace restoration are valid, but hard refresh briefly rendered Sign In before the stored session/context finished resolving.
+- Added one explicit bootstrap presentation gate: while `body.authBooting` is active, both Sign In forms and Complete access are suppressed and only `Preparing PharmFlow` may render.
+- No Auth RPC, token refresh, workspace membership, Receiving, Handheld, SQL, manifest/ledger, or Egress polling behavior changed.
+- Unified local asset cache token in `index.html` to `B10CLEAN15_15` so the UI-gate release cannot mix prior cached assets.
