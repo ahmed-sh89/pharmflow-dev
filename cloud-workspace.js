@@ -2195,19 +2195,24 @@ function initializePharmFlowCloudWorkspace(){
                 return;
             }
 
+            /* B10 Clean22 — generic files:updated is NOT an owner of the
+               legacy full Cloud Workspace snapshot. It may persist the
+               structural Active Order Manifest only. Full compatibility
+               workspace writes are reserved for explicit structural lifecycle
+               functions (upload/remove/finalize/reset) that call the canonical
+               structural sync path. This prevents any source-less/legacy
+               files:updated heartbeat from becoming a periodic Supabase WRITE. */
             const manifestSaved=
                 await saveActiveOrderManifest();
 
-            /* Full cloud workspace is compatibility/session state.
-               It must not be allowed to claim final SYNCED when
-               the structural Active Orders manifest failed. */
-            await forceCloudWorkspaceSnapshot(
-                manifestSaved
-                    ? "Order files synced"
-                    : "Workspace saved; Active Orders pending"
-            );
-
-            if(!manifestSaved){
+            if(manifestSaved){
+                PharmFlowCloudWorkspace.lastStructuralCloudSignature=
+                    currentStructuralCloudSignature();
+                setCloudWorkspaceStatus(
+                    "synced",
+                    "Active Order structure synced"
+                );
+            }else{
                 setCloudWorkspaceStatus(
                     "offline",
                     "Active Orders pending server sync"
