@@ -8396,6 +8396,7 @@ let needsReviewCloudWatchTimer=null;
 let needsReviewCloudWatchBusy=false;
 let needsReviewCloudLastReadAt=0;
 async function refreshNeedsReviewCountFromCloud({force=false}={}){
+    if(window.PharmFlowIdleSleep?.active) return;
     if(typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice()) return;
     if(document.hidden || needsReviewCloudWatchBusy || typeof nrV2Count!=="function") return;
     const now=Date.now();

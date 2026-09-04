@@ -1,5 +1,115 @@
 "use strict";
 
+
+/* B10 Clean23 — 10-minute hard idle sleep failsafe.
+   Root cause reductions remain authoritative. This is only a final safety net:
+   after 10 minutes with no real user/receiving activity, all app network reads
+   are blocked and the UI is locked until a full page Refresh. */
+(function installPharmFlowIdleSleep(){
+    if(window.PharmFlowIdleSleep) return;
+    const IDLE_MS=10*60*1000;
+    let timer=null;
+    let lastActivity=Date.now();
+    let active=false;
+
+    const api=window.PharmFlowIdleSleep={
+        get active(){ return active; },
+        get lastActivityAt(){ return lastActivity; },
+        markActivity(){
+            if(active) return;
+            lastActivity=Date.now();
+            arm();
+        },
+        enter: enterIdleSleep
+    };
+
+    function ensureOverlay(){
+        let el=document.getElementById('pf-idle-sleep-overlay');
+        if(el) return el;
+        el=document.createElement('div');
+        el.id='pf-idle-sleep-overlay';
+        el.setAttribute('role','dialog');
+        el.setAttribute('aria-modal','true');
+        el.innerHTML=`<div class="pf-idle-card">
+            <div class="pf-idle-icon" aria-hidden="true">↻</div>
+            <h1>Session Paused</h1>
+            <p>No activity for 10 minutes.<br>Refresh to continue.</p>
+            <button id="pf-idle-refresh" type="button">Refresh</button>
+        </div>`;
+        const style=document.createElement('style');
+        style.id='pf-idle-sleep-style';
+        style.textContent=`
+          #pf-idle-sleep-overlay{position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;padding:24px;background:rgba(5,10,18,.78);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+          #pf-idle-sleep-overlay.pf-show{display:flex}
+          #pf-idle-sleep-overlay .pf-idle-card{width:min(430px,calc(100vw - 40px));box-sizing:border-box;text-align:center;background:#fff;color:#111827;border-radius:22px;padding:36px 30px 30px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+          #pf-idle-sleep-overlay .pf-idle-icon{width:58px;height:58px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;background:#eef4ff;font-size:32px;font-weight:700}
+          #pf-idle-sleep-overlay h1{margin:0 0 14px;font-size:30px;line-height:1.15;font-weight:800;letter-spacing:-.02em}
+          #pf-idle-sleep-overlay p{margin:0 0 26px;font-size:17px;line-height:1.55;color:#4b5563}
+          #pf-idle-refresh{width:100%;min-height:54px;border:0;border-radius:14px;background:#111827;color:#fff;font-size:18px;font-weight:800;cursor:pointer}
+          #pf-idle-refresh:active{transform:translateY(1px)}
+          @media (max-width:600px){#pf-idle-sleep-overlay .pf-idle-card{padding:30px 22px 24px;border-radius:20px}#pf-idle-sleep-overlay h1{font-size:27px}}
+        `;
+        document.head.appendChild(style);
+        document.body.appendChild(el);
+        el.querySelector('#pf-idle-refresh').addEventListener('click',()=>window.location.reload(),true);
+        return el;
+    }
+
+    function blockWhileIdle(ev){
+        if(!active) return;
+        const t=ev.target;
+        if(t && t.closest && t.closest('#pf-idle-refresh')) return;
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+    }
+
+    ['keydown','keypress','keyup','beforeinput','input','change','submit','click','dblclick','pointerdown','pointerup','touchstart','touchend','mousedown','mouseup'].forEach(type=>{
+        document.addEventListener(type,blockWhileIdle,true);
+    });
+
+    function arm(){
+        clearTimeout(timer);
+        const remain=Math.max(0,IDLE_MS-(Date.now()-lastActivity));
+        timer=setTimeout(enterIdleSleep,remain);
+    }
+
+    async function enterIdleSleep(){
+        if(active) return;
+        active=true;
+        clearTimeout(timer);
+        try{
+            if(typeof window.flushCloudWorkspaceQueue==='function'){
+                await Promise.race([
+                    Promise.resolve(window.flushCloudWorkspaceQueue()),
+                    new Promise(r=>setTimeout(r,1500))
+                ]);
+            }
+        }catch(_){ }
+        ensureOverlay().classList.add('pf-show');
+        document.documentElement.classList.add('pf-idle-sleep-active');
+    }
+
+    // Hard network guard: once asleep, stale/legacy timers cannot reach Supabase.
+    if(typeof window.fetch==='function' && !window.__pfIdleFetchWrapped){
+        const nativeFetch=window.fetch.bind(window);
+        window.__pfIdleFetchWrapped=true;
+        window.fetch=function(...args){
+            if(active){
+                const err=new Error('PHARMFLOW_IDLE_SLEEP');
+                err.code='PHARMFLOW_IDLE_SLEEP';
+                return Promise.reject(err);
+            }
+            return nativeFetch(...args);
+        };
+    }
+
+    const activity=()=>api.markActivity();
+    ['pointerdown','touchstart','keydown','input'].forEach(type=>document.addEventListener(type,activity,true));
+    document.addEventListener('DOMContentLoaded',()=>{ ensureOverlay(); arm(); },{once:true});
+    if(document.readyState!=='loading'){ ensureOverlay(); arm(); }
+    else arm();
+})();
+
 /* =====================================================
    PHARMFLOW PHASE 2C.7.1 — MULTI-PC CLOUD WORKSPACE FIX
    - Never overwrite cloud workspace from a fresh empty PC
@@ -2257,6 +2367,7 @@ function initializePharmFlowCloudWorkspace(){
         PharmFlowCloudWorkspace.lastReceivingActivityAt=Date.now();
     };
     AppEvents.on("receiving:transaction",markReceivingCloudActivity);
+    AppEvents.on("receiving:transaction",()=>window.PharmFlowIdleSleep?.markActivity());
 
     const runAdaptiveCloudSync=async()=>{
         PharmFlowCloudWorkspace.pollTimer=null;
