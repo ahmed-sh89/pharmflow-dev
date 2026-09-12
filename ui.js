@@ -8086,8 +8086,10 @@ function ensureNeedsReviewButtons(){
 
 function nrV2FindOrderMatches(query){
     const q=toSafeString(query).trim().toLowerCase();
-    const source=typeof getSearchableItems==="function"
-        ? getSearchableItems()
+    /* Needs Review is an order-resolution tool, not a Global Master search.
+       Respect the same active-order scope used by the Receiving item browser. */
+    const source=typeof getScopedOrderItems==="function"
+        ? getScopedOrderItems()
         : (AppState?.workspace?.orderData||[]);
 
     if(!q) return source.slice(0,20);
@@ -8096,91 +8098,6 @@ function nrV2FindOrderMatches(query){
         toSafeString(item?.itemCode).toLowerCase().includes(q) ||
         toSafeString(item?.itemName).toLowerCase().includes(q)
     ).slice(0,20);
-}
-
-async function nrV2ResolveToOrderItem(row,item){
-    const transactionId=nrV2ResolutionTransactionId(row.review_id);
-
-    /*
-       If receiving already succeeded during a previous attempt but the final
-       queue-status update failed, do NOT receive twice. Just finish resolution.
-    */
-    if(!nrV2HasLocalResolutionTransaction(row.review_id)){
-        await savePharmacyLearnedGTIN(
-            row.gtin,
-            item.itemCode,
-            item.itemName
-        );
-
-        addMappingRecord({
-            itemCode:item.itemCode,
-            gtin:row.gtin,
-            source:"PHARMACY_LEARNED"
-        });
-
-        const tx=receiveOrderItem({
-            item,
-            quantity:Math.max(1,Number(row.pending_quantity||1)||1),
-            gtin:row.gtin,
-            source:APP_CONFIG.transactionSources.scanner,
-            manual:false,
-            targetOrder:group.order_number||"",
-            transactionId
-        });
-
-        if(!tx){
-            throw new Error("Unable to apply reviewed quantity");
-        }
-    }
-
-    await nrV2MarkResolved(
-        row,
-        item,
-        "LINK_ORDER_ITEM",
-        transactionId
-    );
-    if(row.photo_path) await nrV2DeletePhoto?.(row.photo_path);
-}
-
-async function nrV2ResolveAsUnordered(row,itemCode,itemName,targetOrder=""){
-    const transactionId=nrV2ResolutionTransactionId(row.review_id);
-
-    if(!nrV2HasLocalResolutionTransaction(row.review_id)){
-        await savePharmacyLearnedGTIN(
-            row.gtin,
-            itemCode,
-            itemName
-        );
-
-        const item=prepareManualExtraItem(
-            itemCode,
-            itemName,
-            row.gtin,
-            targetOrder
-        );
-
-        const tx=receiveOrderItem({
-            item,
-            quantity:Math.max(1,Number(row.pending_quantity||1)||1),
-            gtin:row.gtin,
-            source:APP_CONFIG.transactionSources.scanner,
-            manual:true,
-            targetOrder:targetOrder||group.order_number||"",
-            transactionId
-        });
-
-        if(!tx){
-            throw new Error("Unable to add unordered item");
-        }
-    }
-
-    await nrV2MarkResolved(
-        row,
-        {itemCode,itemName},
-        "ADD_UNORDERED",
-        transactionId
-    );
-    if(row.photo_path) await nrV2DeletePhoto?.(row.photo_path);
 }
 
 async function nrV2HydratePhoto(img,path){
@@ -8250,6 +8167,7 @@ async function nrV2ResolveGroupToOrderItem(group,item){
             gtin:group.gtin,
             source:APP_CONFIG.transactionSources.scanner,
             manual:false,
+            targetOrder:group.order_number||"",
             transactionId
         });
         if(!tx) throw new Error("Unable to apply reviewed quantity");
@@ -8262,31 +8180,37 @@ async function nrV2ResolveGroupToOrderItem(group,item){
     }
 }
 
-async function nrV2ResolveGroupAsUnordered(group,itemCode,itemName,targetOrder=""){
-    const transactionId=nrV2GroupTransactionId(group);
-    if(!nrV2HasTransactionId(transactionId)){
-        await savePharmacyLearnedGTIN(group.gtin,itemCode,itemName);
-        const item=prepareManualExtraItem(itemCode,itemName,group.gtin,targetOrder||group.order_number||"");
-        const tx=receiveOrderItem({
-            item,
-            quantity:Math.max(1,Number(group.total_quantity||1)||1),
-            gtin:group.gtin,
-            source:APP_CONFIG.transactionSources.scanner,
-            manual:true,
-            transactionId
-        });
-        if(!tx) throw new Error("Unable to add unordered item");
-    }
-    for(const row of group.rows){
-        await nrV2MarkResolved(row,{itemCode,itemName},"ADD_UNORDERED",transactionId);
-    }
-    for(const path of group.photos){
-        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
-    }
+function nrV2ItemMetrics(item){
+    const ordered=toNumber(item?.orderedQty,0);
+    const received=toNumber(item?.receivedQty,0);
+    return {ordered,received,remaining:Math.max(0,toNumber(item?.remainingQty,ordered-received))};
+}
+
+function nrV2ItemSummary(item,esc){
+    const metrics=nrV2ItemMetrics(item);
+    return `<span><small>Item Name</small><strong>${esc(item.itemName)}</strong><small>Item Code <b>${esc(item.itemCode)}</b></small></span><span class="needsReviewResultQty"><small>Ordered <b>${metrics.ordered}</b></small><small>Received <b>${metrics.received}</b></small><small>Remaining <b>${metrics.remaining}</b></small></span>`;
+}
+
+function closeNeedsReviewPhotoViewer(){
+    document.getElementById("needsReviewPhotoViewer")?.remove();
+}
+
+function openNeedsReviewPhotoViewer(url){
+    closeNeedsReviewPhotoViewer();
+    const viewer=document.createElement("div");
+    viewer.id="needsReviewPhotoViewer";
+    viewer.className="needsReviewPhotoViewer";
+    viewer.setAttribute("role","dialog");
+    viewer.setAttribute("aria-modal","true");
+    viewer.setAttribute("aria-label","Temporary product photo");
+    viewer.innerHTML=`<button class="needsReviewPhotoScrim" type="button" data-photo-close aria-label="Close photo"></button><section><img src="${url}" alt="Temporary product review photo"><button type="button" data-photo-close>Close photo</button></section>`;
+    document.body.appendChild(viewer);
+    viewer.querySelectorAll("[data-photo-close]").forEach(button=>button.addEventListener("click",closeNeedsReviewPhotoViewer));
 }
 
 async function openNeedsReviewPanel(workflow="RECEIVING"){
     if(typeof isLikelyZebraDevice==="function"&&isLikelyZebraDevice()) return;
+    closeNeedsReviewPhotoViewer();
     document.getElementById("needsReviewOverlay")?.remove();
 
     let rawRows=[];
@@ -8295,94 +8219,172 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
 
     const groups=groupNeedsReviewRows(rawRows);
     const esc=value=>escapeHTML(toSafeString(value));
+    const admin=typeof isPharmacyAdmin==="function"&&isPharmacyAdmin();
     const overlay=document.createElement("div");
     overlay.id="needsReviewOverlay";
-    overlay.className="needsReviewOverlay needsReviewOverlayV2 pfnNeedsReviewModern";
+    overlay.className="needsReviewOverlay";
+    overlay.setAttribute("role","dialog");
+    overlay.setAttribute("aria-modal","true");
+    overlay.setAttribute("aria-labelledby","needsReviewTitle");
     overlay.innerHTML=`
-      <button class="needsReviewScrim" data-close aria-label="Close"></button>
-      <section class="needsReviewPanel needsReviewPanelV2 needsReviewWorkspace">
+      <button class="needsReviewScrim" data-review-close aria-label="Close Needs Review"></button>
+      <section class="needsReviewPanel">
         <header>
-          <div><span>RECEIVING EXCEPTIONS</span><h2>Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each unknown GTIN once. Repeated scans are grouped automatically.</p></div>
-          <button class="needsReviewClose" data-close>✕</button>
+          <div><span class="needsReviewKicker">RECEIVING EXCEPTIONS</span><h2 id="needsReviewTitle">Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each grouped unknown GTIN to an item in the current Active Order.</p></div>
+          <button class="needsReviewClose" type="button" data-review-close aria-label="Close Needs Review">Close</button>
         </header>
-        <div class="pfnNeedsReviewToolbar"><input type="search" data-review-filter placeholder="Search by GTIN, Item Number or Item Name"></div>
+        ${admin?`<details class="needsReviewAdmin"><summary>Pharmacy learned GTIN maintenance</summary><div class="needsReviewAdminBody">
+          <p>Correct or remove a pharmacy-scoped learned mapping. Global GTIN Master data is never changed.</p>
+          <div class="needsReviewAdminLookup"><label>Learned GTIN<input data-admin-gtin inputmode="numeric" autocomplete="off" placeholder="Scan or enter GTIN"></label><button type="button" data-admin-load>View mapping</button></div>
+          <div data-admin-workspace></div>
+        </div></details>`:""}
         <div class="needsReviewList" data-review-list>
           ${groups.length?groups.map((group,index)=>`
-            <section class="needsReviewRow needsReviewRowV2 pfnGroupedReview" data-i="${index}" data-search-text="${esc([group.gtin,group.master_item_code_hint,group.master_item_name_hint,group.order_number].join(' ').toLowerCase())}">
+            <section class="needsReviewRow" data-i="${index}">
               <div class="needsReviewInfo">
-                <span class="pfnReviewReason">${group.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"ITEM NOT RECOGNIZED"}</span>
-                <strong class="pfnReviewGTIN">${esc(group.gtin)}</strong>
+                <span class="pfnReviewReason">${group.review_reason==="KNOWN_NOT_IN_ORDER"?"KNOWN ITEM · NOT IN ORDER":"ITEM NOT RECOGNISED"}</span>
+                <span class="pfnReviewLabel">GTIN</span><strong class="pfnReviewGTIN">${esc(group.gtin)}</strong>
                 <div class="pfnReviewMeta">
-                  <div><span>Quantity</span><b>${group.total_quantity}</b></div>
-                  <div><span>Order</span><b>${group.order_number?esc(group.order_number):"Needs assignment"}</b></div>
-                  <div><span>Source</span><b>${esc(group.source||"Handheld")}</b></div>
-                  <div><span>Entries</span><b>${group.rows.length}</b></div>
+                  <div class="important"><span>Quantity</span><b>${group.total_quantity}</b></div>
+                  <div class="important"><span>Entries</span><b>${group.rows.length}</b></div>
+                  <div><span>Source</span><b>${esc(group.source||"Unknown")}</b></div>
+                  <div><span>Order Number</span><b>${group.order_number?esc(group.order_number):"Needs assignment"}</b></div>
                 </div>
-                <small class="pfnReviewSubline">${group.photos.length?`${group.photos.length} temporary photo${group.photos.length===1?"":"s"} · `:""}Resolve this case once; repeated scans are already grouped.</small>
+                ${group.photos.length?`<div class="pfnReviewPhotoGrid">${group.photos.map((path,pidx)=>`<button type="button" data-photo-open="${index}:${pidx}"><img data-photo="${index}:${pidx}" alt="Temporary product photo" hidden><span>View temporary photo</span></button>`).join("")}</div>`:""}
               </div>
               <div class="needsReviewResolve">
-                ${group.photos.length?`<details class="pfnReviewPhotos"><summary>View temporary photo${group.photos.length===1?"":"s"}</summary><div class="pfnReviewPhotoGrid">${group.photos.map((path,pidx)=>`<button type="button" data-photo-open="${index}:${pidx}"><img data-photo="${index}:${pidx}" alt="Product review photo" hidden><span>Photo ${pidx+1}</span></button>`).join('')}</div></details>`:""}
-                <label>Search Current Order<input data-search="${index}" placeholder="Search by Item Name or Item Number" autocomplete="off" spellcheck="false"></label>
+                <label>Search Current Active Order<input type="search" data-search="${index}" placeholder="Item Name or Item Code" autocomplete="off" spellcheck="false"></label>
                 <div class="needsReviewMatches" data-matches="${index}"></div>
-                <details class="needsReviewExtra"><summary>+ Add Extra Item</summary><div class="needsReviewExtraGrid"><input data-extra-code="${index}" placeholder="Item Code" value="${esc(group.master_item_code_hint||"")}"><input data-extra-name="${index}" placeholder="Item Name" value="${esc(group.master_item_name_hint||"")}"><label class="needsReviewTargetOrder">Target Order<select data-extra-order="${index}">${(typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():[]).map(order=>`<option value="${esc(order)}" ${normalizeOrderNumber(order)===normalizeOrderNumber(group.order_number)?"selected":""}>${esc(order)}</option>`).join("")}</select></label><button data-extra="${index}" type="button">ADD EXTRA &amp; RECEIVE ${group.total_quantity}</button></div></details>
-                <button class="needsReviewDelete" data-delete="${index}" type="button">Delete review case</button>
+                <div class="needsReviewSelection" data-selection="${index}" hidden></div>
               </div>
             </section>`).join(""):`<div class="needsReviewEmpty">Nothing needs review.</div>`}
         </div>
       </section>`;
     document.body.appendChild(overlay);
-    overlay.querySelectorAll("[data-close]").forEach(button=>button.onclick=()=>overlay.remove());
 
-    const reviewFilter=overlay.querySelector('[data-review-filter]');
-    reviewFilter?.addEventListener('input',()=>{
-        const q=toSafeString(reviewFilter.value).trim().toLowerCase();
-        overlay.querySelectorAll('.pfnGroupedReview').forEach(row=>{row.hidden=!!q&&!toSafeString(row.dataset.searchText).includes(q);});
-    });
+    const closePanel=()=>{
+        if(overlay.dataset.busy==="1"||overlay.dataset.confirming==="1") return;
+        closeNeedsReviewPhotoViewer();
+        overlay.remove();
+    };
+    overlay.querySelectorAll("[data-review-close]").forEach(button=>button.addEventListener("click",closePanel));
 
     groups.forEach((group,index)=>{
         const section=overlay.querySelector(`[data-i="${index}"]`);
         const search=overlay.querySelector(`[data-search="${index}"]`);
         const matches=overlay.querySelector(`[data-matches="${index}"]`);
+        const selection=overlay.querySelector(`[data-selection="${index}"]`);
+        let selectedItem=null;
 
         group.photos.forEach((path,pidx)=>nrV2HydratePhoto(overlay.querySelector(`[data-photo="${index}:${pidx}"]`),path));
-        group.photos.forEach((path,pidx)=>overlay.querySelector(`[data-photo-open="${index}:${pidx}"]`)?.addEventListener('click',async()=>{
-            const url=await nrV2PhotoObjectUrl(path); if(!url){showToast?.("Unable to open review photo","error");return;}
-            document.getElementById("needsReviewPhotoViewer")?.remove();
-            const viewer=document.createElement("div");viewer.id="needsReviewPhotoViewer";viewer.className="needsReviewPhotoViewer";
-            viewer.innerHTML=`<button type="button" data-close aria-label="Close"></button><div><img src="${url}" alt="Product review photo"><button type="button" data-close>Close</button></div>`;
-            document.body.appendChild(viewer);viewer.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>viewer.remove());
+        group.photos.forEach((path,pidx)=>overlay.querySelector(`[data-photo-open="${index}:${pidx}"]`)?.addEventListener("click",async()=>{
+            try{
+                const url=await nrV2PhotoObjectUrl(path);
+                if(!url) throw new Error("Photo is unavailable");
+                openNeedsReviewPhotoViewer(url);
+            }catch(error){ showToast?.(error?.message||"Unable to open review photo","error"); }
         }));
 
-        const drawMatches=()=>{
-            const q=toSafeString(search?.value||"").trim();
-            if(!q){matches.innerHTML="";return;}
-            const items=nrV2FindOrderMatches(q).slice(0,6);
-            matches.innerHTML=items.length?items.map((item,itemIndex)=>`<button type="button" data-match="${itemIndex}"><span><strong>${esc(item.itemName)}</strong><small>Item ${esc(item.itemCode)}</small></span><b>Resolve &amp; Receive ${group.total_quantity}</b></button>`).join(""):`<div class="needsReviewNoMatches">No matching order item.</div>`;
-            matches.querySelectorAll('[data-match]').forEach(button=>button.onclick=async()=>{
-                const item=items[Number(button.dataset.match)]; if(!item)return;
+        const drawSelection=()=>{
+            if(!selectedItem){ selection.hidden=true;selection.innerHTML="";return; }
+            selection.hidden=false;
+            selection.innerHTML=`<span class="needsReviewSelectionLabel">SELECTED ITEM</span><div>${nrV2ItemSummary(selectedItem,esc)}</div><button type="button" data-resolve>Resolve &amp; Learn</button>`;
+            selection.querySelector("[data-resolve]").addEventListener("click",async event=>{
+                const button=event.currentTarget;
                 button.disabled=true;
-                try{await nrV2ResolveGroupToOrderItem(group,item);section.remove();await refreshNeedsReviewCounters();showToast?.(`GTIN resolved — ${group.total_quantity} received`,"success");}
-                catch(error){button.disabled=false;showToast?.(error?.message||"Unable to resolve review","error");}
+                overlay.dataset.busy="1";
+                try{
+                    await nrV2ResolveGroupToOrderItem(group,selectedItem);
+                    section.remove();
+                    await refreshNeedsReviewCounters();
+                    const count=overlay.querySelectorAll(".needsReviewRow").length;
+                    const countNode=overlay.querySelector(".pfnReviewCount");
+                    if(countNode) countNode.textContent=String(count);
+                    if(count===0) overlay.querySelector("[data-review-list]").innerHTML='<div class="needsReviewEmpty">Nothing needs review.</div>';
+                    showToast?.(`GTIN resolved and learned — ${group.total_quantity} received`,"success");
+                }catch(error){ button.disabled=false;showToast?.(error?.message||"Unable to resolve review","error"); }
+                finally{ overlay.dataset.busy=""; }
             });
         };
-        search?.addEventListener('input',drawMatches);
+        const drawMatches=()=>{
+            selectedItem=null;
+            drawSelection();
+            const q=toSafeString(search?.value||"").trim();
+            if(!q){matches.innerHTML="";return;}
+            const items=nrV2FindOrderMatches(q).slice(0,8);
+            matches.innerHTML=items.length?items.map((item,itemIndex)=>`<button type="button" data-match="${itemIndex}">${nrV2ItemSummary(item,esc)}</button>`).join(""):`<div class="needsReviewNoMatches">No matching item in the current Active Order.</div>`;
+            matches.querySelectorAll("[data-match]").forEach(button=>button.addEventListener("click",()=>{
+                selectedItem=items[Number(button.dataset.match)]||null;
+                matches.querySelectorAll("button").forEach(result=>result.classList.toggle("selected",result===button));
+                drawSelection();
+            }));
+        };
+        search?.addEventListener("input",drawMatches);
+    });
 
-        overlay.querySelector(`[data-extra="${index}"]`)?.addEventListener('click',async event=>{
-            const code=normalizeItemCode(overlay.querySelector(`[data-extra-code="${index}"]`)?.value||"");
-            const name=toSafeString(overlay.querySelector(`[data-extra-name="${index}"]`)?.value||"").trim();
-            const target=normalizeOrderNumber(overlay.querySelector(`[data-extra-order="${index}"]`)?.value||group.order_number||"");
-            if(!code||!name){showToast?.("Enter Item Code and Item Name","warning");return;}
+    if(admin){
+        const gtinInput=overlay.querySelector("[data-admin-gtin]");
+        const workspace=overlay.querySelector("[data-admin-workspace]");
+        let currentMapping=null;
+        let replacement=null;
+        const renderMaintenance=()=>{
+            if(!currentMapping){workspace.innerHTML="";return;}
+            workspace.innerHTML=`<div class="needsReviewMappingCurrent"><span>CURRENT PHARMACY MAPPING</span><strong>${esc(currentMapping.gtin)} → ${esc(currentMapping.itemCode)} → ${esc(currentMapping.itemName||"Unnamed item")}</strong></div>
+              <label>Choose replacement from Current Active Order<input type="search" data-admin-search placeholder="Item Name or Item Code" autocomplete="off"></label>
+              <div class="needsReviewMatches" data-admin-matches></div><div data-admin-selection></div>
+              <div class="needsReviewMappingActions"><label>Mandatory Reason<textarea data-admin-reason rows="2" placeholder="Reason for this audited change"></textarea></label>
+              <button type="button" data-admin-correct disabled>Correct Mapping</button><button class="danger" type="button" data-admin-remove>Remove Mapping</button></div>
+              <p class="needsReviewGlobalNotice">Removal affects only this pharmacy learned mapping — not the Global GTIN Master.</p>`;
+            const search=workspace.querySelector("[data-admin-search]");
+            const matches=workspace.querySelector("[data-admin-matches]");
+            const selected=workspace.querySelector("[data-admin-selection]");
+            const correct=workspace.querySelector("[data-admin-correct]");
+            const reason=workspace.querySelector("[data-admin-reason]");
+            search.addEventListener("input",()=>{
+                replacement=null;correct.disabled=true;selected.innerHTML="";
+                const q=toSafeString(search.value).trim();
+                const items=q?nrV2FindOrderMatches(q).slice(0,8):[];
+                matches.innerHTML=items.length?items.map((item,i)=>`<button type="button" data-admin-match="${i}">${nrV2ItemSummary(item,esc)}</button>`).join(""):q?`<div class="needsReviewNoMatches">No matching item in the current Active Order.</div>`:"";
+                matches.querySelectorAll("[data-admin-match]").forEach(button=>button.addEventListener("click",()=>{
+                    replacement=items[Number(button.dataset.adminMatch)]||null;
+                    matches.querySelectorAll("button").forEach(result=>result.classList.toggle("selected",result===button));
+                    if(replacement){selected.innerHTML=`<div class="needsReviewMappingCompare"><span>OLD</span><strong>${esc(currentMapping.itemCode)} — ${esc(currentMapping.itemName||"Unnamed item")}</strong><span>NEW</span><strong>${esc(replacement.itemCode)} — ${esc(replacement.itemName)}</strong></div>`;correct.disabled=false;}
+                }));
+            });
+            correct.addEventListener("click",async()=>{
+                const why=toSafeString(reason.value).trim();
+                if(!replacement){showToast?.("Select the corrected item first","warning");return;}
+                if(!why){showToast?.("A correction reason is required","warning");reason.focus();return;}
+                correct.disabled=true;overlay.dataset.busy="1";
+                try{await correctPharmacyLearnedGTIN(currentMapping.gtin,replacement.itemCode,replacement.itemName,why);currentMapping={gtin:currentMapping.gtin,itemCode:replacement.itemCode,itemName:replacement.itemName};replacement=null;renderMaintenance();showToast?.("Pharmacy learned GTIN mapping corrected","success");}
+                catch(error){correct.disabled=false;showToast?.(error?.message||"Unable to correct mapping","error");}
+                finally{overlay.dataset.busy="";}
+            });
+            workspace.querySelector("[data-admin-remove]").addEventListener("click",async event=>{
+                const why=toSafeString(reason.value).trim();
+                if(!why){showToast?.("A removal reason is required","warning");reason.focus();return;}
+                const button=event.currentTarget;
+                if(button.dataset.confirm!=="1"){button.dataset.confirm="1";overlay.dataset.confirming="1";button.textContent="Confirm Remove Mapping";return;}
+                button.disabled=true;overlay.dataset.busy="1";
+                try{await removePharmacyLearnedGTIN(currentMapping.gtin,why);currentMapping=null;workspace.innerHTML="<div class=\"needsReviewAdminSuccess\">Pharmacy learned mapping removed. Global GTIN Master was not changed.</div>";showToast?.("Pharmacy learned GTIN mapping removed","success");}
+                catch(error){button.disabled=false;showToast?.(error?.message||"Unable to remove mapping","error");}
+                finally{overlay.dataset.busy="";overlay.dataset.confirming="";}
+            });
+        };
+        overlay.querySelector("[data-admin-load]").addEventListener("click",async event=>{
+            const gtin=normalizeGTIN(gtinInput.value);
+            if(!gtin){showToast?.("Enter a valid GTIN","warning");return;}
             event.currentTarget.disabled=true;
-            try{await nrV2ResolveGroupAsUnordered(group,code,name,target);section.remove();await refreshNeedsReviewCounters();showToast?.(`Extra item added — ${group.total_quantity} received`,"success");}
-            catch(error){event.currentTarget.disabled=false;showToast?.(error?.message||"Unable to add extra item","error");}
+            try{currentMapping=await getPharmacyLearnedGTINRecord(gtin);if(!currentMapping){workspace.innerHTML="<div class=\"needsReviewNoMatches\">No pharmacy learned mapping exists for this GTIN.</div>";return;}renderMaintenance();}
+            catch(error){showToast?.(error?.message||"Unable to load learned mapping","error");}
+            finally{event.currentTarget.disabled=false;}
         });
+    }
 
-        overlay.querySelector(`[data-delete="${index}"]`)?.addEventListener('click',async event=>{
-            const button=event.currentTarget;
-            if(button.dataset.confirm!=="1"){button.dataset.confirm="1";button.textContent="Confirm delete";setTimeout(()=>{if(button.isConnected){button.dataset.confirm="";button.textContent="Delete review case";}},2500);return;}
-            try{for(const row of group.rows)await nrV2Delete(row.review_id);for(const path of group.photos){try{await nrV2DeletePhoto?.(path);}catch(_){}}section.remove();await refreshNeedsReviewCounters();}
-            catch(error){showToast?.(error?.message||"Unable to delete review","error");}
-        });
+    overlay.addEventListener("keydown",event=>{
+        if(event.key!=="Escape"||overlay.dataset.busy==="1") return;
+        if(document.getElementById("needsReviewPhotoViewer")){closeNeedsReviewPhotoViewer();event.stopPropagation();return;}
+        closePanel();
     });
 }
 
