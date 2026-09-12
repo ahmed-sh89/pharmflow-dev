@@ -1268,7 +1268,7 @@ async function correctPharmacyLearnedGTIN(gtin,itemCode,itemName,reason){
     const normalized=normalizeGTIN(gtin), code=normalizeItemCode(itemCode), name=toSafeString(itemName).trim(), why=toSafeString(reason).trim();
     if(!normalized||!code||!name||!why) throw new Error("GTIN, Item Code, Item Name and Reason are required");
     if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
-    const result=await authRpc("correct_pharmacy_learned_gtin",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_new_item_code:code,p_new_item_name:name,p_reason:why});
+    const result=await authRpc("correct_pharmacy_learned_gtin_v2",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_new_item_code:code,p_new_item_name:name,p_reason:why});
     purgePharmacyLearnedGTINFromWorkspace(normalized);
     addMappingRecord({itemCode:code,gtin:normalized,source:"PHARMACY_LEARNED"});
     cacheGTINScanRecord(normalized,{gtin:normalized,itemCode:code,itemName:name,source:"PHARMACY_LEARNED"});
@@ -1279,7 +1279,7 @@ async function removePharmacyLearnedGTIN(gtin,reason){
     const normalized=normalizeGTIN(gtin), why=toSafeString(reason).trim();
     if(!normalized||!why) throw new Error("GTIN and Reason are required");
     if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
-    const result=await authRpc("remove_pharmacy_learned_gtin",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_reason:why});
+    const result=await authRpc("remove_pharmacy_learned_gtin_v2",{p_pharmacy_id:AuthState.context.pharmacy_id,p_gtin:normalized,p_reason:why});
     purgePharmacyLearnedGTINFromWorkspace(normalized);
     return Array.isArray(result)?result[0]:result;
 }
