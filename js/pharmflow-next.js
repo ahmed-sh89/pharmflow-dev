@@ -163,3 +163,381 @@
   document.addEventListener('DOMContentLoaded',init);if(document.readyState!=='loading')init();
   window.PharmFlowNext=PF;
 })();
+
+/* =====================================================
+   B11 CLEAN 17 — LEARNED GTIN LIFECYCLE V3
+   Project B integration layer.
+   - Active authority: pharmflow_pharmacy_gtin_v1 through V3 RPCs
+   - Learned positive mappings are revalidated before every receive mutation
+   - Receiving ledger payload carries exact mapping id/revision provenance
+   - Correct/Remove use V3 preview + idempotent lifecycle operation ids
+   - Global Master, auth, manifest and polling behavior are unchanged
+===================================================== */
+(function installLearnedGTINLifecycleV3(){
+  "use strict";
+  if(window.__PF_LEARNED_GTIN_V3__) return;
+  window.__PF_LEARNED_GTIN_V3__=true;
+
+  const authority=new Map();
+  const operationIds=new Map();
+  const upper=value=>String(value||"").trim().toUpperCase();
+  const pid=()=>window.AuthState?.context?.pharmacy_id||"";
+  const isLearned=record=>upper(record?.source)==="PHARMACY_LEARNED" || !!record?.mappingId;
+
+  function secureUuid(){
+    if(window.crypto?.randomUUID) return window.crypto.randomUUID();
+    if(!window.crypto?.getRandomValues) throw new Error("Secure operation ID generation is unavailable");
+    const bytes=new Uint8Array(16);
+    window.crypto.getRandomValues(bytes);
+    bytes[6]=(bytes[6]&15)|64;
+    bytes[8]=(bytes[8]&63)|128;
+    const hex=Array.from(bytes,b=>b.toString(16).padStart(2,"0")).join("");
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+
+  function normalizeRow(row,fallbackGTIN=""){
+    if(!row?.item_code || !row?.mapping_id || !row?.mapping_revision) return null;
+    const gtin=normalizeGTIN(row.gtin||fallbackGTIN);
+    if(!gtin) return null;
+    return {
+      gtin,
+      itemCode:normalizeItemCode(row.item_code),
+      itemName:toSafeString(row.item_name||""),
+      source:"PHARMACY_LEARNED",
+      mappingId:String(row.mapping_id),
+      mappingRevision:Number(row.mapping_revision),
+      updatedAt:row.updated_at||null
+    };
+  }
+
+  function cacheAuthority(record){
+    if(!record?.gtin || !record?.itemCode || !record?.mappingId || !record?.mappingRevision) return null;
+    authority.set(record.gtin,record);
+    try{
+      PharmFlowGTINScanCache.learnedMissUntil.delete(record.gtin);
+      cacheGTINScanRecord(record.gtin,record);
+    }catch(_){}
+    return record;
+  }
+
+  function purgeLearned(gtin){
+    const normalized=normalizeGTIN(gtin);
+    if(!normalized) return;
+    authority.delete(normalized);
+    try{ purgePharmacyLearnedGTINFromWorkspace(normalized); }catch(_){}
+    try{
+      PharmFlowGTINScanCache.records.delete(normalized);
+      PharmFlowGTINScanCache.learnedMissUntil.delete(normalized);
+    }catch(_){}
+  }
+
+  async function resolveLearnedV3(gtin,options={}){
+    const normalized=normalizeGTIN(gtin);
+    if(!normalized || !pid() || typeof authRpc!=="function") return null;
+    try{
+      const rows=await authRpc("resolve_pharmacy_learned_gtin_v3",{
+        p_pharmacy_id:pid(),
+        p_gtin:normalized
+      });
+      const row=Array.isArray(rows)?rows[0]:rows;
+      const record=normalizeRow(row,normalized);
+      if(record) cacheAuthority(record);
+      else purgeLearned(normalized);
+      return record;
+    }catch(error){
+      Logger.warn("Learned GTIN V3 authority lookup failed",error);
+      if(options.strict===true) throw error;
+      return null;
+    }
+  }
+
+  window.getPharmacyLearnedGTINRecord=resolveLearnedV3;
+
+  const originalSaveLearned=window.savePharmacyLearnedGTIN;
+  if(typeof originalSaveLearned==="function"){
+    window.savePharmacyLearnedGTIN=async function(gtin,itemCode,itemName){
+      const result=await originalSaveLearned(gtin,itemCode,itemName);
+      const fresh=await resolveLearnedV3(gtin,{strict:true});
+      if(!fresh) throw new Error("Learned GTIN was saved but authority could not be revalidated");
+      purgeLearned(gtin);
+      addMappingRecord({itemCode:fresh.itemCode,gtin:fresh.gtin,source:"PHARMACY_LEARNED"});
+      cacheAuthority(fresh);
+      return result;
+    };
+  }
+
+  window.getMasterGTINRecordByGTIN=async function(gtin){
+    const normalized=normalizeGTIN(gtin);
+    if(!normalized) return null;
+
+    const cached=PharmFlowGTINScanCache.records.get(normalized);
+    if(cached && !isLearned(cached)) return cached;
+    if(cached && isLearned(cached)){
+      const fresh=await resolveLearnedV3(normalized,{strict:true});
+      if(fresh) return fresh;
+    }
+
+    let globalRecord=null;
+    try{ globalRecord=await getLocalGlobalMasterGTINRecord(normalized); }
+    catch(error){ Logger.warn("Local Global GTIN lookup failed",error); }
+    if(globalRecord){
+      cacheGTINScanRecord(normalized,globalRecord);
+      return globalRecord;
+    }
+
+    const isHandheld=typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice();
+    const missUntil=Number(PharmFlowGTINScanCache.learnedMissUntil.get(normalized)||0);
+    if(!isHandheld && missUntil>Date.now()) return null;
+
+    const learned=await resolveLearnedV3(normalized,{strict:true});
+    if(learned) return learned;
+    if(!isHandheld){
+      PharmFlowGTINScanCache.learnedMissUntil.set(normalized,Date.now()+120000);
+    }
+    return null;
+  };
+
+  function learnedWorkspaceMapping(gtin){
+    const normalized=normalizeGTIN(gtin);
+    return (AppState?.workspace?.mappingData||[]).find(record=>
+      normalizeGTIN(record?.gtin||"")===normalized && upper(record?.source)==="PHARMACY_LEARNED"
+    )||null;
+  }
+
+  function provenance(record){
+    if(!record?.mappingId || !record?.mappingRevision) return null;
+    return {
+      kind:"PHARMACY_LEARNED",
+      mappingId:String(record.mappingId),
+      mappingRevision:String(record.mappingRevision),
+      normalizedGtin:normalizeGTIN(record.gtin),
+      resolvedItemCode:normalizeItemCode(record.itemCode)
+    };
+  }
+
+  window.receiveParsedBarcode=async function(parsed){
+    if(!parsed?.gtin){ handleReceivingFailure("Barcode could not be identified"); return false; }
+    if(AppState.workspace.orderData.length===0){ handleReceivingFailure("Load an order before receiving"); return false; }
+
+    const gtin=normalizeGTIN(parsed.gtin);
+    if(!gtin){ handleReceivingFailure("Barcode could not be identified"); return false; }
+
+    try{
+      const learnedLocal=learnedWorkspaceMapping(gtin);
+      if(learnedLocal){
+        const fresh=await resolveLearnedV3(gtin,{strict:true});
+        if(fresh){
+          purgeLearned(gtin);
+          addMappingRecord({itemCode:fresh.itemCode,gtin,source:"PHARMACY_LEARNED"});
+          cacheAuthority(fresh);
+          const freshItem=getReceivingItemByItemCode(fresh.itemCode);
+          if(freshItem){
+            return receiveOrderItem({
+              item:freshItem,
+              quantity:getValidReceivingQuantity(parsed.quantity),
+              gtin,
+              lot:parsed.lot,
+              expiry:parsed.expiry,
+              serial:parsed.serial,
+              source:APP_CONFIG.transactionSources.scanner,
+              manual:false
+            });
+          }
+          return await quickResolveUnrecognizedGTIN(parsed,fresh);
+        }
+        purgeLearned(gtin);
+      }
+
+      const current=resolveCurrentWorkspaceGTIN(gtin);
+      if(current?.item){
+        return receiveOrderItem({
+          item:current.item,
+          quantity:getValidReceivingQuantity(parsed.quantity),
+          gtin,
+          lot:parsed.lot,
+          expiry:parsed.expiry,
+          serial:parsed.serial,
+          source:APP_CONFIG.transactionSources.scanner,
+          manual:false
+        });
+      }
+
+      const masterRecord=await getMasterGTINRecordByGTIN(gtin);
+      if(!masterRecord?.itemCode) return await quickResolveUnrecognizedGTIN(parsed,null);
+
+      const item=getReceivingItemByItemCode(masterRecord.itemCode);
+      if(!item) return await quickResolveUnrecognizedGTIN(parsed,masterRecord);
+
+      addMappingRecord({itemCode:item.itemCode,gtin,source:masterRecord.source||"MASTER"});
+      if(isLearned(masterRecord)) cacheAuthority(masterRecord);
+      return receiveOrderItem({
+        item,
+        quantity:getValidReceivingQuantity(parsed.quantity),
+        gtin,
+        lot:parsed.lot,
+        expiry:parsed.expiry,
+        serial:parsed.serial,
+        source:APP_CONFIG.transactionSources.scanner,
+        manual:false
+      });
+    }catch(error){
+      Logger.warn("GTIN authority verification failed before receive",error);
+      handleReceivingFailure("Unable to verify this GTIN. Check connection and scan again.");
+      return false;
+    }
+  };
+
+  window.createReceivingTransaction=function(options){
+    const item=options.item;
+    const transactionOrder=resolveReceivingTransactionOrder(item,options.targetOrder||"");
+    const record=addReceivingTransaction({
+      transactionId:options.transactionId||createTransactionId(),
+      orderId:transactionOrder||AppState.workspace.orderId,
+      selectedOrderNumber:transactionOrder,
+      dateTime:nowISO(),
+      itemCode:item.itemCode,
+      itemName:item.itemName,
+      gtin:options.gtin||"",
+      quantity:options.quantity,
+      lot:options.lot||"",
+      expiry:options.expiry||"",
+      serial:options.serial||"",
+      source:options.source||APP_CONFIG.transactionSources.scanner,
+      deviceId:(typeof ensureDeviceId==="function"?ensureDeviceId():AppState.session.deviceId),
+      deviceType:getReceivingRuntimeDeviceType(),
+      manual:options.manual===true,
+      targetOrder:options.targetOrder||""
+    });
+    if(record && options.gtin){
+      const learned=authority.get(normalizeGTIN(options.gtin));
+      if(learned && normalizeItemCode(learned.itemCode)===normalizeItemCode(item?.itemCode)){
+        record.gtinResolution=provenance(learned);
+      }
+    }
+    return record;
+  };
+
+  const originalUploadCloud=window.uploadCloudReceivingTransaction;
+  if(typeof originalUploadCloud==="function"){
+    window.uploadCloudReceivingTransaction=async function(tx,pharmacyId){
+      const p=tx?.gtinResolution;
+      if(!p || p.kind!=="PHARMACY_LEARNED" || Number(tx?.quantity||0)<=0){
+        return originalUploadCloud(tx,pharmacyId);
+      }
+      await authRpc("append_pharmflow_learned_transaction_v3",{
+        p_pharmacy_id:pharmacyId,
+        p_transaction_id:tx.transactionId,
+        p_order_number:toSafeString(tx.selectedOrderNumber||tx.orderId||""),
+        p_item_code:toSafeString(tx.itemCode||""),
+        p_item_name:toSafeString(tx.itemName||""),
+        p_gtin:toSafeString(tx.gtin||p.normalizedGtin||""),
+        p_quantity:toNumber(tx.quantity,0),
+        p_source:toSafeString(tx.source||"RECEIVING"),
+        p_device_id:toSafeString(tx.deviceId||cloudWorkspaceDeviceId()),
+        p_occurred_at:tx.dateTime||nowISO(),
+        p_payload:tx,
+        p_mapping_id:String(p.mappingId),
+        p_mapping_revision:Number(p.mappingRevision)
+      });
+      const local=(AppState?.workspace?.receivingHistory||[]).find(row=>row.transactionId===tx.transactionId);
+      if(local) local.cloudSynced=true;
+      return tx.transactionId;
+    };
+  }
+
+  async function previewLifecycle(gtin,action,newItemCode=null){
+    const result=await authRpc("preview_pharmacy_learned_gtin_lifecycle_v3",{
+      p_pharmacy_id:pid(),
+      p_gtin:normalizeGTIN(gtin),
+      p_action:action,
+      p_new_item_code:newItemCode?normalizeItemCode(newItemCode):null
+    });
+    return Array.isArray(result)?result[0]:result;
+  }
+
+  function operationIdFor(key){
+    if(operationIds.has(key)) return operationIds.get(key);
+    const id=secureUuid();
+    operationIds.set(key,id);
+    return id;
+  }
+
+  function confirmLifecycleImpact(action,preview){
+    return new Promise(resolve=>{
+      document.getElementById("pfLifecycleV3Confirm")?.remove();
+      const overlay=document.createElement("div");
+      overlay.id="pfLifecycleV3Confirm";
+      overlay.className="modalOverlay visible";
+      overlay.setAttribute("aria-hidden","false");
+      const provable=Number(preview?.provable?.quantity||0);
+      const ambiguous=Number(preview?.ambiguous?.quantity||0);
+      const compensated=Number(preview?.alreadyCompensated?.quantity||0);
+      const eligible=Number(preview?.reallocation?.eligibleQuantity||0);
+      const nonRealloc=Number(preview?.reallocation?.nonReallocatableQuantity||0);
+      const title=action==="CORRECT"?"Confirm GTIN Correction":"Confirm GTIN Removal";
+      const reallocation=action==="CORRECT"
+        ? `<div><span>Eligible for same-order reallocation</span><strong>${eligible}</strong></div><div><span>Not reallocated</span><strong>${nonRealloc}</strong></div>`
+        : "";
+      overlay.innerHTML=`<div class="modalCard smallModal" role="dialog" aria-modal="true" aria-label="${title}"><div class="modalHeader"><h2>${title}</h2></div><div style="display:grid;gap:10px;margin:10px 0 18px"><div><span>Provable quantity to reverse</span><strong style="float:right">${provable}</strong></div><div><span>Ambiguous historical quantity — untouched</span><strong style="float:right">${ambiguous}</strong></div><div><span>Already compensated</span><strong style="float:right">${compensated}</strong></div>${reallocation}</div><p class="confirmMessage">Only transaction-attributable quantities will be changed. Global GTIN is not modified.</p><div class="modalFooter"><button class="secondaryButton" type="button" data-cancel>Cancel</button><button class="dangerButton" type="button" data-confirm>${action==="CORRECT"?"Confirm Correction":"Confirm Removal"}</button></div></div>`;
+      document.body.appendChild(overlay);
+      const finish=value=>{overlay.remove();resolve(value);};
+      overlay.querySelector("[data-cancel]").onclick=()=>finish(false);
+      overlay.querySelector("[data-confirm]").onclick=()=>finish(true);
+      overlay.addEventListener("click",e=>{if(e.target===overlay) finish(false);});
+    });
+  }
+
+  window.correctPharmacyLearnedGTIN=async function(gtin,itemCode,itemName,reason){
+    const normalized=normalizeGTIN(gtin), code=normalizeItemCode(itemCode), name=toSafeString(itemName).trim(), why=toSafeString(reason).trim();
+    if(!normalized||!code||!name||!why) throw new Error("GTIN, Item Code, Item Name and Reason are required");
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
+
+    const preview=await previewLifecycle(normalized,"CORRECT",code);
+    const mapping=preview?.mapping;
+    if(!mapping?.id || !mapping?.revision) throw new Error("Current learned mapping could not be verified");
+    if(!await confirmLifecycleImpact("CORRECT",preview)) return {cancelled:true};
+
+    const key=`CORRECT|${mapping.id}|${mapping.revision}|${code}|${why}`;
+    const result=await authRpc("correct_pharmacy_learned_gtin_v3",{
+      p_pharmacy_id:pid(),
+      p_operation_id:operationIdFor(key),
+      p_gtin:normalized,
+      p_expected_mapping_id:mapping.id,
+      p_expected_mapping_revision:Number(mapping.revision),
+      p_new_item_code:code,
+      p_new_item_name:name,
+      p_reason:why
+    });
+    purgeLearned(normalized);
+    const fresh=await resolveLearnedV3(normalized,{strict:true});
+    if(!fresh) throw new Error("Corrected learned mapping could not be reloaded");
+    addMappingRecord({itemCode:fresh.itemCode,gtin:fresh.gtin,source:"PHARMACY_LEARNED"});
+    cacheAuthority(fresh);
+    return Array.isArray(result)?result[0]:result;
+  };
+
+  window.removePharmacyLearnedGTIN=async function(gtin,reason){
+    const normalized=normalizeGTIN(gtin), why=toSafeString(reason).trim();
+    if(!normalized||!why) throw new Error("GTIN and Reason are required");
+    if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
+
+    const preview=await previewLifecycle(normalized,"REMOVE",null);
+    const mapping=preview?.mapping;
+    if(!mapping?.id || !mapping?.revision) throw new Error("Current learned mapping could not be verified");
+    if(!await confirmLifecycleImpact("REMOVE",preview)) return {cancelled:true};
+
+    const key=`REMOVE|${mapping.id}|${mapping.revision}|${why}`;
+    const result=await authRpc("remove_pharmacy_learned_gtin_v3",{
+      p_pharmacy_id:pid(),
+      p_operation_id:operationIdFor(key),
+      p_gtin:normalized,
+      p_expected_mapping_id:mapping.id,
+      p_expected_mapping_revision:Number(mapping.revision),
+      p_reason:why
+    });
+    purgeLearned(normalized);
+    return Array.isArray(result)?result[0]:result;
+  };
+
+  window.PharmFlowLearnedGTINLifecycleV3={version:"B11C17",resolve:resolveLearnedV3,preview:previewLifecycle};
+})();
