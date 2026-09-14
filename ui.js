@@ -1699,6 +1699,10 @@ function refreshHeader(){
         AppState.workspace?.active === true &&
         (AppState.workspace?.orderData?.length || AppState.workspace?.orderFiles?.length)
     );
+    const manageOrdersLabel=document.querySelector("#pfnManageOrders span");
+    if(manageOrdersLabel){
+        manageOrdersLabel.textContent=hasActiveOrder ? "Manage Orders" : "Upload / Manage Orders";
+    }
 
     {
         const orderLabel=UI.elements.headerOrderId;
@@ -7890,13 +7894,16 @@ function openDashboardKpiPanel(key){
     overlay.className="quickKpiOverlay";
     overlay.innerHTML=`<div class="quickKpiPanel phase263Panel"><div class="quickKpiHeader"><h3>${kpiTitle(key)}</h3><button type="button" class="quickKpiClose" data-close>✕</button></div><div data-body></div></div>`;
     document.body.appendChild(overlay);
+    window.PharmFlowModalStack?.open(overlay);
     overlay.querySelector("[data-close]").onclick=closeDashboardKpiPanel;
     overlay.addEventListener("click",event=>{if(event.target===overlay) closeDashboardKpiPanel();});
     renderDashboardKpiPanel(key,overlay.querySelector("[data-body]"));
 }
 
 function closeDashboardKpiPanel(){
-    document.getElementById("dashboardKpiOverlay")?.remove();
+    const overlay=document.getElementById("dashboardKpiOverlay");
+    window.PharmFlowModalStack?.close(overlay);
+    overlay?.remove();
     activeKpiKey=null;
     focusScannerInput?.();
 }
@@ -7968,20 +7975,19 @@ function openReceivingActivityEditor(row,allRows){
     const esc=value=>escapeHTML(toSafeString(value));
     const modal=document.createElement("div");
     modal.className="quickKpiOverlay pfnActivityEditOverlay";
-    modal.innerHTML=`<form class="pfnActivityEdit" aria-label="Edit receiving activity"><h3>Edit Receiving Activity</h3><p><b>${esc(row.itemName||item.itemName)}</b><br>Item ${esc(row.itemCode)} · Order ${esc(order||"Current")}</p><label>Current transaction quantity<input value="${esc(current)}" disabled></label><label>Correct quantity<input data-corrected type="number" min="0" step="1" value="${esc(current)}" required></label><label>Correction reason<textarea data-reason rows="3" maxlength="240" required placeholder="Explain why this quantity is being corrected"></textarea></label><div><button type="button" data-cancel>Cancel</button><button type="submit">Save Correction</button></div></form>`;
+    modal.innerHTML=`<form class="pfnActivityEdit" aria-label="Edit receiving activity"><h3>Edit Receiving Activity</h3><p><b>${esc(row.itemName||item.itemName)}</b><br>Item ${esc(row.itemCode)} · Order ${esc(order||"Current")}</p><label>Current transaction quantity<input value="${esc(current)}" disabled></label><label>Correct quantity<input data-corrected type="number" min="0" step="1" value="${esc(current)}" required></label><div><button type="button" data-cancel>Cancel</button><button type="submit">Save Correction</button></div></form>`;
     document.body.appendChild(modal);
-    const close=()=>modal.remove();
+    window.PharmFlowModalStack?.open(modal);
+    const close=()=>{window.PharmFlowModalStack?.close(modal);modal.remove();};
     modal.querySelector("[data-cancel]").onclick=close;
     modal.addEventListener("click",event=>{if(event.target===modal) close();});
     modal.querySelector("form").addEventListener("submit",event=>{
         event.preventDefault();
         const corrected=Number(modal.querySelector("[data-corrected]").value);
-        const reason=toSafeString(modal.querySelector("[data-reason]").value).trim();
         if(!Number.isInteger(corrected)||corrected<0){showToast?.("Enter a whole quantity of zero or more","warning");return;}
-        if(!reason){showToast?.("A correction reason is required","warning");return;}
         const difference=corrected-current;
         if(difference===0){showToast?.("The corrected quantity is unchanged","warning");return;}
-        const tx=applyQuantityAdjustment({item,difference,targetOrder:order,source:"RECEIVING_CORRECTION",correctionReason:reason,correctsTransactionId:row.transactionId});
+        const tx=applyQuantityAdjustment({item,difference,targetOrder:order,source:"RECEIVING_CORRECTION",correctionReason:"Receiving activity edit",correctsTransactionId:row.transactionId});
         if(!tx) return;
         close(); refreshDashboard?.(); refreshOpenKpiPanel();
         showToast?.(`${item.itemName} correction recorded (${difference>0?"+":""}${difference})`,"success");
@@ -8059,10 +8065,18 @@ function renderDashboardKpiPanel(key,body){
     const esc=value=>typeof escapeHtml==="function"?escapeHtml(toSafeString(value)):toSafeString(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
     if(key==="scans"){
         const allRows=getReceivingActivityRows();
-        const localDevice=(typeof ensureDeviceId==="function"?ensureDeviceId():AppState.session?.deviceId);
         if(!allRows.length){body.innerHTML='<div class="tableEmptyState">No receiving activity in the current workspace yet.</div>';return;}
-        body.innerHTML=`<div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Date / Time</th><th>Item Name</th><th>Item Number</th><th>GTIN</th><th>Quantity Effect</th><th>Source</th><th>Target Order</th><th>Action</th></tr></thead><tbody>${allRows.map(row=>{const q=toNumber(row.qtyChange,0);const correction=toSafeString(row.source).toUpperCase().includes("CORRECTION");const editable=!correction&&q>0&&!!getItemByCode?.(row.itemCode);return `<tr><td>${esc(typeof formatDateTime==="function"?formatDateTime(row.dateTime):row.dateTime)}</td><td><b>${esc(row.itemName||getItemByCode?.(row.itemCode)?.itemName||"Unknown item")}</b></td><td>${esc(row.itemCode)}</td><td>${esc(row.gtin||"—")}</td><td class="${q<0?'phase263Negative':'phase263Positive'}">${correction?'Correction':'Received'} ${q>0?'+':''}${esc(q)}</td><td>${esc(getReceivingActivitySource(row,localDevice))}</td><td>${esc(row.selectedOrderNumber||row.orderId||row.orderNumber||"—")}</td><td>${editable?`<button class="quickUndoButton" data-edit="${esc(row.transactionId)}">Edit</button>`:'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
-        body.querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>{const row=allRows.find(entry=>toSafeString(entry.transactionId)===btn.dataset.edit);if(row)openReceivingActivityEditor(row,allRows);});
+        body.innerHTML=`<div class="pfnActivityControls"><label for="pfnActivitySourceFilter">Source</label><select id="pfnActivitySourceFilter"><option value="All">All</option><option value="Handheld">Handheld</option><option value="PC Scan">PC Scan</option><option value="Manual">Manual</option><option value="Correction">Correction</option></select></div><div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Date / Time</th><th>Item Name</th><th>Item Number</th><th>GTIN</th><th>Quantity Effect</th><th>Source</th><th>Target Order</th><th>Action</th></tr></thead><tbody data-activity-rows></tbody></table></div>`;
+        const tbody=body.querySelector("[data-activity-rows]");
+        const sourceFilter=body.querySelector("#pfnActivitySourceFilter");
+        const draw=()=>{
+            const selected=sourceFilter.value;
+            const rows=selected==="All"?allRows:allRows.filter(row=>getReceivingActivitySource(row)===selected);
+            tbody.innerHTML=rows.length?rows.map(row=>{const q=toNumber(row.qtyChange,0);const correction=toSafeString(row.source).toUpperCase().includes("CORRECTION");const editable=!correction&&q>0&&!!getItemByCode?.(row.itemCode);return `<tr><td>${esc(typeof formatDateTime==="function"?formatDateTime(row.dateTime):row.dateTime)}</td><td><b>${esc(row.itemName||getItemByCode?.(row.itemCode)?.itemName||"Unknown item")}</b></td><td>${esc(row.itemCode)}</td><td>${esc(row.gtin||"—")}</td><td class="${q<0?'phase263Negative':'phase263Positive'}">${correction?'Correction':'Received'} ${q>0?'+':''}${esc(q)}</td><td>${esc(getReceivingActivitySource(row))}</td><td>${esc(row.selectedOrderNumber||row.orderId||row.orderNumber||"—")}</td><td>${editable?`<button class="quickUndoButton" data-edit="${esc(row.transactionId)}">Edit</button>`:'—'}</td></tr>`;}).join(''):'<tr><td colspan="8" class="tableEmptyState">No activity from this source.</td></tr>';
+            tbody.querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>{const row=allRows.find(entry=>toSafeString(entry.transactionId)===btn.dataset.edit);if(row)openReceivingActivityEditor(row,allRows);});
+        };
+        sourceFilter.addEventListener("change",draw);
+        draw();
         return;
     }
     if(key==="received"){
