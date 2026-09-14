@@ -71,6 +71,9 @@ function cacheUIElements(){
         statCompleted:
             document.getElementById("statCompleted"),
 
+        statRemainingItems:
+            document.getElementById("statRemainingItems"),
+
         statRemaining:
             document.getElementById("statRemaining"),
 
@@ -1855,6 +1858,7 @@ function getSelectedOrderDashboardMetrics(){
     let totalItems=0;
     let completedItems=0;
     let remainingUnits=0;
+    let remainingItems=0;
     let overReceivedItems=0;
     let manualItems=0;
 
@@ -1873,6 +1877,7 @@ function getSelectedOrderDashboardMetrics(){
                 }
 
                 remainingUnits+=Math.max(0,ordered-received);
+                if(received<ordered) remainingItems++;
 
                 if(received>ordered){
                     overReceivedItems++;
@@ -1905,6 +1910,7 @@ function getSelectedOrderDashboardMetrics(){
         totalItems,
         completedItems,
         remainingUnits,
+        remainingItems,
         overReceivedItems,
         manualItems,
         totalScans
@@ -1922,7 +1928,7 @@ function refreshDashboard(){
 
     if(!hasActiveOrder){
         resetStatistics?.();
-        [UI.elements.statTotalItems,UI.elements.statCompleted,UI.elements.statRemaining,
+        [UI.elements.statTotalItems,UI.elements.statCompleted,UI.elements.statRemainingItems,UI.elements.statRemaining,
          UI.elements.statOver,UI.elements.statManual,UI.elements.statScans]
             .forEach(el=>setElementText(el,0));
         setElementText(document.getElementById("receivingNeedsReviewCount"),0);
@@ -1959,6 +1965,7 @@ function refreshDashboard(){
                 ),
                 0
             ),
+            remainingItems:scopedItems.filter(i=>Math.max(0,toNumber(i.orderedQty,0)-toNumber(i.receivedQty,0))>0).length,
             overReceivedItems:scopedItems.filter(i=>
                 toNumber(i.receivedQty,0)>toNumber(i.orderedQty,0)
             ).length,
@@ -1978,6 +1985,7 @@ function refreshDashboard(){
             }).length
         } : {
             ...stats,
+            remainingUnits:AppState.workspace.orderData.reduce((sum,item)=>sum+Math.max(0,toNumber(item.orderedQty,0)-toNumber(item.receivedQty,0)),0),
             totalScans:(AppState.workspace?.receivingHistory||[]).filter(tx=>{
                 const localDevice=
                     typeof ensureDeviceId==="function"
@@ -1992,6 +2000,7 @@ function refreshDashboard(){
 
     setElementText(UI.elements.statTotalItems,scoped.totalItems);
     setElementText(UI.elements.statCompleted,scoped.completedItems);
+    setElementText(UI.elements.statRemainingItems,scoped.remainingItems);
     setElementText(
         UI.elements.statRemaining,
         Number.isFinite(scoped.remainingUnits)
@@ -7841,13 +7850,22 @@ function getScopedOrderItems(){
 function getKpiPanelItems(key){
     const items=getScopedOrderItems();
     if(key==="total") return items.slice();
-    if(key==="completed") return items.filter(i=>{
+    const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function" ? getSelectedReceivingOrderNumbers() : [];
+    const perOrderRows=typeof getPerOrderReceivingRows==="function" ? selectedOrders.flatMap(order=>getPerOrderReceivingRows(order).map(row=>({
+        orderNumber:order,
+        itemCode:row["Item Number"], itemName:row["Item Name"],
+        orderedQty:toNumber(row["Ordered Qty"],0), receivedQty:toNumber(row["Received Qty"],0),
+        remainingQty:Math.max(0,toNumber(row["Ordered Qty"],0)-toNumber(row["Received Qty"],0)),
+        status:row["Issue Type"], manual:row.issueKey==="manual"
+    }))) : [];
+    const scoped=perOrderRows.length ? perOrderRows : items;
+    if(key==="completed") return scoped.filter(i=>{
         const o=toNumber(i.orderedQty,0),r=toNumber(i.receivedQty,0);
         return o>0 && r===o;
     });
-    if(key==="remaining") return items.filter(i=>toNumber(i.remainingQty,0)>0);
-    if(key==="over") return items.filter(i=>toNumber(i.receivedQty,0)>toNumber(i.orderedQty,0));
-    if(key==="manual") return items.filter(i=>i.manual===true);
+    if(key==="remaining"||key==="remainingItems") return scoped.filter(i=>toNumber(i.remainingQty,0)>0);
+    if(key==="over") return scoped.filter(i=>toNumber(i.receivedQty,0)>toNumber(i.orderedQty,0));
+    if(key==="manual") return scoped.filter(i=>i.manual===true);
     return [];
 }
 
@@ -7856,6 +7874,7 @@ function kpiTitle(key){
         total:"Order Item Browser",
         completed:"Completed Items",
         remaining:"Remaining Items",
+        remainingItems:"Remaining Items",
         over:"Over Received",
         manual:"Manual / Unordered Extras",
         scans:"Receiving Activity History",
@@ -7891,11 +7910,13 @@ function refreshOpenKpiPanel(){
 function getReceivingActivityRows(){
     const history=Array.isArray(AppState?.workspace?.receivingHistory)?AppState.workspace.receivingHistory:[];
     const totals=new Map();
+    const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function" ? getSelectedReceivingOrderNumbers().map(normalizeOrderNumber) : [];
+    const scopedHistory=history.filter(tx=>!selectedOrders.length||selectedOrders.includes(normalizeOrderNumber(tx?.selectedOrderNumber||tx?.orderId||tx?.orderNumber||"")));
 
     /* Always calculate totals in true chronological order.
        The stored history may be newest-first or oldest-first depending on
        the source/device, so array position must never decide the result. */
-    const chronological=history.slice().sort((a,b)=>{
+    const chronological=scopedHistory.slice().sort((a,b)=>{
         const ta=new Date(a?.dateTime||a?.date||a?.timestamp||0).getTime()||0;
         const tb=new Date(b?.dateTime||b?.date||b?.timestamp||0).getTime()||0;
         return ta-tb;
@@ -7925,6 +7946,47 @@ function getActivitySourceLabel(source){
     if(value.includes("SEARCH")) return "Manual Quantity";
     if(value.includes("MANUAL")||value.includes("EDIT")||value.includes("ADJUST")) return "Manual Quantity";
     return source||"Receiving";
+}
+
+function getReceivingActivitySource(row){
+    const source=toSafeString(row?.source||"").toUpperCase();
+    if(source.includes("UNDO")||source.includes("CORRECTION")) return "Correction";
+    if(source.includes("MANUAL")||source.includes("SEARCH")||source.includes("EDIT")||source.includes("ADJUST")) return "Manual";
+    if(source.includes("SCAN")) return toSafeString(row?.deviceType||"").toUpperCase()==="HANDHELD" ? "Handheld" : "PC Scan";
+    return toSafeString(row?.deviceType||"").toUpperCase()==="HANDHELD" ? "Handheld" : "Receiving";
+}
+
+function getActivityEffectiveQuantity(row,allRows){
+    return toNumber(row?.quantity,0)+(allRows||[]).filter(tx=>toSafeString(tx?.correctsTransactionId||"")===toSafeString(row?.transactionId||"")).reduce((sum,tx)=>sum+toNumber(tx?.quantity,0),0);
+}
+
+function openReceivingActivityEditor(row,allRows){
+    const current=getActivityEffectiveQuantity(row,allRows);
+    const order=normalizeOrderNumber(row?.selectedOrderNumber||row?.orderId||row?.orderNumber||"");
+    const item=getItemByCode?.(row?.itemCode);
+    if(!item||current<0){showToast?.("This activity cannot be edited","warning");return;}
+    const esc=value=>escapeHTML(toSafeString(value));
+    const modal=document.createElement("div");
+    modal.className="quickKpiOverlay pfnActivityEditOverlay";
+    modal.innerHTML=`<form class="pfnActivityEdit" aria-label="Edit receiving activity"><h3>Edit Receiving Activity</h3><p><b>${esc(row.itemName||item.itemName)}</b><br>Item ${esc(row.itemCode)} · Order ${esc(order||"Current")}</p><label>Current transaction quantity<input value="${esc(current)}" disabled></label><label>Correct quantity<input data-corrected type="number" min="0" step="1" value="${esc(current)}" required></label><label>Correction reason<textarea data-reason rows="3" maxlength="240" required placeholder="Explain why this quantity is being corrected"></textarea></label><div><button type="button" data-cancel>Cancel</button><button type="submit">Save Correction</button></div></form>`;
+    document.body.appendChild(modal);
+    const close=()=>modal.remove();
+    modal.querySelector("[data-cancel]").onclick=close;
+    modal.addEventListener("click",event=>{if(event.target===modal) close();});
+    modal.querySelector("form").addEventListener("submit",event=>{
+        event.preventDefault();
+        const corrected=Number(modal.querySelector("[data-corrected]").value);
+        const reason=toSafeString(modal.querySelector("[data-reason]").value).trim();
+        if(!Number.isInteger(corrected)||corrected<0){showToast?.("Enter a whole quantity of zero or more","warning");return;}
+        if(!reason){showToast?.("A correction reason is required","warning");return;}
+        const difference=corrected-current;
+        if(difference===0){showToast?.("The corrected quantity is unchanged","warning");return;}
+        const tx=applyQuantityAdjustment({item,difference,targetOrder:order,source:"RECEIVING_CORRECTION",correctionReason:reason,correctsTransactionId:row.transactionId});
+        if(!tx) return;
+        close(); refreshDashboard?.(); refreshOpenKpiPanel();
+        showToast?.(`${item.itemName} correction recorded (${difference>0?"+":""}${difference})`,"success");
+    });
+    modal.querySelector("[data-corrected]").focus();
 }
 
 function toggleHighPriority(itemCode, options={}){
@@ -7998,14 +8060,9 @@ function renderDashboardKpiPanel(key,body){
     if(key==="scans"){
         const allRows=getReceivingActivityRows();
         const localDevice=(typeof ensureDeviceId==="function"?ensureDeviceId():AppState.session?.deviceId);
-        const mode=body.dataset.scanDeviceMode||"this";
-        const rows=mode==="all"?allRows:allRows.filter(r=>toSafeString(r.deviceId||"")===toSafeString(localDevice||""));
         if(!allRows.length){body.innerHTML='<div class="tableEmptyState">No receiving activity in the current workspace yet.</div>';return;}
-        const recent=typeof getRecentScannerTransactions==="function"?getRecentScannerTransactions():[];
-        const undoMap=new Map(recent.map(row=>[row.transactionId,row]));
-        body.innerHTML=`<div class="phase263BrowserToolbar"><button type="button" class="phase263Filter ${mode==="this"?"active":""}" data-scan-device="this">This Device</button><button type="button" class="phase263Filter ${mode==="all"?"active":""}" data-scan-device="all">All Devices</button></div>${rows.length?`<div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Time</th><th>Item</th><th>Device</th><th>Source</th><th>Qty Change</th><th>Total After Action</th><th>Action</th></tr></thead><tbody>${rows.map(row=>{const undo=undoMap.get(row.transactionId);const q=toNumber(row.qtyChange,0);const device=getFriendlyReceivingDeviceLabel(row,{ownDeviceId:localDevice});return `<tr><td>${esc(typeof formatDateTime==="function"?formatDateTime(row.dateTime):row.dateTime)}</td><td class="pfnActivityItem"><span class="pfnActivityItemCode">${esc(row.itemCode)}</span><span class="pfnActivityItemDivider" aria-hidden="true"></span><span class="pfnActivityItemName">${esc(row.itemName)}</span></td><td>${esc(device)}</td><td>${esc(getActivitySourceLabel(row.source))}</td><td class="${q<0?'phase263Negative':'phase263Positive'}">${q>0?'+':''}${esc(q)}</td><td><b>${esc(row.totalAfterAction)}</b></td><td>${undo?`<button class="quickUndoButton" data-undo="${esc(row.transactionId)}" ${undo.undone?'disabled':''}>${undo.undone?'Corrected':'Undo scan'}</button>`:'—'}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="tableEmptyState">No activity from this device yet.</div>'}`;
-        body.querySelectorAll("[data-scan-device]").forEach(btn=>btn.onclick=()=>{body.dataset.scanDeviceMode=btn.dataset.scanDevice;renderDashboardKpiPanel("scans",body);});
-        body.querySelectorAll("[data-undo]").forEach(btn=>btn.onclick=()=>{if(typeof undoRecentScannerTransaction==="function") undoRecentScannerTransaction(btn.dataset.undo);});
+        body.innerHTML=`<div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Date / Time</th><th>Item Name</th><th>Item Number</th><th>GTIN</th><th>Quantity Effect</th><th>Source</th><th>Target Order</th><th>Action</th></tr></thead><tbody>${allRows.map(row=>{const q=toNumber(row.qtyChange,0);const correction=toSafeString(row.source).toUpperCase().includes("CORRECTION");const editable=!correction&&q>0&&!!getItemByCode?.(row.itemCode);return `<tr><td>${esc(typeof formatDateTime==="function"?formatDateTime(row.dateTime):row.dateTime)}</td><td><b>${esc(row.itemName||getItemByCode?.(row.itemCode)?.itemName||"Unknown item")}</b></td><td>${esc(row.itemCode)}</td><td>${esc(row.gtin||"—")}</td><td class="${q<0?'phase263Negative':'phase263Positive'}">${correction?'Correction':'Received'} ${q>0?'+':''}${esc(q)}</td><td>${esc(getReceivingActivitySource(row,localDevice))}</td><td>${esc(row.selectedOrderNumber||row.orderId||row.orderNumber||"—")}</td><td>${editable?`<button class="quickUndoButton" data-edit="${esc(row.transactionId)}">Edit</button>`:'—'}</td></tr>`;}).join('')}</tbody></table></div>`;
+        body.querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>{const row=allRows.find(entry=>toSafeString(entry.transactionId)===btn.dataset.edit);if(row)openReceivingActivityEditor(row,allRows);});
         return;
     }
     if(key==="received"){
@@ -8257,6 +8314,7 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
                 <label>Search Current Active Order<input type="search" data-search="${index}" placeholder="Item Name or Item Code" autocomplete="off" spellcheck="false"></label>
                 <div class="needsReviewMatches" data-matches="${index}"></div>
                 <div class="needsReviewSelection" data-selection="${index}" hidden></div>
+                <button class="needsReviewCancel" type="button" data-cancel-review="${index}">Cancel Review</button>
               </div>
             </section>`).join(""):`<div class="needsReviewEmpty">Nothing needs review.</div>`}
         </div>
@@ -8275,7 +8333,29 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
         const search=overlay.querySelector(`[data-search="${index}"]`);
         const matches=overlay.querySelector(`[data-matches="${index}"]`);
         const selection=overlay.querySelector(`[data-selection="${index}"]`);
+        const cancelReview=overlay.querySelector(`[data-cancel-review="${index}"]`);
         let selectedItem=null;
+
+        cancelReview?.addEventListener("click",async()=>{
+            if(!window.confirm(`Cancel this Needs Review group for GTIN ${group.gtin}?\n\nThis will not learn the GTIN or change any received quantity.`)) return;
+            const reason=toSafeString(window.prompt("Reason required: Wrong Scan, Test Entry, Item Cancelled, or Other")||"").trim();
+            if(!reason){showToast?.("A cancellation reason is required","warning");return;}
+            cancelReview.disabled=true; overlay.dataset.busy="1";
+            try{
+                /* The current V2 delete RPC has no reason field. Deletion is
+                   intentionally limited to the exact rows in this displayed
+                   GTIN/order/reason group; photos are removed only afterward. */
+                for(const row of group.rows) await nrV2Delete(row.review_id);
+                for(const path of group.photos){try{await nrV2DeletePhoto?.(path);}catch(_){}}
+                section.remove(); await refreshNeedsReviewCounters();
+                const count=overlay.querySelectorAll(".needsReviewRow").length;
+                const countNode=overlay.querySelector(".pfnReviewCount");
+                if(countNode) countNode.textContent=String(count);
+                if(count===0) overlay.querySelector("[data-review-list]").innerHTML='<div class="needsReviewEmpty">Nothing needs review.</div>';
+                showToast?.(`Needs Review cancelled — ${reason}`,"success");
+            }catch(error){cancelReview.disabled=false;showToast?.(error?.message||"Unable to cancel review","error");}
+            finally{overlay.dataset.busy="";}
+        });
 
         group.photos.forEach((path,pidx)=>nrV2HydratePhoto(overlay.querySelector(`[data-photo="${index}:${pidx}"]`),path));
         group.photos.forEach((path,pidx)=>overlay.querySelector(`[data-photo-open="${index}:${pidx}"]`)?.addEventListener("click",async()=>{

@@ -1290,6 +1290,20 @@ function createLearnedGTINLifecycleOperationId(){
     return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
 }
 
+async function reconcileLearnedGTINLifecycleReceiving(){
+    /* Lifecycle V3 writes compensating ledger rows on the server. Pull those
+       rows before rendering so item search, per-order KPIs and every client
+       project exactly the same authoritative ledger after the RPC returns. */
+    if(typeof pullCloudWorkspaceTransactions==="function"){
+        await pullCloudWorkspaceTransactions({force:true});
+    }
+    if(typeof rebuildReceivingQuantitiesFromLedger==="function"){
+        rebuildReceivingQuantitiesFromLedger();
+    }
+    recalculateStatistics?.();
+    refreshEntireUI?.();
+}
+
 async function previewPharmacyLearnedGTINLifecycleV3(gtin,action,newItemCode=null){
     const normalized=normalizeGTIN(gtin), lifecycleAction=toSafeString(action).trim().toUpperCase();
     const code=newItemCode==null?null:normalizeItemCode(newItemCode);
@@ -1305,6 +1319,7 @@ async function correctPharmacyLearnedGTIN(preview,itemCode,itemName,reason,opera
     if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
     const result=await authRpc("correct_pharmacy_learned_gtin_v3",{p_pharmacy_id:AuthState.context.pharmacy_id,p_operation_id:operationId,p_gtin:normalized,p_expected_mapping_id:mappingId,p_expected_mapping_revision:mappingRevision,p_new_item_code:code,p_new_item_name:name,p_reason:why});
     purgePharmacyLearnedGTINFromWorkspace(normalized);
+    await reconcileLearnedGTINLifecycleReceiving();
     return Array.isArray(result)?result[0]:result;
 }
 
@@ -1315,6 +1330,7 @@ async function removePharmacyLearnedGTIN(preview,reason,operationId){
     if(typeof isPharmacyAdmin==="function" && !isPharmacyAdmin()) throw new Error("Pharmacy ADMIN access is required");
     const result=await authRpc("remove_pharmacy_learned_gtin_v3",{p_pharmacy_id:AuthState.context.pharmacy_id,p_operation_id:operationId,p_gtin:normalized,p_expected_mapping_id:mappingId,p_expected_mapping_revision:mappingRevision,p_reason:why});
     purgePharmacyLearnedGTINFromWorkspace(normalized);
+    await reconcileLearnedGTINLifecycleReceiving();
     return Array.isArray(result)?result[0]:result;
 }
 window.createLearnedGTINLifecycleOperationId=createLearnedGTINLifecycleOperationId;

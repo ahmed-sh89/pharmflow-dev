@@ -1720,6 +1720,8 @@ function normalizeCloudReceivingTransaction(tx){
             payload?.device_type ||
             ""
         ).toUpperCase(),
+        correctionReason:toSafeString(payload?.correctionReason||""),
+        correctsTransactionId:toSafeString(payload?.correctsTransactionId||""),
         manual:payload?.manual===true,
         cloudSynced:true
     };

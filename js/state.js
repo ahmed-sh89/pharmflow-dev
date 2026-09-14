@@ -815,6 +815,15 @@ function addReceivingTransaction(
             ||
             AppState.session.deviceId,
 
+        deviceType:
+            toSafeString(transaction.deviceType),
+
+        correctionReason:
+            toSafeString(transaction.correctionReason),
+
+        correctsTransactionId:
+            toSafeString(transaction.correctsTransactionId),
+
         manual:
             transaction.manual === true,
 

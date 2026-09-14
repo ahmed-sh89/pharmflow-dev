@@ -2103,6 +2103,12 @@ function applyQuantityAdjustment(options){
 
     }
 
+    const targetOrder=resolveReceivingTransactionOrder(item,options.targetOrder||"");
+    const scopedMetrics=getReceivingDisplayMetrics(item,targetOrder);
+    const oldScopedReceived=scopedMetrics
+        ? toNumber(scopedMetrics.receivedQty,0)
+        : toNumber(item.receivedQty,0);
+
     const oldReceived =
         toNumber(
             item.receivedQty,
@@ -2113,7 +2119,7 @@ function applyQuantityAdjustment(options){
         oldReceived +
         difference;
 
-    if(newReceived < 0){
+    if(oldScopedReceived+difference < 0){
 
         showToast(
             "Received quantity cannot be below zero",
@@ -2131,13 +2137,11 @@ function applyQuantityAdjustment(options){
         item.manual !== true
     ){
 
-        const ordered =
-            toNumber(
-                item.orderedQty,
-                0
-            );
+        const ordered = scopedMetrics
+            ? toNumber(scopedMetrics.orderedQty,0)
+            : toNumber(item.orderedQty,0);
 
-        if(newReceived > ordered){
+        if(oldScopedReceived+difference > ordered){
 
             showToast(
                 "Quantity exceeds ordered quantity",
@@ -2164,10 +2168,10 @@ function applyQuantityAdjustment(options){
                 createTransactionId(),
 
             orderId:
-                resolveReceivingTransactionOrder(item),
+                targetOrder,
 
             selectedOrderNumber:
-                resolveReceivingTransactionOrder(item),
+                targetOrder,
 
             dateTime:
                 nowISO(),
@@ -2199,6 +2203,12 @@ function applyQuantityAdjustment(options){
 
             deviceType:
                 getReceivingRuntimeDeviceType(),
+
+            correctionReason:
+                options.correctionReason || "",
+
+            correctsTransactionId:
+                options.correctsTransactionId || "",
 
             manual:
                 item.manual === true
