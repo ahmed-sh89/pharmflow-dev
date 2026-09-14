@@ -1653,6 +1653,29 @@ function rebuildReceivingQuantitiesFromLedger(){
     });
 }
 
+/* The legacy Cloud Workspace remains a compatibility source for workspace
+   structure, but it is not receiving authority. Once the server ledger has
+   completed its initial bootstrap, never let a later compatibility snapshot
+   replace that ledger (or the quantities projected from it). */
+function restoreCompatibilityWorkspaceState(cloudState){
+    const preserveLedger=
+        PharmFlowCloudWorkspace.receivingBootstrapComplete===true;
+    const authoritativeHistory=preserveLedger
+        ? deepClone(AppState?.workspace?.receivingHistory||[])
+        : null;
+
+    const restored=restoreWorkspaceState(cloudState);
+    if(!restored || !preserveLedger){
+        return restored;
+    }
+
+    AppState.workspace.receivingHistory=authoritativeHistory;
+    rebuildStateIndexes();
+    rebuildReceivingQuantitiesFromLedger();
+    recalculateStatistics();
+    return true;
+}
+
 function normalizeCloudReceivingTransaction(tx){
     const payload=
         tx?.payload && typeof tx.payload==="object"
@@ -2009,7 +2032,7 @@ async function restoreCloudWorkspaceOnLogin(){
             const cloudHasOrder=cloudState?.workspace && Array.isArray(cloudState.workspace.orderData) && cloudState.workspace.orderData.length>0;
             if(cloudHasOrder){
                 PharmFlowCloudWorkspace.applyingRemote=true;
-                restoreWorkspaceState(cloudState);
+                restoreCompatibilityWorkspaceState(cloudState);
                 /* Last Scan is intentionally device-local. A remote PC must not
                    replace the operator's current Last Scan card. */
                 const localDevice=cloudWorkspaceDeviceId();
@@ -2195,7 +2218,7 @@ async function reconcileCloudWorkspaceAuthority(){
                         ? deepClone(AppState.workspace.lastScan)
                         : null;
 
-                    restoreWorkspaceState(cloudState);
+                    restoreCompatibilityWorkspaceState(cloudState);
                     AppState.workspace.lastScan=deviceLocalLastScan;
 
                     saveWorkspaceSnapshot();
