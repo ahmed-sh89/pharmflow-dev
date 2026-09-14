@@ -3,6 +3,35 @@
   const PF={version:"B10CLEAN5",flashTimer:0,ordersAnchor:null,initialized:false,suppressPriorityToast:false,successOrders:new Set()};
   const $=id=>document.getElementById(id);
   const esc=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+  const modalLayers=[];
+  const modalStack={
+    open(element){
+      if(!element)return;
+      const existing=modalLayers.indexOf(element);
+      if(existing>=0)modalLayers.splice(existing,1);
+      modalLayers.push(element);
+      element.classList.add('pfnModalLayer');
+      element.style.setProperty('--pfn-modal-depth',String(modalLayers.length-1));
+    },
+    close(element){
+      const index=modalLayers.indexOf(element);
+      if(index>=0)modalLayers.splice(index,1);
+      element?.classList.remove('pfnModalLayer');
+      element?.style.removeProperty('--pfn-modal-depth');
+      modalLayers.forEach((layer,i)=>layer.style.setProperty('--pfn-modal-depth',String(i)));
+    },
+    top(){return modalLayers.at(-1)||null;}
+  };
+  window.PharmFlowModalStack=modalStack;
+
+  function installModalStackObserver(){
+    const sync=()=>{
+      modalLayers.slice().forEach(layer=>{if(!layer.isConnected||layer.matches('.modalOverlay:not(.open)'))modalStack.close(layer);});
+      document.querySelectorAll('.modalOverlay.open').forEach(layer=>{if(!modalLayers.includes(layer))modalStack.open(layer);});
+    };
+    new MutationObserver(sync).observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
+    sync();
+  }
 
   function flash(kind){
     const card=$('lastScanCard');
@@ -87,14 +116,14 @@
     PF.ordersAnchor=document.createComment('pfn-orders-anchor');page.parentNode.insertBefore(PF.ordersAnchor,page);
     const overlay=document.createElement('div');overlay.id='pfnOrdersOverlay';overlay.className='pfnCenterOverlay';
     overlay.innerHTML='<section class="pfnCenterModal pfnOrdersModal" role="dialog" aria-modal="true"><header class="pfnModalHeader"><div><span>ORDER MANAGEMENT</span><h2>Manage Orders</h2></div><button type="button" data-close>✕</button></header><div class="pfnModalBody"></div></section>';
-    document.body.appendChild(overlay);overlay.querySelector('.pfnModalBody').appendChild(page);page.classList.add('active','pfnEmbeddedPage');page.hidden=false;
+    document.body.appendChild(overlay);modalStack.open(overlay);overlay.querySelector('.pfnModalBody').appendChild(page);page.classList.add('active','pfnEmbeddedPage');page.hidden=false;
     overlay.querySelector('[data-close]').onclick=closeOrders;overlay.addEventListener('click',e=>{if(e.target===overlay)closeOrders();});
   }
 
   function closeOrders(){
     const overlay=$('pfnOrdersOverlay'),page=$('page-files');
     if(page&&PF.ordersAnchor?.parentNode){page.classList.remove('active','pfnEmbeddedPage');PF.ordersAnchor.parentNode.insertBefore(page,PF.ordersAnchor);PF.ordersAnchor.remove();PF.ordersAnchor=null;}
-    overlay?.remove();try{focusScannerInput?.();}catch(_){}
+    modalStack.close(overlay);overlay?.remove();try{focusScannerInput?.();}catch(_){}
   }
 
   function openAdjustReceiving(){
@@ -157,9 +186,18 @@
     $('btnAdjustReceiving')?.addEventListener('click',openAdjustReceiving);
     $('btnReceivingReportAction')?.addEventListener('click',()=>{if(typeof window.navigateTo==='function'){window.navigateTo('receiving');return;}document.querySelector('.sidebarItem[data-page="receiving"]')?.click();});
     bindSidebar();
+    document.addEventListener('keydown',event=>{
+      if(event.key!=='Escape')return;
+      const top=modalStack.top();
+      if(!top)return;
+      const closeControl=top.querySelector('[data-close],[data-cancel],.quickKpiClose,#btnCloseSearch,#btnCloseManualItem,#btnConfirmCancel');
+      if(!closeControl)return;
+      event.preventDefault();event.stopImmediatePropagation();
+      closeControl.click();
+    },true);
   }
 
-  function init(){if(PF.initialized)return;PF.initialized=true;document.body.classList.add('pfNextMode','pfnCleanReceiving');bind();installFlash();}
+  function init(){if(PF.initialized)return;PF.initialized=true;document.body.classList.add('pfNextMode','pfnCleanReceiving');installModalStackObserver();bind();installFlash();}
   document.addEventListener('DOMContentLoaded',init);if(document.readyState!=='loading')init();
   window.PharmFlowNext=PF;
 })();
