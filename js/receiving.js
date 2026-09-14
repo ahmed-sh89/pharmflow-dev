@@ -97,6 +97,9 @@ function resolveCurrentWorkspaceGTIN(gtin){
        MASTER mappings are projected only for current order items; CLOUD
        mappings are the PC shared-session projection of those current items.
     */
+    const mapping=(AppState?.workspace?.mappingData||[]).find(record=>
+        normalizeGTIN(record?.gtin||"")===normalized
+    );
     const indexedCode=normalizeItemCode(
         AppState?.indexes?.itemByGTIN?.get(normalized)||""
     );
@@ -110,16 +113,12 @@ function resolveCurrentWorkspaceGTIN(gtin){
             return {
                 item,
                 itemCode:indexedCode,
-                source:"CURRENT_WORKSPACE"
+                source:mapping?.source||"CURRENT_WORKSPACE"
             };
         }
     }
 
     /* Defensive direct lookup in case index rebuild is one render behind. */
-    const mapping=(AppState?.workspace?.mappingData||[]).find(record=>
-        normalizeGTIN(record?.gtin||"")===normalized
-    );
-
     if(!mapping) return null;
 
     const code=normalizeItemCode(mapping.itemCode||"");
@@ -134,6 +133,23 @@ function resolveCurrentWorkspaceGTIN(gtin){
             source:mapping.source||"CURRENT_WORKSPACE"
         }
         : null;
+}
+
+async function revalidateLearnedGTINForReceiving(gtin){
+    const learned=await getPharmacyLearnedGTINRecord(gtin,{strict:true});
+    if(!learned){
+        purgePharmacyLearnedGTINFromWorkspace(gtin);
+        return null;
+    }
+    purgePharmacyLearnedGTINFromWorkspace(gtin);
+    addMappingRecord({itemCode:learned.itemCode,gtin:learned.gtin,source:"PHARMACY_LEARNED"});
+    return learned;
+}
+
+function learnedGTINResolution(record){
+    if(!record||String(record.source||"").toUpperCase()!=="PHARMACY_LEARNED") return null;
+    if(!record.mappingId||!record.mappingRevision) return null;
+    return {kind:"PHARMACY_LEARNED",mappingId:record.mappingId,mappingRevision:record.mappingRevision,normalizedGtin:normalizeGTIN(record.gtin),resolvedItemCode:normalizeItemCode(record.itemCode)};
 }
 
 async function receiveParsedBarcode(parsed){
@@ -161,7 +177,18 @@ async function receiveParsedBarcode(parsed){
        workspace immediately instead of waiting for the entire 52k-record
        Global Master cache on the Handheld.
        ========================================================= */
-    const current=resolveCurrentWorkspaceGTIN(gtin);
+    let current=resolveCurrentWorkspaceGTIN(gtin);
+
+    if(current?.item && String(current.source||"").toUpperCase()==="PHARMACY_LEARNED"){
+        let authoritative;
+        try{ authoritative=await revalidateLearnedGTINForReceiving(gtin); }
+        catch(error){ handleReceivingFailure(error?.message||"Unable to verify learned GTIN mapping"); return false; }
+        if(authoritative){
+            current={...current,item:getReceivingItemByItemCode(authoritative.itemCode),itemCode:authoritative.itemCode,source:authoritative.source,learnedRecord:authoritative};
+        }else{
+            current=null;
+        }
+    }
 
     if(current?.item){
         return receiveOrderItem({
@@ -172,7 +199,8 @@ async function receiveParsedBarcode(parsed){
             expiry:parsed.expiry,
             serial:parsed.serial,
             source:APP_CONFIG.transactionSources.scanner,
-            manual:false
+            manual:false,
+            gtinResolution:learnedGTINResolution(current.learnedRecord)
         });
     }
 
@@ -186,6 +214,11 @@ async function receiveParsedBarcode(parsed){
         masterRecord=await getMasterGTINRecordByGTIN(gtin);
     }catch(error){
         Logger.warn("Global GTIN fallback lookup failed",error);
+    }
+
+    if(String(masterRecord?.source||"").toUpperCase()==="PHARMACY_LEARNED"){
+        try{ masterRecord=await revalidateLearnedGTINForReceiving(gtin); }
+        catch(error){ handleReceivingFailure(error?.message||"Unable to verify learned GTIN mapping"); return false; }
     }
 
     if(!masterRecord?.itemCode){
@@ -212,7 +245,8 @@ async function receiveParsedBarcode(parsed){
         expiry:parsed.expiry,
         serial:parsed.serial,
         source:APP_CONFIG.transactionSources.scanner,
-        manual:false
+        manual:false,
+        gtinResolution:learnedGTINResolution(masterRecord)
     });
 }
 
@@ -823,9 +857,9 @@ function openQuickGTINResolver(parsed,knownRecord=null){
         };
         const receiveMatched=async(item,manual=false)=>{
             try{
-                await savePharmacyLearnedGTIN(gtin,item.itemCode,item.itemName);
+                const learned=await savePharmacyLearnedGTIN(gtin,item.itemCode,item.itemName);
                 addMappingRecord({itemCode:item.itemCode,gtin,source:"PHARMACY_LEARNED"});
-                const tx=await receiveOrderItem({item,quantity:getValidReceivingQuantity(parsed.quantity),gtin,lot:parsed.lot,expiry:parsed.expiry,serial:parsed.serial,source:APP_CONFIG.transactionSources.scanner,manual});
+                const tx=await receiveOrderItem({item,quantity:getValidReceivingQuantity(parsed.quantity),gtin,lot:parsed.lot,expiry:parsed.expiry,serial:parsed.serial,source:APP_CONFIG.transactionSources.scanner,manual,gtinResolution:learnedGTINResolution(learned)});
                 finish(tx);
             }catch(e){
                 if(typeof setScanBoxState==="function") setScanBoxState("error");
@@ -874,9 +908,9 @@ function openQuickGTINResolver(parsed,knownRecord=null){
             const code=normalizeItemCode(panel.querySelector('[data-code]').value), name=toSafeString(panel.querySelector('[data-name]').value).trim();
             if(!code||!name){ panel.querySelector('.gtinPanelMessage').textContent="Enter Item Code and Item Name"; return; }
             try{
-                await savePharmacyLearnedGTIN(gtin,code,name);
+                const learned=await savePharmacyLearnedGTIN(gtin,code,name);
                 let item=upsertOrderItem({itemCode:code,itemName:name,orderedQty:0,receivedQty:0,manual:true}); item.manual=true;
-                const tx=await receiveOrderItem({item,quantity:getValidReceivingQuantity(parsed.quantity),gtin,lot:parsed.lot,expiry:parsed.expiry,serial:parsed.serial,source:APP_CONFIG.transactionSources.scanner,manual:true});
+                const tx=await receiveOrderItem({item,quantity:getValidReceivingQuantity(parsed.quantity),gtin,lot:parsed.lot,expiry:parsed.expiry,serial:parsed.serial,source:APP_CONFIG.transactionSources.scanner,manual:true,gtinResolution:learnedGTINResolution(learned)});
                 finish(tx);
             }catch(e){ if(typeof setScanBoxState==="function") setScanBoxState("error"); panel.querySelector('.gtinPanelMessage').textContent=e.message||"Unable to add extra"; }
         });
@@ -1325,7 +1359,10 @@ function receiveOrderItem(options){
                 options.manual === true,
 
             targetOrder:
-                targetOrder
+                targetOrder,
+
+            gtinResolution:
+                options.gtinResolution||null
 
         });
 
@@ -1344,6 +1381,12 @@ function receiveOrderItem(options){
 
         return false;
 
+    }
+
+    /* AppState normalizes transaction fields; attach learned provenance to
+       the stored record before finishReceivingChange emits the queue event. */
+    if(options.gtinResolution){
+        transaction.gtinResolution=options.gtinResolution;
     }
 
     finishReceivingChange(

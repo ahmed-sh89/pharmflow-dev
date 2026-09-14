@@ -8159,7 +8159,7 @@ function nrV2HasTransactionId(transactionId){
 async function nrV2ResolveGroupToOrderItem(group,item){
     const transactionId=nrV2GroupTransactionId(group);
     if(!nrV2HasTransactionId(transactionId)){
-        await savePharmacyLearnedGTIN(group.gtin,item.itemCode,item.itemName);
+        const learned=await savePharmacyLearnedGTIN(group.gtin,item.itemCode,item.itemName);
         addMappingRecord({itemCode:item.itemCode,gtin:group.gtin,source:"PHARMACY_LEARNED"});
         const tx=receiveOrderItem({
             item,
@@ -8168,7 +8168,8 @@ async function nrV2ResolveGroupToOrderItem(group,item){
             source:APP_CONFIG.transactionSources.scanner,
             manual:false,
             targetOrder:group.order_number||"",
-            transactionId
+            transactionId,
+            gtinResolution:typeof learnedGTINResolution==="function"?learnedGTINResolution(learned):null
         });
         if(!tx) throw new Error("Unable to apply reviewed quantity");
     }
@@ -8327,6 +8328,7 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
         const workspace=overlay.querySelector("[data-admin-workspace]");
         let currentMapping=null;
         let replacement=null;
+        let pendingLifecycle=null;
         const renderMaintenance=()=>{
             if(!currentMapping){workspace.innerHTML="";return;}
             workspace.innerHTML=`<div class="needsReviewMappingCurrent"><span>CURRENT PHARMACY MAPPING</span><strong>${esc(currentMapping.gtin)} → ${esc(currentMapping.itemCode)} → ${esc(currentMapping.itemName||"Unnamed item")}</strong></div>
@@ -8334,43 +8336,91 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
               <div class="needsReviewMatches" data-admin-matches></div><div data-admin-selection></div>
               <div class="needsReviewMappingActions"><label>Mandatory Reason<textarea data-admin-reason rows="2" placeholder="Reason for this audited change"></textarea></label>
               <button type="button" data-admin-correct disabled>Correct Mapping</button><button class="danger" type="button" data-admin-remove>Remove Mapping</button></div>
+              <div data-admin-impact></div>
               <p class="needsReviewGlobalNotice">Removal affects only this pharmacy learned mapping — not the Global GTIN Master.</p>`;
             const search=workspace.querySelector("[data-admin-search]");
             const matches=workspace.querySelector("[data-admin-matches]");
             const selected=workspace.querySelector("[data-admin-selection]");
             const correct=workspace.querySelector("[data-admin-correct]");
             const reason=workspace.querySelector("[data-admin-reason]");
+            const impact=workspace.querySelector("[data-admin-impact]");
+            const invalidatePreview=()=>{
+                pendingLifecycle=null;
+                overlay.dataset.confirming="";
+                impact.innerHTML="";
+                correct.textContent="Preview Correction";
+                const remove=workspace.querySelector("[data-admin-remove]");
+                if(remove) remove.textContent="Preview Removal";
+            };
+            const previewSignature=(action,why)=>[
+                action,currentMapping.gtin,replacement?.itemCode||"",why
+            ].join("|");
+            const renderImpact=preview=>{
+                const provable=Number(preview?.provable?.quantity||0);
+                const compensated=Number(preview?.alreadyCompensated?.quantity||0);
+                const ambiguous=Number(preview?.ambiguous?.quantity||0);
+                const eligible=Number(preview?.reallocation?.eligibleQuantity||0);
+                const nonReallocatable=Number(preview?.reallocation?.nonReallocatableQuantity||0);
+                impact.innerHTML=`<div class="needsReviewMappingCompare"><span>PROVABLE QUANTITY TO REVERSE</span><strong>${esc(provable)}</strong><span>ALREADY COMPENSATED</span><strong>${esc(compensated)}</strong><span>AMBIGUOUS — UNTOUCHED</span><strong>${esc(ambiguous)}</strong>${String(preview?.action||"").toUpperCase()==="CORRECT"?`<span>ELIGIBLE TO REALLOCATE</span><strong>${esc(eligible)}</strong><span>NON-REALLOCATABLE</span><strong>${esc(nonReallocatable)}</strong>`:""}</div><button type="button" data-admin-cancel-preview>Cancel Preview</button>`;
+                impact.querySelector("[data-admin-cancel-preview]")?.addEventListener("click",invalidatePreview);
+            };
             search.addEventListener("input",()=>{
-                replacement=null;correct.disabled=true;selected.innerHTML="";
+                replacement=null;correct.disabled=true;selected.innerHTML="";invalidatePreview();
                 const q=toSafeString(search.value).trim();
                 const items=q?nrV2FindOrderMatches(q).slice(0,8):[];
                 matches.innerHTML=items.length?items.map((item,i)=>`<button type="button" data-admin-match="${i}">${nrV2ItemSummary(item,esc)}</button>`).join(""):q?`<div class="needsReviewNoMatches">No matching item in the current Active Order.</div>`:"";
                 matches.querySelectorAll("[data-admin-match]").forEach(button=>button.addEventListener("click",()=>{
                     replacement=items[Number(button.dataset.adminMatch)]||null;
+                    invalidatePreview();
                     matches.querySelectorAll("button").forEach(result=>result.classList.toggle("selected",result===button));
                     if(replacement){selected.innerHTML=`<div class="needsReviewMappingCompare"><span>OLD</span><strong>${esc(currentMapping.itemCode)} — ${esc(currentMapping.itemName||"Unnamed item")}</strong><span>NEW</span><strong>${esc(replacement.itemCode)} — ${esc(replacement.itemName)}</strong></div>`;correct.disabled=false;}
                 }));
             });
+            reason.addEventListener("input",invalidatePreview);
             correct.addEventListener("click",async()=>{
                 const why=toSafeString(reason.value).trim();
                 if(!replacement){showToast?.("Select the corrected item first","warning");return;}
                 if(!why){showToast?.("A correction reason is required","warning");reason.focus();return;}
+                const signature=previewSignature("CORRECT",why);
                 correct.disabled=true;overlay.dataset.busy="1";
-                try{await correctPharmacyLearnedGTIN(currentMapping.gtin,replacement.itemCode,replacement.itemName,why);currentMapping={gtin:currentMapping.gtin,itemCode:replacement.itemCode,itemName:replacement.itemName};replacement=null;renderMaintenance();showToast?.("Pharmacy learned GTIN mapping corrected","success");}
+                try{
+                    if(!pendingLifecycle||pendingLifecycle.signature!==signature){
+                        const preview=await previewPharmacyLearnedGTINLifecycleV3(currentMapping.gtin,"CORRECT",replacement.itemCode);
+                        if(!preview?.mapping?.id||!preview?.mapping?.revision) throw new Error("Lifecycle preview is incomplete");
+                        pendingLifecycle={preview,operationId:createLearnedGTINLifecycleOperationId(),signature};
+                        renderImpact(preview);correct.textContent="Confirm Correction";overlay.dataset.confirming="1";
+                    }else{
+                        await correctPharmacyLearnedGTIN(pendingLifecycle.preview,replacement.itemCode,replacement.itemName,why,pendingLifecycle.operationId);
+                        currentMapping=await getPharmacyLearnedGTINRecord(currentMapping.gtin,{strict:true});
+                        if(!currentMapping) throw new Error("Corrected mapping could not be reloaded");
+                        replacement=null;pendingLifecycle=null;overlay.dataset.confirming="";renderMaintenance();showToast?.("Pharmacy learned GTIN mapping corrected","success");
+                    }
+                }
                 catch(error){correct.disabled=false;showToast?.(error?.message||"Unable to correct mapping","error");}
-                finally{overlay.dataset.busy="";}
+                finally{overlay.dataset.busy="";correct.disabled=!replacement;}
             });
             workspace.querySelector("[data-admin-remove]").addEventListener("click",async event=>{
                 const why=toSafeString(reason.value).trim();
                 if(!why){showToast?.("A removal reason is required","warning");reason.focus();return;}
                 const button=event.currentTarget;
-                if(button.dataset.confirm!=="1"){button.dataset.confirm="1";overlay.dataset.confirming="1";button.textContent="Confirm Remove Mapping";return;}
                 button.disabled=true;overlay.dataset.busy="1";
-                try{await removePharmacyLearnedGTIN(currentMapping.gtin,why);currentMapping=null;workspace.innerHTML="<div class=\"needsReviewAdminSuccess\">Pharmacy learned mapping removed. Global GTIN Master was not changed.</div>";showToast?.("Pharmacy learned GTIN mapping removed","success");}
+                try{
+                    const signature=previewSignature("REMOVE",why);
+                    if(!pendingLifecycle||pendingLifecycle.signature!==signature){
+                        const preview=await previewPharmacyLearnedGTINLifecycleV3(currentMapping.gtin,"REMOVE");
+                        if(!preview?.mapping?.id||!preview?.mapping?.revision) throw new Error("Lifecycle preview is incomplete");
+                        pendingLifecycle={preview,operationId:createLearnedGTINLifecycleOperationId(),signature};
+                        renderImpact(preview);button.textContent="Confirm Remove Mapping";overlay.dataset.confirming="1";
+                    }else{
+                        await removePharmacyLearnedGTIN(pendingLifecycle.preview,why,pendingLifecycle.operationId);
+                        currentMapping=null;pendingLifecycle=null;overlay.dataset.confirming="";workspace.innerHTML="<div class=\"needsReviewAdminSuccess\">Pharmacy learned mapping removed. Global GTIN Master was not changed. A future unresolved scan can create Needs Review.</div>";showToast?.("Pharmacy learned GTIN mapping removed","success");
+                    }
+                }
                 catch(error){button.disabled=false;showToast?.(error?.message||"Unable to remove mapping","error");}
-                finally{overlay.dataset.busy="";overlay.dataset.confirming="";}
+                finally{overlay.dataset.busy="";button.disabled=false;}
             });
         };
+        gtinInput.addEventListener("input",()=>{pendingLifecycle=null;overlay.dataset.confirming="";workspace.innerHTML="";currentMapping=null;replacement=null;});
         overlay.querySelector("[data-admin-load]").addEventListener("click",async event=>{
             const gtin=normalizeGTIN(gtinInput.value);
             if(!gtin){showToast?.("Enter a valid GTIN","warning");return;}
