@@ -305,7 +305,17 @@ function removeCloudQueueTransactions(transactionIds){
 }
 
 async function uploadCloudReceivingTransaction(tx,pharmacyId){
-    await authRpc("append_pharmflow_cloud_transaction_v2",{
+    const resolution=tx?.gtinResolution;
+    const learnedQuantity=toNumber(tx?.quantity,0)>0 &&
+        resolution?.kind==="PHARMACY_LEARNED" &&
+        toSafeString(resolution.mappingId) &&
+        toSafeString(resolution.mappingRevision) &&
+        normalizeGTIN(resolution.normalizedGtin) &&
+        normalizeItemCode(resolution.resolvedItemCode);
+    const rpcName=learnedQuantity
+        ? "append_pharmflow_learned_transaction_v3"
+        : "append_pharmflow_cloud_transaction_v2";
+    const params={
         p_pharmacy_id:pharmacyId,
         p_transaction_id:tx.transactionId,
         p_order_number:toSafeString(
@@ -324,7 +334,12 @@ async function uploadCloudReceivingTransaction(tx,pharmacyId){
         ),
         p_occurred_at:tx.dateTime||nowISO(),
         p_payload:tx
-    });
+    };
+    if(learnedQuantity){
+        params.p_mapping_id=toSafeString(resolution.mappingId);
+        params.p_mapping_revision=toSafeString(resolution.mappingRevision);
+    }
+    await authRpc(rpcName,params);
 
     const local=(AppState?.workspace?.receivingHistory||[])
         .find(row=>row.transactionId===tx.transactionId);
