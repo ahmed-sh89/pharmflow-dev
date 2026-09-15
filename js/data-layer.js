@@ -14,12 +14,9 @@ window.PharmFlowData=PharmFlowData;
 
 /* B10 Clean23.1 — authoritative receiving recovery/root fix.
    Compatibility Cloud Workspace may restore order structure, but it must never
-   supply Receiving history. Preserve the current ledger projection on every
-   compatibility restore, including the first restore on a fresh device.
-
-   Startup then performs one bounded authoritative ledger bootstrap (not a
-   recurring full-ledger poll). Delta sync remains responsible for subsequent
-   rows, preserving the Clean14+ egress reduction. */
+   supply Receiving history. Startup completes one bounded authoritative ledger
+   bootstrap before it returns to app startup. Delta sync remains responsible
+   for later rows, preserving the Clean14+ egress reduction. */
 (function installAuthoritativeReceivingBootstrap(){
   if(window.__pfAuthoritativeReceivingBootstrapInstalled) return;
   window.__pfAuthoritativeReceivingBootstrapInstalled=true;
@@ -32,9 +29,9 @@ window.PharmFlowData=PharmFlowData;
       const restored=window.restoreWorkspaceState(cloudState);
       if(!restored) return restored;
       window.AppState.workspace.receivingHistory=authoritativeHistory;
-      if(typeof window.rebuildStateIndexes==="function") window.rebuildStateIndexes();
-      if(typeof window.rebuildReceivingQuantitiesFromLedger==="function") window.rebuildReceivingQuantitiesFromLedger();
-      if(typeof window.recalculateStatistics==="function") window.recalculateStatistics();
+      window.rebuildStateIndexes?.();
+      window.rebuildReceivingQuantitiesFromLedger?.();
+      window.recalculateStatistics?.();
       return true;
     };
   }
@@ -42,29 +39,25 @@ window.PharmFlowData=PharmFlowData;
   async function authoritativeReceivingBootstrap(){
     const pharmacyId=String(window.AuthState?.context?.pharmacy_id||"");
     if(!pharmacyId || typeof window.authRpc!=="function") return false;
-
     const rows=await window.authRpc("list_pharmflow_cloud_transactions_v2",{
       p_pharmacy_id:pharmacyId,
       p_limit:10000
     });
     const batch=Array.isArray(rows)?rows:[];
-    if(typeof window.mergeCloudReceivingLedger==="function"){
-      window.mergeCloudReceivingLedger(batch);
-    }
-    if(typeof window.rebuildStateIndexes==="function") window.rebuildStateIndexes();
-    if(typeof window.rebuildReceivingQuantitiesFromLedger==="function") window.rebuildReceivingQuantitiesFromLedger();
-    if(typeof window.recalculateStatistics==="function") window.recalculateStatistics();
-    if(typeof window.saveWorkspaceSnapshot==="function") window.saveWorkspaceSnapshot();
-    if(typeof window.refreshEntireUI==="function") window.refreshEntireUI();
-    else if(typeof window.refreshAllUI==="function") window.refreshAllUI();
+    window.mergeCloudReceivingLedger?.(batch);
+    window.rebuildStateIndexes?.();
+    window.rebuildReceivingQuantitiesFromLedger?.();
+    window.recalculateStatistics?.();
+    window.saveWorkspaceSnapshot?.();
+    window.refreshEntireUI?.();
     return true;
   }
   window.authoritativeReceivingBootstrap=authoritativeReceivingBootstrap;
 
-  if(typeof window.ensureStartupCloudAuthority==="function"){
-    const originalEnsureStartupCloudAuthority=window.ensureStartupCloudAuthority;
-    window.ensureStartupCloudAuthority=async function(...args){
-      const result=await originalEnsureStartupCloudAuthority.apply(this,args);
+  if(typeof window.restoreCloudWorkspaceOnLogin==="function"){
+    const originalRestoreCloudWorkspaceOnLogin=window.restoreCloudWorkspaceOnLogin;
+    window.restoreCloudWorkspaceOnLogin=async function(...args){
+      const result=await originalRestoreCloudWorkspaceOnLogin.apply(this,args);
       if(result===true){
         try{ await authoritativeReceivingBootstrap(); }
         catch(error){
