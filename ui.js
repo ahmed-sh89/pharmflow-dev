@@ -8026,19 +8026,21 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
     savePriorityApplicationState();
 
     try{
-        if(typeof saveActiveOrderManifest!=="function"){
-            throw new Error("Active Order cloud save is unavailable");
+        if(typeof patchActiveOrderPriorities!=="function"){
+            throw new Error("Item priority cloud save is unavailable");
         }
 
         for(let attempt=1;attempt<=2;attempt++){
             const revisionBefore=Number(
                 window.PharmFlowCloudWorkspace?.activeManifestRevision||0
             );
-            const saved=await saveActiveOrderManifest({silent:true});
+            const saved=await patchActiveOrderPriorities([
+                {itemCode,priorityType:nextType}
+            ]);
             if(saved===true) return true;
 
             const saveError=toSafeString(
-                window.PharmFlowCloudWorkspace?.lastManifestSaveError||""
+                window.PharmFlowCloudWorkspace?.lastPrioritySaveError||""
             );
 
             /* The write can succeed while its read-after-write response is
@@ -8146,11 +8148,16 @@ function queueClearVisiblePriorities(items){
                 const revisionBefore=Number(
                     window.PharmFlowCloudWorkspace?.activeManifestRevision||0
                 );
-                const saved=await saveActiveOrderManifest?.({silent:true});
+                const saved=await patchActiveOrderPriorities?.(
+                    targets.map(entry=>({
+                        itemCode:entry.itemCode,
+                        priorityType:""
+                    }))
+                );
                 if(saved===true) return true;
 
                 const saveError=toSafeString(
-                    window.PharmFlowCloudWorkspace?.lastManifestSaveError||""
+                    window.PharmFlowCloudWorkspace?.lastPrioritySaveError||""
                 );
                 if(typeof pullActiveOrderManifest==="function"){
                     await pullActiveOrderManifest({force:true,clearIfMissing:false});
