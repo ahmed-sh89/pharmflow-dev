@@ -8000,6 +8000,7 @@ let itemPrioritySaveBusy=false;
 async function persistItemPrioritySelection(item,priorityType){
     if(!item || itemPrioritySaveBusy) return false;
 
+    const itemCode=toSafeString(item.itemCode||item.itemNumber||"");
     const previousType=toSafeString(item.priorityType||"");
     const previousHigh=item.highPriority===true;
     const nextType=toSafeString(priorityType||"");
@@ -8014,40 +8015,58 @@ async function persistItemPrioritySelection(item,priorityType){
             throw new Error("Active Order cloud save is unavailable");
         }
 
-        const saved=await saveActiveOrderManifest({silent:true});
-        if(saved!==true){
+        for(let attempt=1;attempt<=2;attempt++){
+            const saved=await saveActiveOrderManifest({silent:true});
+            if(saved===true) return true;
+
+            const saveError=toSafeString(
+                window.PharmFlowCloudWorkspace?.lastManifestSaveError||""
+            );
+
+            /* The write can succeed while its read-after-write response is
+               interrupted. Pull the authority before reporting failure. */
+            if(typeof pullActiveOrderManifest==="function"){
+                await pullActiveOrderManifest({force:true,clearIfMissing:false});
+            }
+
+            const authoritativeItem=
+                typeof getItemByCode==="function"
+                    ? getItemByCode(itemCode)
+                    : null;
+
+            if(
+                authoritativeItem &&
+                toSafeString(authoritativeItem.priorityType||"")===nextType
+            ){
+                return true;
+            }
+
+            const stale=
+                saveError.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION") ||
+                saveError.includes("STALE_WORKSPACE_GENERATION");
+
+            if(attempt===1 && stale && authoritativeItem){
+                authoritativeItem.priorityType=nextType;
+                authoritativeItem.highPriority=!!nextType;
+                saveApplicationState?.(false);
+                continue;
+            }
+
             throw new Error(
-                window.PharmFlowCloudWorkspace?.lastManifestSaveError ||
-                "Supabase did not confirm the priority change"
+                saveError || "Supabase did not confirm the priority change"
             );
         }
 
-        showToast?.(
-            nextType ? `${nextType} priority saved` : "Priority removed",
-            "success"
-        );
-        return true;
+        return false;
     }
-    catch(error){
-        const stale=String(error?.message||"").includes(
-            "STALE_ACTIVE_ORDER_MANIFEST_REVISION"
-        );
-
-        /* A stale save already pulled the newer server Manifest. For ordinary
-           network/server failures, restore the exact local value shown before
-           the click so Refresh cannot make the UI appear to change at random. */
-        if(!stale){
-            item.priorityType=previousType;
-            item.highPriority=previousHigh;
-            saveApplicationState?.(false);
-        }
-
-        showToast?.(
-            stale
-                ? "Active Orders changed on another device. Priority was refreshed; please try again."
-                : "Priority was not saved. Please try again.",
-            "error"
-        );
+    catch(_error){
+        const currentItem=
+            typeof getItemByCode==="function"
+                ? getItemByCode(itemCode)
+                : item;
+        currentItem.priorityType=previousType;
+        currentItem.highPriority=previousHigh;
+        saveApplicationState?.(false);
         return false;
     }
     finally{
