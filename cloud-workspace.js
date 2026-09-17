@@ -804,6 +804,74 @@ function serializeActiveOrderManifest(){
 
 window.serializeActiveOrderManifest=serializeActiveOrderManifest;
 
+async function patchActiveOrderPriorities(changes){
+    const pharmacyId=cloudWorkspacePharmacyId();
+    const normalized=Array.from(new Map(
+        (Array.isArray(changes)?changes:[])
+            .map(change=>[
+                toSafeString(change?.itemCode||change?.itemNumber||"").trim(),
+                toSafeString(change?.priorityType||"").trim().toUpperCase()
+            ])
+            .filter(([itemCode,priorityType])=>
+                itemCode && ["","SHORT","NEW"].includes(priorityType)
+            )
+    ),([itemCode,priorityType])=>({itemCode,priorityType}));
+
+    if(
+        !navigator.onLine || !pharmacyId ||
+        typeof authRpc!=="function" || !normalized.length
+    ){
+        return false;
+    }
+
+    try{
+        const result=await authRpc(
+            "patch_pharmflow_item_priorities_v1",
+            {
+                p_pharmacy_id:pharmacyId,
+                p_changes:normalized,
+                p_expected_generation:Number(
+                    PharmFlowCloudWorkspace.generation||0
+                ),
+                p_expected_revision:Number(
+                    PharmFlowCloudWorkspace.activeManifestRevision||0
+                )
+            }
+        );
+        const row=Array.isArray(result)?result[0]:result;
+
+        if(!row || Number(row.changed_items||0)!==normalized.length){
+            throw new Error("Priority patch verification failed");
+        }
+
+        PharmFlowCloudWorkspace.activeManifestRevision=
+            Number(row.revision||0);
+        PharmFlowCloudWorkspace.lastPrioritySaveError=null;
+        return true;
+    }catch(error){
+        const message=error?.message||String(error);
+        PharmFlowCloudWorkspace.lastPrioritySaveError=message;
+
+        if(
+            message.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION") ||
+            message.includes("STALE_WORKSPACE_GENERATION")
+        ){
+            try{
+                await pullActiveOrderManifest({force:true,clearIfMissing:true});
+            }catch(_){}
+        }
+
+        Logger.error("Item priority patch failed",{
+            pharmacyId,
+            changes:normalized.length,
+            error:message
+        });
+        return false;
+    }
+}
+
+window.patchActiveOrderPriorities=patchActiveOrderPriorities;
+
 async function saveActiveOrderManifest(options={}){
     const pharmacyId=cloudWorkspacePharmacyId();
     const silent=options?.silent===true;
