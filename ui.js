@@ -8031,6 +8031,9 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
         }
 
         for(let attempt=1;attempt<=2;attempt++){
+            const revisionBefore=Number(
+                window.PharmFlowCloudWorkspace?.activeManifestRevision||0
+            );
             const saved=await saveActiveOrderManifest({silent:true});
             if(saved===true) return true;
 
@@ -8043,6 +8046,9 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
             if(typeof pullActiveOrderManifest==="function"){
                 await pullActiveOrderManifest({force:true,clearIfMissing:false});
             }
+            const serverAdvanced=Number(
+                window.PharmFlowCloudWorkspace?.activeManifestRevision||0
+            )>revisionBefore;
 
             const authoritativeItem=
                 typeof getItemByCode==="function"
@@ -8050,7 +8056,7 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
                     : null;
 
             if(
-                authoritativeItem &&
+                serverAdvanced && authoritativeItem &&
                 toSafeString(authoritativeItem.priorityType||"")===nextType
             ){
                 return true;
@@ -8115,6 +8121,88 @@ function queueItemPrioritySelection(item,priorityType,previousPriorityType){
     return queued;
 }
 
+function queueClearVisiblePriorities(items){
+    const targets=items
+        .map(item=>({
+            item,
+            itemCode:toSafeString(item?.itemCode||item?.itemNumber||""),
+            priorityType:toSafeString(item?.priorityType||"")
+        }))
+        .filter(entry=>entry.itemCode&&entry.priorityType);
+
+    if(!targets.length) return Promise.resolve(true);
+
+    targets.forEach(entry=>{
+        const nextVersion=Number(itemPrioritySaveVersions.get(entry.itemCode)||0)+1;
+        itemPrioritySaveVersions.set(entry.itemCode,nextVersion);
+        entry.item.priorityType="";
+        entry.item.highPriority=false;
+    });
+    savePriorityApplicationState();
+
+    const run=async()=>{
+        try{
+            for(let attempt=1;attempt<=2;attempt++){
+                const revisionBefore=Number(
+                    window.PharmFlowCloudWorkspace?.activeManifestRevision||0
+                );
+                const saved=await saveActiveOrderManifest?.({silent:true});
+                if(saved===true) return true;
+
+                const saveError=toSafeString(
+                    window.PharmFlowCloudWorkspace?.lastManifestSaveError||""
+                );
+                if(typeof pullActiveOrderManifest==="function"){
+                    await pullActiveOrderManifest({force:true,clearIfMissing:false});
+                }
+                const serverAdvanced=Number(
+                    window.PharmFlowCloudWorkspace?.activeManifestRevision||0
+                )>revisionBefore;
+
+                const allCleared=serverAdvanced&&targets.every(entry=>{
+                    const current=getItemByCode?.(entry.itemCode);
+                    return current&&!toSafeString(current.priorityType||"");
+                });
+                if(allCleared) return true;
+
+                const stale=
+                    saveError.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION") ||
+                    saveError.includes("STALE_WORKSPACE_GENERATION");
+                if(attempt===1&&stale){
+                    targets.forEach(entry=>{
+                        const current=getItemByCode?.(entry.itemCode);
+                        if(current){
+                            current.priorityType="";
+                            current.highPriority=false;
+                        }
+                    });
+                    savePriorityApplicationState();
+                    continue;
+                }
+                break;
+            }
+        }catch(_error){}
+
+        targets.forEach(entry=>{
+            entry.item.priorityType=entry.priorityType;
+            entry.item.highPriority=true;
+            const current=getItemByCode?.(entry.itemCode);
+            if(current){
+                current.priorityType=entry.priorityType;
+                current.highPriority=true;
+            }
+        });
+        savePriorityApplicationState();
+        return false;
+    };
+
+    const queued=itemPrioritySaveQueue.then(run,run);
+    itemPrioritySaveQueue=queued.then(()=>undefined,()=>undefined);
+    return queued.finally(()=>{
+        targets.forEach(entry=>itemPrioritySaveVersions.delete(entry.itemCode));
+    });
+}
+
 function renderItemBrowser(body, rows, options={}){
     const esc=value=>typeof escapeHtml==="function"?escapeHtml(toSafeString(value)):toSafeString(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
     const orderMode=options.showPriority===true;
@@ -8122,7 +8210,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8134,6 +8222,7 @@ function renderItemBrowser(body, rows, options={}){
     const categoryFilter=body.querySelector('[data-category-filter]');
     const priorityFilter=body.querySelector('[data-priority-filter]');
     const printPriority=body.querySelector('[data-print-priority]');
+    const clearPriority=body.querySelector('[data-clear-priority]');
     let priorityOnly=false;
     let visibleRows=[];
     const rowHtml=item=>{
@@ -8184,7 +8273,23 @@ function renderItemBrowser(body, rows, options={}){
         });
     };
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
-    priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;draw();});
+    priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;if(clearPriority)clearPriority.hidden=!priorityOnly;draw();});
+    clearPriority?.addEventListener('click',async()=>{
+        const targets=visibleRows.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
+        if(!targets.length) return;
+        if(!window.confirm(`Clear High Priority from ${targets.length} visible item(s)?`)) return;
+        const top=body.querySelector('.phase263TableWrap')?.scrollTop||0;
+        const clearRequest=queueClearVisiblePriorities(targets);
+        draw();
+        let finalWrap=body.querySelector('.phase263TableWrap');
+        if(finalWrap) finalWrap.scrollTop=top;
+        const cleared=await clearRequest;
+        if(!cleared){
+            draw();
+            finalWrap=body.querySelector('.phase263TableWrap');
+            if(finalWrap) finalWrap.scrollTop=top;
+        }
+    });
     printPriority?.addEventListener('click',()=>{
         const printable=visibleRows.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
         if(!printable.length) return;
@@ -8204,15 +8309,23 @@ function renderItemBrowser(body, rows, options={}){
           header{margin:0 0 2mm;padding:0 0 1.5mm;border-bottom:1px dashed #000;text-align:center}
           h1{margin:0;font-size:12px;line-height:1.2}
           .meta{margin-top:1mm;font-size:9px;line-height:1.2}
-          table{width:100%;border-collapse:collapse;table-layout:fixed}
-          td{padding:.7mm 0;border:0;font-size:10px;line-height:1.15;vertical-align:top}
-          td.name{padding-right:2mm;overflow-wrap:anywhere}
-          td.qty{width:12mm;text-align:right;font-weight:700;white-space:nowrap}
-          tr.group td{padding-top:1.5mm;border-bottom:1px solid #000;font-size:9px;font-weight:700}
-        </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><tbody>${['SHORT','NEW'].map(type=>{
+          table{width:100%;border:1px solid #000;border-collapse:collapse;table-layout:fixed}
+          th,td{border-right:1px solid #000;border-bottom:1px solid #000;vertical-align:middle}
+          th{padding:.5mm .8mm;background:#eee;font-size:8px;line-height:1;text-align:left}
+          td{height:4.3mm;padding:.35mm .8mm;font-size:8px;line-height:1;white-space:nowrap}
+          th:last-child,td:last-child{border-right:0}
+          td.name{overflow:hidden;text-overflow:ellipsis}
+          th.qty,td.qty{width:12mm;text-align:right;font-size:9px;font-weight:700}
+          tr.group td{height:4mm;padding:.4mm .8mm;background:#eee;font-size:8px;font-weight:700}
+          tr:last-child td{border-bottom:0}
+        </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><thead><tr><th>ITEM NAME</th><th class="qty">QTY</th></tr></thead><tbody>${['SHORT','NEW'].map(type=>{
             const group=printable.filter(item=>item.priorityType===type);
             if(!group.length) return '';
-            return `<tr class="group"><td colspan="2">${type}</td></tr>${group.map(item=>`<tr><td class="name">${esc(item.itemName||item.itemCode||'—')}</td><td class="qty">${esc(toNumber(item.orderedQty,0))}</td></tr>`).join('')}`;
+            return `<tr class="group"><td colspan="2">${type}</td></tr>${group.map(item=>{
+                const name=toSafeString(item.itemName||item.itemCode||'—');
+                const fontSize=name.length>64?'5.5px':name.length>48?'6.2px':name.length>36?'7px':'8px';
+                return `<tr><td class="name" style="font-size:${fontSize}">${esc(name)}</td><td class="qty">${esc(toNumber(item.orderedQty,0))}</td></tr>`;
+            }).join('')}`;
         }).join('')}</tbody></table></body></html>`);
         receiptDocument.close();
 
