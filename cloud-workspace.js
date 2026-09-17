@@ -1174,7 +1174,7 @@ async function pullActiveOrderManifest(options={}){
                     file?.orderNumber ||
                     ""
                 ),
-                Number(file?.rowCount||0)
+                Number(file?.rows??file?.rowCount??0)
             ])
         );
 
@@ -1185,7 +1185,7 @@ async function pullActiveOrderManifest(options={}){
                     file?.orderNumber ||
                     ""
                 ),
-                Number(file?.rowCount||0)
+                Number(file?.rows??file?.rowCount??0)
             ])
         );
 
@@ -1237,6 +1237,27 @@ async function pullActiveOrderManifest(options={}){
     finally{
         PharmFlowCloudWorkspace.activeManifestBusy=false;
     }
+}
+
+async function pullActiveOrderManifestAuthority(options={}){
+    /* A startup/focus pull can overlap another manifest request. The normal
+       pull correctly rejects overlapping reads, but startup must not accept a
+       stale legacy workspace merely because that first authority read was
+       busy. Wait briefly and retry the authoritative manifest. */
+    for(let attempt=1;attempt<=4;attempt++){
+        const pulled=await pullActiveOrderManifest({
+            ...options,
+            force:true
+        });
+
+        if(pulled===true){
+            return true;
+        }
+
+        await new Promise(resolve=>setTimeout(resolve,150*attempt));
+    }
+
+    return false;
 }
 
 async function clearActiveOrderManifest(){
@@ -2092,7 +2113,7 @@ async function restoreCloudWorkspaceOnLogin(){
     }
 
     if(PharmFlowCloudWorkspace.hydratedPharmacyId===pharmacyId){
-        await pullActiveOrderManifest();
+        await pullActiveOrderManifestAuthority({clearIfMissing:true});
         await pullCloudWorkspaceTransactions();
         return true;
     }
@@ -2159,7 +2180,7 @@ async function restoreCloudWorkspaceOnLogin(){
                 PharmFlowCloudWorkspace.applyingRemote=false;
             }
 
-            await pullActiveOrderManifest();
+            await pullActiveOrderManifestAuthority({clearIfMissing:true});
             await pullCloudWorkspaceTransactions();
             await flushCloudWorkspaceQueue();
             setCloudWorkspaceStatus("synced");
