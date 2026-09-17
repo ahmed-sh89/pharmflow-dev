@@ -7995,7 +7995,8 @@ function openReceivingActivityEditor(row,allRows){
     modal.querySelector("[data-corrected]").focus();
 }
 
-let itemPrioritySaveBusy=false;
+let itemPrioritySaveQueue=Promise.resolve();
+const itemPrioritySaveVersions=new Map();
 
 function savePriorityApplicationState(){
     const nextUi=window.PharmFlowNext;
@@ -8009,7 +8010,7 @@ function savePriorityApplicationState(){
 }
 
 async function persistItemPrioritySelection(item,priorityType,previousPriorityType){
-    if(!item || itemPrioritySaveBusy) return false;
+    if(!item) return false;
 
     const itemCode=toSafeString(item.itemCode||item.itemNumber||"");
     const previousType=toSafeString(
@@ -8020,7 +8021,6 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
     const previousHigh=!!previousType;
     const nextType=toSafeString(priorityType||"");
 
-    itemPrioritySaveBusy=true;
     item.priorityType=nextType;
     item.highPriority=!!nextType;
     savePriorityApplicationState();
@@ -8086,9 +8086,33 @@ async function persistItemPrioritySelection(item,priorityType,previousPriorityTy
         savePriorityApplicationState();
         return false;
     }
-    finally{
-        itemPrioritySaveBusy=false;
-    }
+}
+
+function queueItemPrioritySelection(item,priorityType,previousPriorityType){
+    const itemCode=toSafeString(item?.itemCode||item?.itemNumber||"");
+    const version=Number(itemPrioritySaveVersions.get(itemCode)||0)+1;
+    itemPrioritySaveVersions.set(itemCode,version);
+
+    const run=async()=>{
+        /* If the same item was changed again before its queued save started,
+           only the newest visual choice is authoritative. */
+        if(itemPrioritySaveVersions.get(itemCode)!==version) return true;
+        try{
+            return await persistItemPrioritySelection(
+                item,
+                priorityType,
+                previousPriorityType
+            );
+        }finally{
+            if(itemPrioritySaveVersions.get(itemCode)===version){
+                itemPrioritySaveVersions.delete(itemCode);
+            }
+        }
+    };
+
+    const queued=itemPrioritySaveQueue.then(run,run);
+    itemPrioritySaveQueue=queued.then(()=>undefined,()=>undefined);
+    return queued;
 }
 
 function renderItemBrowser(body, rows, options={}){
@@ -8098,7 +8122,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8109,7 +8133,9 @@ function renderItemBrowser(body, rows, options={}){
     const qtySort=body.querySelector('[data-qty-sort]');
     const categoryFilter=body.querySelector('[data-category-filter]');
     const priorityFilter=body.querySelector('[data-priority-filter]');
+    const printPriority=body.querySelector('[data-print-priority]');
     let priorityOnly=false;
+    let visibleRows=[];
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
         const pt=item.priorityType||'';
@@ -8127,6 +8153,7 @@ function renderItemBrowser(body, rows, options={}){
         const sort=qtySort?.value||'desc';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
         if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
+        visibleRows=visible;
         if(orderMode&&priorityOnly){
             const groups=[['SHORT',visible.filter(i=>i.priorityType==='SHORT')],['NEW',visible.filter(i=>i.priorityType==='NEW')]];
             tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="6"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="6" class="tableEmptyState">No high priority items.</td></tr>`;
@@ -8135,7 +8162,6 @@ function renderItemBrowser(body, rows, options={}){
             tbody.innerHTML=visible.length?visible.map(rowHtml).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
         }
         tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=async()=>{
-            if(itemPrioritySaveBusy) return;
             const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;if(!item)return;
             const previousType=toSafeString(item.priorityType||'');
             const nextType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
@@ -8149,7 +8175,7 @@ function renderItemBrowser(body, rows, options={}){
                 mark.classList.toggle('new',active&&nextType==='NEW');
             });
             const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;
-            const saved=await persistItemPrioritySelection(item,nextType,previousType);
+            const saved=await queueItemPrioritySelection(item,nextType,previousType);
             if(!saved||priorityOnly){
                 draw();
                 const finalWrap=body.querySelector('.phase263TableWrap');
@@ -8158,7 +8184,46 @@ function renderItemBrowser(body, rows, options={}){
         });
     };
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
-    priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);draw();});
+    priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;draw();});
+    printPriority?.addEventListener('click',()=>{
+        const printable=visibleRows.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
+        if(!printable.length) return;
+
+        const selectedOrder=orderFilter?.value||'ALL';
+        const receipt=document.createElement('iframe');
+        receipt.setAttribute('aria-hidden','true');
+        receipt.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+        document.body.appendChild(receipt);
+
+        const receiptDocument=receipt.contentDocument;
+        receiptDocument.open();
+        receiptDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>High Priority Items</title><style>
+          @page{margin:2mm}
+          *{box-sizing:border-box}
+          html,body{width:76mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif}
+          header{margin:0 0 2mm;padding:0 0 1.5mm;border-bottom:1px dashed #000;text-align:center}
+          h1{margin:0;font-size:12px;line-height:1.2}
+          .meta{margin-top:1mm;font-size:9px;line-height:1.2}
+          table{width:100%;border-collapse:collapse;table-layout:fixed}
+          td{padding:.7mm 0;border:0;font-size:10px;line-height:1.15;vertical-align:top}
+          td.name{padding-right:2mm;overflow-wrap:anywhere}
+          td.qty{width:12mm;text-align:right;font-weight:700;white-space:nowrap}
+          tr.group td{padding-top:1.5mm;border-bottom:1px solid #000;font-size:9px;font-weight:700}
+        </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><tbody>${['SHORT','NEW'].map(type=>{
+            const group=printable.filter(item=>item.priorityType===type);
+            if(!group.length) return '';
+            return `<tr class="group"><td colspan="2">${type}</td></tr>${group.map(item=>`<tr><td class="name">${esc(item.itemName||item.itemCode||'—')}</td><td class="qty">${esc(toNumber(item.orderedQty,0))}</td></tr>`).join('')}`;
+        }).join('')}</tbody></table></body></html>`);
+        receiptDocument.close();
+
+        const removeReceipt=()=>setTimeout(()=>receipt.remove(),500);
+        receipt.contentWindow.addEventListener('afterprint',removeReceipt,{once:true});
+        setTimeout(()=>{
+            receipt.contentWindow.focus();
+            receipt.contentWindow.print();
+        },100);
+        setTimeout(removeReceipt,60000);
+    });
     draw();
 }
 
