@@ -7997,6 +7997,17 @@ function openReceivingActivityEditor(row,allRows){
 
 let itemPrioritySaveBusy=false;
 
+function savePriorityApplicationState(){
+    const nextUi=window.PharmFlowNext;
+    const previousSuppression=nextUi?.suppressPriorityToast===true;
+    try{
+        if(nextUi) nextUi.suppressPriorityToast=true;
+        saveApplicationState?.(false);
+    }finally{
+        if(nextUi) nextUi.suppressPriorityToast=previousSuppression;
+    }
+}
+
 async function persistItemPrioritySelection(item,priorityType){
     if(!item || itemPrioritySaveBusy) return false;
 
@@ -8008,7 +8019,7 @@ async function persistItemPrioritySelection(item,priorityType){
     itemPrioritySaveBusy=true;
     item.priorityType=nextType;
     item.highPriority=!!nextType;
-    saveApplicationState?.(false);
+    savePriorityApplicationState();
 
     try{
         if(typeof saveActiveOrderManifest!=="function"){
@@ -8048,7 +8059,7 @@ async function persistItemPrioritySelection(item,priorityType){
             if(attempt===1 && stale && authoritativeItem){
                 authoritativeItem.priorityType=nextType;
                 authoritativeItem.highPriority=!!nextType;
-                saveApplicationState?.(false);
+                savePriorityApplicationState();
                 continue;
             }
 
@@ -8064,14 +8075,15 @@ async function persistItemPrioritySelection(item,priorityType){
             typeof getItemByCode==="function"
                 ? getItemByCode(itemCode)
                 : item;
+        item.priorityType=previousType;
+        item.highPriority=previousHigh;
         currentItem.priorityType=previousType;
         currentItem.highPriority=previousHigh;
-        saveApplicationState?.(false);
+        savePriorityApplicationState();
         return false;
     }
     finally{
         itemPrioritySaveBusy=false;
-        refreshOpenKpiPanel();
     }
 }
 
@@ -8131,6 +8143,11 @@ function renderItemBrowser(body, rows, options={}){
             item.priorityType=previousType;
             item.highPriority=!!item.priorityType;
             await persistItemPrioritySelection(item,nextType);
+            const updatedWrap=body.querySelector('.phase263TableWrap');
+            const updatedTop=updatedWrap?.scrollTop||top;
+            draw();
+            const finalWrap=body.querySelector('.phase263TableWrap');
+            if(finalWrap) finalWrap.scrollTop=updatedTop;
         });
     };
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
