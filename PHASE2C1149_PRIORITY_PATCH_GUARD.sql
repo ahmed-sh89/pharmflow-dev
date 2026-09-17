@@ -110,7 +110,9 @@ begin
       from jsonb_array_elements(coalesce(v_manifest->'orderData','[]'::jsonb))
            with ordinality as entries(item,ordinal_position);
 
-    if coalesce(v_changed,0) <> jsonb_object_length(v_change_map) then
+    if coalesce(v_changed,0) <> (
+        select count(*) from jsonb_object_keys(v_change_map)
+    ) then
         raise exception 'One or more priority items are not in the Active Order Manifest';
     end if;
 
