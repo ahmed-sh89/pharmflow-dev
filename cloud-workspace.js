@@ -835,11 +835,14 @@ async function saveActiveOrderManifest(options={}){
         );
 
         const result=await authRpc(
-            "save_pharmflow_active_order_manifest_v3",
+            "save_pharmflow_active_order_manifest_v4",
             {
                 p_pharmacy_id:pharmacyId,
                 p_manifest:manifest,
-                p_expected_generation:Number(PharmFlowCloudWorkspace.generation||0)
+                p_expected_generation:Number(PharmFlowCloudWorkspace.generation||0),
+                p_expected_revision:Number(
+                    PharmFlowCloudWorkspace.activeManifestRevision||0
+                )
             }
         );
 
@@ -892,6 +895,16 @@ async function saveActiveOrderManifest(options={}){
     }
     catch(error){
         const message=error?.message || String(error);
+
+        /* Another device changed the Active Orders after this browser last
+           read them. Never overwrite that newer server structure with this
+           stale local copy. Pull the authority now; the explicit structural
+           caller will report failure and may retry from the fresh revision. */
+        if(message.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION")){
+            try{
+                await pullActiveOrderManifest({force:true,clearIfMissing:true});
+            }catch(_){}
+        }
 
         PharmFlowCloudWorkspace.lastManifestSaveError=
             message;
@@ -2297,78 +2310,14 @@ function initializePharmFlowCloudWorkspace(){
     PharmFlowCloudWorkspace.initialized=true;
     AppEvents.on("receiving:transaction",queueCloudWorkspaceTransaction);
 
-    /* B10 Clean21 — do not bridge the 5-second local autosave heartbeat to
-       Supabase. Receiving deltas already have their own authoritative queue,
-       and structural workspace changes are handled below. */
+    /* Active Order structure has explicit owners: upload, remove, finalize
+       and reset. Generic files:updated events are render/local-persistence
+       notifications only. They must never write the server Manifest because
+       a stale browser snapshot could replace newer orders from another PC. */
     AppEvents.on("files:updated",event=>{
         try{
             saveWorkspaceSnapshot?.();
         }catch(_){}
-
-        /* Phase 2C.10.4.7 — hydration/empty-authority events are READ paths.
-           Never write the Manifest during sign-in before generation authority
-           has been reconciled with Supabase. */
-        if(
-            event?.source==="active-manifest" ||
-            event?.source==="server-authority-empty" ||
-            PharmFlowCloudWorkspace.applyingRemote ||
-            PharmFlowCloudWorkspace.contextSwitching ||
-            PharmFlowCloudWorkspace.loginAuthorityReady!==true ||
-            PharmFlowCloudWorkspace.generation===null
-        ){
-            return;
-        }
-
-        const structuralSignature=currentStructuralCloudSignature();
-        if(
-            structuralSignature &&
-            structuralSignature===PharmFlowCloudWorkspace.lastStructuralCloudSignature
-        ){
-            return;
-        }
-
-        setTimeout(async()=>{
-            if(
-                PharmFlowCloudWorkspace.loginAuthorityReady!==true ||
-                PharmFlowCloudWorkspace.contextSwitching ||
-                PharmFlowCloudWorkspace.applyingRemote ||
-                PharmFlowCloudWorkspace.generation===null
-            ){
-                return;
-            }
-
-            const latestStructuralSignature=currentStructuralCloudSignature();
-            if(
-                latestStructuralSignature &&
-                latestStructuralSignature===PharmFlowCloudWorkspace.lastStructuralCloudSignature
-            ){
-                return;
-            }
-
-            /* B10 Clean22 — generic files:updated is NOT an owner of the
-               legacy full Cloud Workspace snapshot. It may persist the
-               structural Active Order Manifest only. Full compatibility
-               workspace writes are reserved for explicit structural lifecycle
-               functions (upload/remove/finalize/reset) that call the canonical
-               structural sync path. This prevents any source-less/legacy
-               files:updated heartbeat from becoming a periodic Supabase WRITE. */
-            const manifestSaved=
-                await saveActiveOrderManifest();
-
-            if(manifestSaved){
-                PharmFlowCloudWorkspace.lastStructuralCloudSignature=
-                    currentStructuralCloudSignature();
-                setCloudWorkspaceStatus(
-                    "synced",
-                    "Active Order structure synced"
-                );
-            }else{
-                setCloudWorkspaceStatus(
-                    "offline",
-                    "Active Orders pending server sync"
-                );
-            }
-        },180);
     });
     /* Phase 2C.10.3.8 — CRITICAL DATA-SAFETY RULE
        workspace:cleared is a LOCAL lifecycle event used by several flows
@@ -2432,7 +2381,9 @@ function initializePharmFlowCloudWorkspace(){
         const now=Date.now();
         const receivingActive=(now-Number(PharmFlowCloudWorkspace.lastReceivingActivityAt||0))<30000;
         const receivingEvery=receivingActive ? 3000 : 15000;
-        const manifestEvery=60000;
+        /* The metadata RPC returns one tiny row. Fifteen seconds keeps other
+           workstations current without re-downloading the full Manifest. */
+        const manifestEvery=15000;
         const generationEvery=60000;
 
         try{
