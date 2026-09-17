@@ -7995,14 +7995,65 @@ function openReceivingActivityEditor(row,allRows){
     modal.querySelector("[data-corrected]").focus();
 }
 
-function toggleHighPriority(itemCode, options={}){
-    const item=typeof getItemByCode==="function"?getItemByCode(itemCode):null;
-    if(!item) return null;
-    item.highPriority=item.highPriority!==true;
-    if(typeof saveApplicationState==="function") saveApplicationState("high-priority");
-    if(options.refresh!==false) refreshOpenKpiPanel();
-    
-    return item;
+let itemPrioritySaveBusy=false;
+
+async function persistItemPrioritySelection(item,priorityType){
+    if(!item || itemPrioritySaveBusy) return false;
+
+    const previousType=toSafeString(item.priorityType||"");
+    const previousHigh=item.highPriority===true;
+    const nextType=toSafeString(priorityType||"");
+
+    itemPrioritySaveBusy=true;
+    item.priorityType=nextType;
+    item.highPriority=!!nextType;
+    saveApplicationState?.(false);
+
+    try{
+        if(typeof saveActiveOrderManifest!=="function"){
+            throw new Error("Active Order cloud save is unavailable");
+        }
+
+        const saved=await saveActiveOrderManifest({silent:true});
+        if(saved!==true){
+            throw new Error(
+                window.PharmFlowCloudWorkspace?.lastManifestSaveError ||
+                "Supabase did not confirm the priority change"
+            );
+        }
+
+        showToast?.(
+            nextType ? `${nextType} priority saved` : "Priority removed",
+            "success"
+        );
+        return true;
+    }
+    catch(error){
+        const stale=String(error?.message||"").includes(
+            "STALE_ACTIVE_ORDER_MANIFEST_REVISION"
+        );
+
+        /* A stale save already pulled the newer server Manifest. For ordinary
+           network/server failures, restore the exact local value shown before
+           the click so Refresh cannot make the UI appear to change at random. */
+        if(!stale){
+            item.priorityType=previousType;
+            item.highPriority=previousHigh;
+            saveApplicationState?.(false);
+        }
+
+        showToast?.(
+            stale
+                ? "Active Orders changed on another device. Priority was refreshed; please try again."
+                : "Priority was not saved. Please try again.",
+            "error"
+        );
+        return false;
+    }
+    finally{
+        itemPrioritySaveBusy=false;
+        refreshOpenKpiPanel();
+    }
 }
 
 function renderItemBrowser(body, rows, options={}){
@@ -8048,11 +8099,19 @@ function renderItemBrowser(body, rows, options={}){
             const colspan=orderMode?6:(receivedMode?4:3);
             tbody.innerHTML=visible.length?visible.map(rowHtml).join(''):`<tr><td colspan="${colspan}" class="tableEmptyState">No matching items.</td></tr>`;
         }
-        tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=()=>{
+        tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=async()=>{
+            if(itemPrioritySaveBusy) return;
             const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;if(!item)return;
-            item.priorityType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;item.highPriority=!!item.priorityType;
-            try{if(window.PharmFlowNext)window.PharmFlowNext.suppressPriorityToast=true;if(typeof saveApplicationState==='function')saveApplicationState('item-priority');}finally{if(window.PharmFlowNext)window.PharmFlowNext.suppressPriorityToast=false;}
+            const previousType=toSafeString(item.priorityType||'');
+            const nextType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
+            item.priorityType=nextType;
+            item.highPriority=!!nextType;
             const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;draw();const next=body.querySelector('.phase263TableWrap');if(next)next.scrollTop=top;
+            /* Restore the previous value temporarily so the persistence helper
+               can capture an exact rollback state before applying nextType. */
+            item.priorityType=previousType;
+            item.highPriority=!!item.priorityType;
+            await persistItemPrioritySelection(item,nextType);
         });
     };
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
