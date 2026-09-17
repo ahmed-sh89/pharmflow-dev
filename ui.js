@@ -8008,12 +8008,16 @@ function savePriorityApplicationState(){
     }
 }
 
-async function persistItemPrioritySelection(item,priorityType){
+async function persistItemPrioritySelection(item,priorityType,previousPriorityType){
     if(!item || itemPrioritySaveBusy) return false;
 
     const itemCode=toSafeString(item.itemCode||item.itemNumber||"");
-    const previousType=toSafeString(item.priorityType||"");
-    const previousHigh=item.highPriority===true;
+    const previousType=toSafeString(
+        previousPriorityType===undefined
+            ? item.priorityType||""
+            : previousPriorityType
+    );
+    const previousHigh=!!previousType;
     const nextType=toSafeString(priorityType||"");
 
     itemPrioritySaveBusy=true;
@@ -8137,17 +8141,20 @@ function renderItemBrowser(body, rows, options={}){
             const nextType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
             item.priorityType=nextType;
             item.highPriority=!!nextType;
-            const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;draw();const next=body.querySelector('.phase263TableWrap');if(next)next.scrollTop=top;
-            /* Restore the previous value temporarily so the persistence helper
-               can capture an exact rollback state before applying nextType. */
-            item.priorityType=previousType;
-            item.highPriority=!!item.priorityType;
-            await persistItemPrioritySelection(item,nextType);
-            const updatedWrap=body.querySelector('.phase263TableWrap');
-            const updatedTop=updatedWrap?.scrollTop||top;
-            draw();
-            const finalWrap=body.querySelector('.phase263TableWrap');
-            if(finalWrap) finalWrap.scrollTop=updatedTop;
+            const segment=btn.closest('.pfnPrioritySegment');
+            segment?.querySelectorAll('[data-mark]').forEach(mark=>{
+                const active=mark.dataset.mark===nextType;
+                mark.classList.toggle('active',active);
+                mark.classList.toggle('short',active&&nextType==='SHORT');
+                mark.classList.toggle('new',active&&nextType==='NEW');
+            });
+            const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;
+            const saved=await persistItemPrioritySelection(item,nextType,previousType);
+            if(!saved||priorityOnly){
+                draw();
+                const finalWrap=body.querySelector('.phase263TableWrap');
+                if(finalWrap) finalWrap.scrollTop=top;
+            }
         });
     };
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
