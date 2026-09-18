@@ -30,6 +30,10 @@ const AuthState = {
        several concurrent authenticated RPCs; refresh-token rotation must
        never let a losing refresh attempt clear an otherwise valid session. */
     refreshPromise:null,
+    /* A background refresh failure must not destroy an active Handheld
+       Receiving workspace. This flag is UI/runtime state only; it never
+       grants access or treats a failed request as successful. */
+    connectionDegraded:false,
     busy:false,
     registration:null,
     ownerRegistrations:[],
@@ -460,6 +464,7 @@ function persistAuthSession(session){
     AuthState.contextError = null;
 
     if(session){
+        AuthState.connectionDegraded=false;
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
         scheduleTokenRefresh(session);
     }
@@ -468,6 +473,27 @@ function persistAuthSession(session){
         if(AuthState.refreshTimer){ clearTimeout(AuthState.refreshTimer); }
         AuthState.refreshTimer = null;
     }
+}
+
+function isActiveHandheldWorkspace(){
+    return !!(
+        AuthState.context?.pharmacy_id &&
+        typeof isLikelyZebraDevice==="function" &&
+        isLikelyZebraDevice() &&
+        (
+            document.body.classList.contains("zebraReceivingActive") ||
+            document.body.classList.contains("zebraExpiryActive")
+        )
+    );
+}
+
+function setAuthConnectionDegraded(degraded){
+    AuthState.connectionDegraded=degraded===true;
+    try{
+        window.dispatchEvent(new CustomEvent("pharmflow:auth-connection",{
+            detail:{degraded:AuthState.connectionDegraded}
+        }));
+    }catch(_){ }
 }
 
 function clearRejectedAuthSession(expectedRefreshToken){
@@ -997,6 +1023,7 @@ async function refreshAuthToken(){
                 body:JSON.stringify({refresh_token:startingRefreshToken})
             });
             persistAuthSession(session);
+            setAuthConnectionDegraded(false);
             return true;
         }catch(error){
             /* If another context refreshed while this request was in flight,
@@ -1023,8 +1050,24 @@ async function refreshAuthToken(){
                    arrive before removing only this rejected local session. */
                 const adopted=await waitForRotatedStoredSession(startingAccessToken,500);
                 if(adopted){ return true; }
-                clearRejectedAuthSession(startingRefreshToken);
-                Logger?.warn?.("Expired local auth session cleared",error);
+                if(isActiveHandheldWorkspace()){
+                    /* B10 Clean15.3 — a scan burst can overlap a refresh-token
+                       rotation or a short connection failure. Preserve the last
+                       authenticated Handheld workspace and let later activity /
+                       reconnect retry through the existing single-flight path.
+                       Failed RPCs still fail; this does not bypass authorization
+                       and does not manufacture a successful scan. */
+                    setAuthConnectionDegraded(true);
+                    Logger?.warn?.(
+                        "Auth refresh rejected; preserving active Handheld workspace",
+                        error
+                    );
+                }else{
+                    /* At boot (or outside an active Handheld workflow), clear a
+                       genuinely stale session so Preparing PharmFlow cannot hang. */
+                    clearRejectedAuthSession(startingRefreshToken);
+                    Logger?.warn?.("Expired local auth session cleared",error);
+                }
             }
             return false;
         }finally{
@@ -1035,6 +1078,16 @@ async function refreshAuthToken(){
 
     return AuthState.refreshPromise;
 }
+
+window.addEventListener("online",()=>{
+    if(!AuthState.connectionDegraded || !isActiveHandheldWorkspace()) return;
+    refreshAuthToken().then(refreshed=>{
+        if(refreshed){
+            setAuthConnectionDegraded(false);
+            window.refreshUnifiedHandheldWorkspace?.({silent:true});
+        }
+    }).catch(()=>{});
+});
 
 
 function getAuthContextScope(row=AuthState.context){

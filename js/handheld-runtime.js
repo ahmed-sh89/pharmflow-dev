@@ -75,11 +75,14 @@ function hhRefreshReadyState(){
         const items=Array.isArray(AppState?.workspace?.orderData)?AppState.workspace.orderData.length:0;
         const orders=Array.isArray(AppState?.workspace?.orderFiles)?AppState.workspace.orderFiles.length:0;
         const authenticated=!!AuthState?.context?.pharmacy_id;
+        const authReconnecting=AuthState?.connectionDegraded===true;
         const online=navigator.onLine!==false;
         const initializing=document.body.dataset.hhWorkspaceLoading==="1";
 
         if(initializing){
             hhSetVisualState("syncing","SYNCING WORKSPACE…");
+        }else if(authReconnecting){
+            hhSetVisualState("offline",`RECONNECTING · ${orders} ACTIVE ORDER${orders===1?"":"S"}`);
         }else if(!online){
             hhSetVisualState("offline",`OFFLINE · ${orders} ACTIVE ORDER${orders===1?"":"S"}`);
         }else if(!authenticated){
@@ -367,6 +370,7 @@ function hhInstall(){
     window.addEventListener("focus",()=>wakeHandheldRuntime("window-focus"));
     window.addEventListener("pageshow",()=>wakeHandheldRuntime("pageshow"));
     window.addEventListener("online",()=>wakeHandheldRuntime("online"));
+    window.addEventListener("pharmflow:auth-connection",hhRefreshReadyState);
 
     if(typeof AppEvents!=="undefined"){
         AppEvents.on?.("session:updated",()=>{hhRefreshReadyState();setTimeout(hhFocusActiveScanner,30);});
