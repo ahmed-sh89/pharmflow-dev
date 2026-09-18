@@ -8220,7 +8220,7 @@ function renderItemBrowser(body, rows, options={}){
         receiptDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>High Priority Items</title><style>
           @page{size:80mm auto;margin:1.5mm}
           *{box-sizing:border-box}
-          html,body{width:76mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          html,body{width:77mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
           header{margin:0 0 1.5mm;padding:0 0 1mm;border-bottom:.35mm solid #000;text-align:center}
           h1{margin:0;font-size:14pt;line-height:1.1;font-weight:800}
           .meta{margin-top:.8mm;font-size:10pt;line-height:1.1;font-weight:700}
@@ -8229,10 +8229,10 @@ function renderItemBrowser(body, rows, options={}){
           th{padding:.8mm 1mm;background:#fff;font-size:10pt;line-height:1;text-align:left;font-weight:800}
           td{height:5.5mm;padding:.7mm 1mm;font-size:10pt;line-height:1.05;white-space:nowrap;font-weight:600}
           td.name{overflow:hidden;text-overflow:ellipsis}
-          th.qty,td.qty{position:relative;width:14mm;padding-left:.5mm;padding-right:4.5mm;text-align:center;border-right:0}
+          th.qty,td.qty{position:relative;width:14mm;padding-left:.5mm;padding-right:3.5mm;text-align:center;border-right:0}
           th.qty{font-size:10pt;font-weight:800}
           td.qty{font-size:11pt;font-weight:700}
-          th.qty::after,td.qty::after{content:"";position:absolute;top:0;right:2.5mm;bottom:0;border-right:.35mm solid #000}
+          th.qty::after,td.qty::after{content:"";position:absolute;top:0;right:1.5mm;bottom:0;border-right:.35mm solid #000}
           tr.group td{height:5mm;padding:.6mm 1mm;background:#fff;font-size:10pt;font-weight:900;border-top:.5mm solid #000;border-bottom:.5mm solid #000}
           tr:last-child td{border-bottom:0}
         </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><thead><tr><th>ITEM NAME</th><th class="qty">QTY</th></tr></thead><tbody>${['SHORT','NEW'].map(type=>{
