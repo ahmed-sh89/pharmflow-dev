@@ -111,3 +111,24 @@
   body:not(.zebraDevice) #page-dashboard .scanPanel{padding:8px!important;}
   body:not(.zebraDevice) #page-dashboard .pfnOrderControlGroup{grid-template-columns:1fr!important;}
 }
+
+/* PharmFlow Receiving Release */
+.pfrClassificationFilters{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
+.pfrClassificationFilters details{position:relative;min-width:150px}
+.pfrClassificationFilters summary{cursor:pointer;padding:8px 10px;border:1px solid #d7dce3;border-radius:8px;background:#fff;font-weight:600;list-style:none}
+.pfrFilterMenu{position:absolute;z-index:40;top:100%;left:0;min-width:220px;max-height:240px;overflow:auto;padding:8px;background:#fff;border:1px solid #d7dce3;border-radius:8px;box-shadow:0 10px 24px rgba(0,0,0,.12)}
+.pfrFilterMenu label{display:flex;gap:8px;align-items:center;padding:5px 3px}
+.pfrWorkScopeOverlay{z-index:10020}
+.pfrWorkScopeCard{width:min(92vw,380px);max-height:85vh;overflow:auto;background:#fff;border-radius:14px;padding:16px}
+.pfrWorkScopeCard h3{margin:0 0 4px}.pfrWorkScopeCard p{margin:0 0 12px}
+.pfrWorkAll,.pfrWorkOrders label{display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid #edf0f3}
+.pfrWorkActions{display:flex;justify-content:flex-end;gap:8px;padding-top:12px}
+.pfrChangeOrders{margin-top:5px;border:1px solid currentColor;border-radius:7px;background:transparent;font-size:11px;font-weight:700;padding:5px 8px}
+body.zebraDevice #page-dashboard{overflow:hidden!important}
+body.zebraDevice #page-dashboard .pageContent{overflow:hidden!important;padding-bottom:2px!important}
+body.zebraDevice #page-dashboard .scanPanel{margin-bottom:4px!important;padding-bottom:4px!important}
+body.zebraDevice #page-dashboard #lastScanCard{margin-top:4px!important;margin-bottom:0!important}
+body.zebraDevice #page-dashboard .quantityButton,
+body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-weight:800!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
+body.zebraDevice #page-dashboard [data-action="minus"],
+body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
