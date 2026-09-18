@@ -511,9 +511,9 @@ function upsertOrderItem(item){
 
     if(existing){
 
-        if(!existing.category && item.category){
-            existing.category = toSafeString(item.category);
-        }
+        if(!existing.group_name && item.group_name) existing.group_name=toSafeString(item.group_name);
+        if(!existing.category && item.category) existing.category=toSafeString(item.category);
+        if(!existing.sub_category && item.sub_category) existing.sub_category=toSafeString(item.sub_category);
 
         existing.orderedQty +=
             orderedQty;
@@ -543,10 +543,9 @@ function upsertOrderItem(item){
                 item.itemName
             ),
 
-        category:
-            toSafeString(
-                item.category || ""
-            ),
+        group_name:toSafeString(item.group_name||item.groupName||""),
+        category:toSafeString(item.category||""),
+        sub_category:toSafeString(item.sub_category||item.subCategory||""),
 
         orderedQty:
             orderedQty,
