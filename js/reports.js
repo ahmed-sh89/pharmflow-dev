@@ -1155,7 +1155,9 @@ function getPerOrderReceivingRows(orderNumber){
             "Difference":difference,
             "Issue Type":issueType,
             issueKey,
-            "Category":row.category||""
+            "Group":row.group_name||row.groupName||row.Group||row.category||"",
+            "Category":row.category||"",
+            "Sub Category":row.sub_category||row.subCategory||""
         };
     });
 
@@ -1186,7 +1188,9 @@ function getPerOrderReceivingRows(orderNumber){
                 "Difference":received,
                 "Issue Type":"Manual / Unordered Extra",
                 issueKey:"manual",
-                "Category":item.category||""
+                "Group":item.group_name||item.groupName||item.category||"",
+                "Category":item.category||"",
+                "Sub Category":item.sub_category||item.subCategory||""
             });
         }
     });
@@ -1216,11 +1220,9 @@ function buildMultiOrderReceivingReport(options={}){
         ? getCurrentReceivingFilterKeys()
         : new Set(["not_received","partial","received_any","over","manual"]);
 
-    const category=
-        visibleOnly &&
-        typeof UI!=="undefined"
-            ? (UI.receivingFilters?.category||"all")
-            : "all";
+    const classification=visibleOnly&&typeof UI!=="undefined"
+        ? (UI.receivingFilters?.classification||{})
+        : {};
 
     const groups=[];
     const flatRows=[];
@@ -1247,13 +1249,7 @@ function buildMultiOrderReceivingReport(options={}){
                 return false;
             }
 
-            if(
-                category!=="all" &&
-                toSafeString(row["Category"]||"").trim()!==category
-            ){
-                return false;
-            }
-
+            if(window.PharmFlowClassificationFilters&&!window.PharmFlowClassificationFilters.filter([row],classification).length) return false;
             return true;
         });
 
@@ -1590,7 +1586,9 @@ function buildReceivingDiscrepancyReportLegacy(options={}){
             "Received Qty":received,
             "Difference":difference,
             "Issue Type":issueType,
-            "Category":item.category||""
+            "Group":item.group_name||item.groupName||item.category||"",
+            "Category":item.category||"",
+            "Sub Category":item.sub_category||item.subCategory||""
         });
     });
 
@@ -1713,8 +1711,8 @@ function exportReceivingSummaryExcel(){
     (s.orders||[]).forEach(o=>aoa.push([o.orderNumber,o.orderDate,o.fromWarehouse,o.toWarehouse,o.sourceFile]));
     aoa.push([]);
     const headerRow=aoa.length+1;
-    aoa.push(["Item Number","Item Name","Ordered Qty","Received Qty","Difference","Issue Type","Category"]);
-    s.rows.forEach(r=>aoa.push([r["Item Number"],r["Item Name"],r["Ordered Qty"],r["Received Qty"],r.Difference,r["Issue Type"],r.Category]));
+    aoa.push(["Item Number","Item Name","Ordered Qty","Received Qty","Difference","Issue Type","Group","Category","Sub Category"]);
+    s.rows.forEach(r=>aoa.push([r["Item Number"],r["Item Name"],r["Ordered Qty"],r["Received Qty"],r.Difference,r["Issue Type"],r.Group||"",r.Category||"",r["Sub Category"]||""]));
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"]=[{wch:18},{wch:44},{wch:13},{wch:13},{wch:12},{wch:25},{wch:22}];
     ws["!freeze"]={xSplit:0,ySplit:headerRow};
