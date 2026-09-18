@@ -1755,11 +1755,34 @@ function rebuildReceivingQuantitiesFromLedger(){
     });
 }
 
-/* The legacy Cloud Workspace remains a compatibility source for workspace
-   structure, but it is not receiving authority. Once the server ledger has
-   completed its initial bootstrap, never let a later compatibility snapshot
-   replace that ledger (or the quantities projected from it). */
+/* The Active Order Manifest is the only authority for uploaded order
+   structure. The legacy Cloud Workspace remains a compatibility source for
+   non-structural state, but it must never replace orderFiles/orderData after
+   the Manifest has loaded. The receiving ledger remains authoritative for
+   quantities once its initial bootstrap completes. */
 function restoreCompatibilityWorkspaceState(cloudState){
+    const preserveManifestStructure=
+        PharmFlowCloudWorkspace.activeManifestPresent===true;
+
+    const manifestStructure=preserveManifestStructure
+        ? {
+            orderId:AppState?.workspace?.orderId||null,
+            orderName:AppState?.workspace?.orderName||"",
+            createdAt:AppState?.workspace?.createdAt||null,
+            startedAt:AppState?.workspace?.startedAt||null,
+            active:!!AppState?.workspace?.active,
+            selectedOrderNumber:
+                AppState?.workspace?.selectedOrderNumber||"",
+            selectedOrderNumbers:deepClone(
+                AppState?.workspace?.selectedOrderNumbers||[]
+            ),
+            orderFiles:deepClone(AppState?.workspace?.orderFiles||[]),
+            mappingFiles:deepClone(AppState?.workspace?.mappingFiles||[]),
+            orderData:deepClone(AppState?.workspace?.orderData||[]),
+            mappingData:deepClone(AppState?.workspace?.mappingData||[])
+        }
+        : null;
+
     const preserveLedger=
         PharmFlowCloudWorkspace.receivingBootstrapComplete===true;
     const authoritativeHistory=preserveLedger
@@ -1767,13 +1790,24 @@ function restoreCompatibilityWorkspaceState(cloudState){
         : null;
 
     const restored=restoreWorkspaceState(cloudState);
-    if(!restored || !preserveLedger){
+    if(!restored){
         return restored;
     }
 
-    AppState.workspace.receivingHistory=authoritativeHistory;
+    if(manifestStructure){
+        Object.assign(AppState.workspace,manifestStructure);
+    }
+
+    if(preserveLedger){
+        AppState.workspace.receivingHistory=authoritativeHistory;
+    }
+
     rebuildStateIndexes();
-    rebuildReceivingQuantitiesFromLedger();
+
+    if(preserveLedger){
+        rebuildReceivingQuantitiesFromLedger();
+    }
+
     recalculateStatistics();
     return true;
 }
