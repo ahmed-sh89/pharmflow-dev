@@ -1,0 +1,102 @@
+"use strict";
+
+/* PharmFlow Receiving Release — device-local scan transport.
+   IndexedDB holds only unconfirmed delivery work. Supabase remains authoritative. */
+(function installReceivingRelease(){
+    if(window.PharmFlowReceivingScanQueue) return;
+    const DB_NAME="PHARMFLOW_RECEIVING_SCAN_QUEUE_V1", STORE="scans";
+    let dbPromise=null, worker=null, started=false;
+    function scope(){
+        const pharmacy=String(AuthState?.context?.pharmacy_id||"");
+        const device=typeof ensureDeviceId==="function"?ensureDeviceId():"unknown-device";
+        return pharmacy&&device?pharmacy+"::"+device:"";
+    }
+    function transactionId(){return crypto.randomUUID?.()||"pf-"+Date.now()+"-"+Math.random().toString(16).slice(2);}
+    function open(){
+        if(dbPromise) return dbPromise;
+        dbPromise=new Promise((resolve,reject)=>{
+            const request=indexedDB.open(DB_NAME,1);
+            request.onupgradeneeded=()=>{
+                const db=request.result;
+                const store=db.objectStoreNames.contains(STORE)?request.transaction.objectStore(STORE):db.createObjectStore(STORE,{keyPath:"transactionId"});
+                if(!store.indexNames.contains("scope_sequence")) store.createIndex("scope_sequence",["scope","sequence"],{unique:false});
+            };
+            request.onsuccess=()=>resolve(request.result);
+            request.onerror=()=>reject(request.error||new Error("Unable to open scan queue"));
+        });
+        return dbPromise;
+    }
+    async function put(row){const db=await open();await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(row);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+    async function remove(id){const db=await open();await new Promise((resolve,reject)=>{const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(id);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});}
+    async function pending(){
+        const current=scope(); if(!current) return [];
+        const db=await open();
+        return new Promise((resolve,reject)=>{
+            const tx=db.transaction(STORE,"readonly"), idx=tx.objectStore(STORE).index("scope_sequence");
+            const range=IDBKeyRange.bound([current,0],[current,Number.MAX_SAFE_INTEGER]), rows=[];
+            const cursor=idx.openCursor(range);
+            cursor.onsuccess=()=>{const c=cursor.result;if(c){rows.push(c.value);c.continue();}else resolve(rows);};
+            cursor.onerror=()=>reject(cursor.error);
+        });
+    }
+    async function nextSequence(){const rows=await pending();return rows.reduce((m,r)=>Math.max(m,Number(r.sequence||0)),0)+1;}
+    async function run(){
+        if(worker) return worker;
+        worker=(async()=>{
+            while(true){
+                const row=(await pending())[0]; if(!row) break;
+                if(!navigator.onLine){window.refreshHandheldWorkspaceStatus?.();break;}
+                try{
+                    if(row.state!=="awaitingConfirmation"){
+                        const clean=typeof cleanScannerInput==="function"?cleanScannerInput(row.raw):String(row.raw||"").trim();
+                        const parsed=typeof parseGS1Barcode==="function"?parseGS1Barcode(clean):null;
+                        if(!parsed?.gtin) throw new Error("GTIN could not be extracted from queued scan");
+                        const result=await receiveParsedBarcode(parsed,{transactionId:row.transactionId});
+                        if(result===false){await remove(row.transactionId);continue;}
+                        row.state="awaitingConfirmation"; row.lastError=""; row.lastAttemptAt=new Date().toISOString(); await put(row);
+                    }
+                    break;
+                }catch(error){
+                    row.lastError=String(error?.message||error);row.lastAttemptAt=new Date().toISOString();await put(row);
+                    Logger?.warn?.("Queued scan awaiting retry",error);break;
+                }
+            }
+        })();
+        try{return await worker;}finally{worker=null;}
+    }
+    async function enqueue(raw){
+        const current=scope(); if(!current) throw new Error("Receiving workspace is not connected");
+        const row={transactionId:transactionId(),scope:current,sequence:await nextSequence(),raw:String(raw||""),state:"accepted",acceptedAt:new Date().toISOString()};
+        await put(row); void run(); return {accepted:true,transactionId:row.transactionId};
+    }
+    window.PharmFlowReceivingScanQueue={enqueue,resume:run};
+    AppEvents?.on?.("receiving:cloud-confirmed",event=>{const id=event?.transactionId;if(id) void remove(id).then(run);});
+    window.addEventListener("online",()=>void run());
+    window.addEventListener("auth:context-ready",()=>{if(!started){started=true;setTimeout(()=>void run(),350);}});
+    if(document.readyState!=="loading") setTimeout(()=>void run(),600);
+})();
+
+window.PharmFlowDeviceWorkScope={
+    key(){return "PHARMFLOW_WORK_SCOPE_V1::"+String(AuthState?.context?.pharmacy_id||"")+"::"+(typeof ensureDeviceId==="function"?ensureDeviceId():"");},
+    get(active){try{const saved=JSON.parse(localStorage.getItem(this.key())||"[]");return saved.filter(x=>active.includes(x));}catch(_){return[];}},
+    set(orders){localStorage.setItem(this.key(),JSON.stringify([...new Set(orders||[])]));},
+    prune(active){const next=this.get(active);this.set(next);return next;}
+};
+
+window.PharmFlowClassificationFilters={
+    normalize(row){
+        const legacy=String(row?.category||row?.Category||"").trim();
+        return {group:String(row?.group_name||row?.groupName||row?.Group||legacy).trim(),category:String(row?.category||row?.Category||"").trim(),subCategory:String(row?.sub_category||row?.subCategory||row?.["Sub Category"]||"").trim()};
+    },
+    choices(rows,selection={}){
+        const values=(list,key)=>[...new Set(list.map(r=>this.normalize(r)[key]).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+        const groups=new Set(selection.groups||[]),categories=new Set(selection.categories||[]);
+        const groupRows=groups.size?rows.filter(r=>groups.has(this.normalize(r).group)):rows;
+        const categoryRows=categories.size?groupRows.filter(r=>categories.has(this.normalize(r).category)):groupRows;
+        return {groups:values(rows,"group"),categories:values(groupRows,"category"),subCategories:values(categoryRows,"subCategory")};
+    },
+    filter(rows,selection={}){
+        const sets={groups:new Set(selection.groups||[]),categories:new Set(selection.categories||[]),subCategories:new Set(selection.subCategories||[])};
+        return rows.filter(row=>{const c=this.normalize(row);return(!sets.groups.size||sets.groups.has(c.group))&&(!sets.categories.size||sets.categories.has(c.category))&&(!sets.subCategories.size||sets.subCategories.has(c.subCategory));});
+    }
+};
