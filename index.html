@@ -959,9 +959,12 @@
                                 </div>
                             </details>
 
-                            <select id="receivingCategoryFilter" class="compactSelect" aria-label="Category filter">
-                                <option value="all">All Categories</option>
-                            </select>
+                            <div id="receivingClassificationFilters" class="pfrClassificationFilters" aria-label="Classification filters">
+                                <details data-class-filter="groups"><summary>All Groups</summary><div class="pfrFilterMenu"></div></details>
+                                <details data-class-filter="categories"><summary>All Categories</summary><div class="pfrFilterMenu"></div></details>
+                                <details data-class-filter="subCategories"><summary>All Sub Categories</summary><div class="pfrFilterMenu"></div></details>
+                                <button type="button" id="btnClearClassificationFilters" class="secondaryButton">Clear Classification Filters</button>
+                            </div>
 
 
 
