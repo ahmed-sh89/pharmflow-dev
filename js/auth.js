@@ -18,6 +18,11 @@ const AuthState = {
     session:null,
     user:null,
     context:null,
+    /* Access is tri-state during boot: unresolved, resolved-with-access, or
+       resolved-without-access.  A transport/RPC failure must never be
+       interpreted as a confirmed unassigned account. */
+    contextResolved:false,
+    contextError:null,
     contextLoading:false,
     ownerExists:true,
     refreshTimer:null,
@@ -450,8 +455,18 @@ function restoreAuthSession(){
 }
 
 function persistAuthSession(session){
+    const previousUserId=AuthState.user && AuthState.user.id || "";
+    const nextUserId=session && session.user && session.user.id || "";
     AuthState.session = session || null;
     AuthState.user = session && session.user ? session.user : null;
+
+    /* A new sign-in needs a fresh, explicit context decision. Token rotation
+       for the same already-verified user keeps the verified context. */
+    if(!session || !AuthState.context || previousUserId!==nextUserId){
+        AuthState.contextResolved = false;
+        AuthState.contextError = null;
+    }
+
     if(session){
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
         scheduleTokenRefresh(session);
@@ -924,11 +939,14 @@ window.getAuthContextScope=getAuthContextScope;
 async function loadMyAppContext(){
     if(!getSupabaseAccessToken()){
         AuthState.context = null;
+        AuthState.contextResolved = true;
+        AuthState.contextError = null;
         AuthState.contextLoading = false;
         return null;
     }
 
     AuthState.contextLoading = true;
+    AuthState.contextError = null;
     try{
         const rows = await authRpc("get_my_app_context",{});
         const row = Array.isArray(rows) ? rows[0] : rows;
@@ -937,6 +955,7 @@ async function loadMyAppContext(){
         );
 
         AuthState.context = row || null;
+        AuthState.contextResolved = true;
 
         /*
            DEVISO3 AUTHENTICATION BOUNDARY HOOK
@@ -992,6 +1011,13 @@ async function loadMyAppContext(){
         if(/jwt|token|expired/i.test(error.message || "")){
             const refreshed = await refreshAuthToken();
             if(refreshed){ return loadMyAppContext(); }
+        }
+        /* Keep a previously verified context usable during a transient
+           refresh failure.  On a cold boot, leave access unresolved so the
+           UI stays on the neutral Preparing screen. */
+        AuthState.contextError = error;
+        if(!AuthState.context){
+            AuthState.contextResolved = false;
         }
         throw error;
     }
@@ -1191,6 +1217,8 @@ async function signOutCurrentUser(){
     );
 
     AuthState.context = null;
+    AuthState.contextResolved = false;
+    AuthState.contextError = null;
     AuthState.registration = null;
     AuthState.lastContextScope="";
 
@@ -1547,9 +1575,8 @@ function isPharmacyAdmin(){
 }
 
 function renderAuthState(){
-    finishAuthBootState();
-
     if(AuthState.recoveryActive || window.__MEDRYVO_RECOVERY_ACTIVE){
+        finishAuthBootState();
         lockApplicationForAuth(true);
         showAuthPanel("recovery",{history:"replace"});
         return;
@@ -1577,12 +1604,21 @@ function renderAuthState(){
         window.pharmFlowDevHideAccessBoundary();
     }
 
-    // Authenticated session exists, but pharmacy/role context is still loading.
-    // Keep the current auth gate state unchanged rather than showing
-    // "Complete access" prematurely.
-    if(AuthState.session && AuthState.contextLoading){
+    // An authenticated session is not an access decision by itself.  Until
+    // get_my_app_context succeeds, keep only the neutral boot panel visible.
+    // This also covers temporary network/RPC failures after a hard refresh.
+    if(
+        AuthState.session &&
+        (AuthState.contextLoading || !AuthState.contextResolved)
+    ){
+        document.body.classList.add("authBooting");
+        if(overlay){ overlay.classList.add("visible"); }
+        const bootPanel = document.getElementById("authBootPanel");
+        if(bootPanel){ bootPanel.hidden = false; }
         return;
     }
+
+    finishAuthBootState();
 
     if(!AuthState.session){
         clearSensitiveAuthFields();
