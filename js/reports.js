@@ -1389,9 +1389,12 @@ function getLiveReceivingItemStatus(item){
 }
 
 function buildLiveReceivingReport(options={}){
-    const sourceItems=Array.isArray(options.items)
+    const allSourceItems=Array.isArray(options.items)
         ? options.items
         : (Array.isArray(AppState?.workspace?.orderData) ? AppState.workspace.orderData : []);
+    const sourceItems=options.classification && window.PharmFlowClassificationFilters
+        ? window.PharmFlowClassificationFilters.filter(allSourceItems,options.classification)
+        : allSourceItems;
 
     const orderMetadata=
         typeof getReceivingOrderMetadata==="function"
@@ -1411,7 +1414,9 @@ function buildLiveReceivingReport(options={}){
             "Received Qty":received,
             "Difference":difference,
             "Status":status,
+            "Group":item?.group_name||item?.groupName||item?.Group||item?.category||"",
             "Category":item?.category||"",
+            "Sub Category":item?.sub_category||item?.subCategory||"",
             "Manual":item?.manual===true
         };
     });
