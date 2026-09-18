@@ -1072,10 +1072,14 @@ async function uploadGlobalMasterGTINInChunks(records,sourceFile){
     const chunkSize=750;
     for(let start=0; start<records.length; start+=chunkSize){
         const chunk=records.slice(start,start+chunkSize);
-        await authRpc("append_global_master_gtin_import",{
-            p_import_id:importId,
-            p_records:chunk
-        });
+        try{
+            await authRpc("append_global_master_gtin_import_v2",{p_import_id:importId,p_records:chunk});
+        }catch(error){
+            const message=String(error?.message||"");
+            if(/PGRST202|append_global_master_gtin_import_v2.*(does not exist|schema cache)/i.test(message)){
+                await authRpc("append_global_master_gtin_import",{p_import_id:importId,p_records:chunk});
+            }else throw error;
+        }
         if(typeof setLoadingText === "function"){
             setLoadingText("Uploading Global GTIN " + Math.min(start+chunk.length,records.length) + " / " + records.length + "...");
         }
@@ -1135,10 +1139,15 @@ async function performGlobalMasterGTINSync(options = {}){
     const pageSize=1000;
     const records=[];
     for(let offset=0; offset<cloudCount; offset+=pageSize){
-        const pageResult=await authRpc("get_global_master_gtin_page",{
-            p_offset:offset,
-            p_limit:pageSize
-        });
+        let pageResult;
+        try{
+            pageResult=await authRpc("get_global_master_gtin_page_v2",{p_offset:offset,p_limit:pageSize});
+        }catch(error){
+            const message=String(error?.message||"");
+            if(/PGRST202|get_global_master_gtin_page_v2.*(does not exist|schema cache)/i.test(message)){
+                pageResult=await authRpc("get_global_master_gtin_page",{p_offset:offset,p_limit:pageSize});
+            }else throw error;
+        }
         const rows=Array.isArray(pageResult)?pageResult:[];
         rows.forEach(row=>{
             const itemCode=normalizeItemCode(row.item_code);
