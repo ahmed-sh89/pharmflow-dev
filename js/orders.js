@@ -301,7 +301,9 @@ async function saveOriginalUploadedOrderSnapshot(orderNumber, rows){
             item_code:normalizeItemCode(row.itemCode),
             item_name:toSafeString(row.itemName),
             ordered_qty:Number(row.orderedQty||0),
+            group_name:toSafeString(row.group_name||row.groupName||""),
             category:toSafeString(row.category||""),
+            sub_category:toSafeString(row.sub_category||row.subCategory||""),
             source_sheet:toSafeString(row.sourceSheet||""),
             source_row:Number(row.sourceRow||0)
         }
@@ -311,22 +313,18 @@ async function saveOriginalUploadedOrderSnapshot(orderNumber, rows){
 
     const batchSize=500;
     for(let start=0;start<cleanRows.length;start+=batchSize){
-        await authRpc("save_pharmflow_order_source_items",{
-            p_pharmacy_id:AuthState.context.pharmacy_id,
-            p_order_number:normalizeOrderNumber(orderNumber),
-            p_items:cleanRows.slice(start,start+batchSize),
-            p_replace:start===0
-        });
+        const params={p_pharmacy_id:AuthState.context.pharmacy_id,p_order_number:normalizeOrderNumber(orderNumber),p_items:cleanRows.slice(start,start+batchSize),p_replace:start===0};
+        try{await authRpc("save_pharmflow_order_source_items_v2",params);}
+        catch(error){const message=String(error?.message||"");if(/PGRST202|save_pharmflow_order_source_items_v2.*(does not exist|schema cache)/i.test(message))await authRpc("save_pharmflow_order_source_items",params);else throw error;}
     }
     return cleanRows.length;
 }
 
 async function getOriginalUploadedOrderSnapshot(orderNumber){
     if(!AuthState.context || !AuthState.context.pharmacy_id){return [];}
-    const result=await authRpc("get_pharmflow_order_source_items",{
-        p_pharmacy_id:AuthState.context.pharmacy_id,
-        p_order_number:normalizeOrderNumber(orderNumber)
-    });
+    const params={p_pharmacy_id:AuthState.context.pharmacy_id,p_order_number:normalizeOrderNumber(orderNumber)};
+    let result;try{result=await authRpc("get_pharmflow_order_source_items_v2",params);}
+    catch(error){const message=String(error?.message||"");if(/PGRST202|get_pharmflow_order_source_items_v2.*(does not exist|schema cache)/i.test(message))result=await authRpc("get_pharmflow_order_source_items",params);else throw error;}
     return Array.isArray(result)?result:[];
 }
 
