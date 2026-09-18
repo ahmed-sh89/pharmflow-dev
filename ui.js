@@ -8177,7 +8177,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Category<select data-category-filter><option value="ALL">All Categories</option>${Array.from(new Set(rows.map(i=>toSafeString(i.category||i.Category||'').trim()).filter(Boolean))).sort((a,b)=>a.localeCompare(b)).map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('')}</select></label><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Group<select data-group-filter multiple size="3"></select></label><label>Category<select data-category-filter multiple size="3"></select></label><label>Sub Category<select data-subcategory-filter multiple size="3"></select></label><button type="button" class="pfnHighPriorityFilter" data-clear-classification>Clear Classification</button><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8186,7 +8186,10 @@ function renderItemBrowser(body, rows, options={}){
     const tbody=body.querySelector('[data-rows]');
     const orderFilter=body.querySelector('[data-order-filter]');
     const qtySort=body.querySelector('[data-qty-sort]');
+    const groupFilter=body.querySelector('[data-group-filter]');
     const categoryFilter=body.querySelector('[data-category-filter]');
+    const subCategoryFilter=body.querySelector('[data-subcategory-filter]');
+    const clearClassification=body.querySelector('[data-clear-classification]');
     const priorityFilter=body.querySelector('[data-priority-filter]');
     const printPriority=body.querySelector('[data-print-priority]');
     const clearPriority=body.querySelector('[data-clear-priority]');
@@ -8205,8 +8208,11 @@ function renderItemBrowser(body, rows, options={}){
         let visible=currentRows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
         const selectedOrder=orderFilter?.value||'ALL';
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
-        const selectedCategory=categoryFilter?.value||'ALL';
-        if(orderMode&&selectedCategory!=='ALL') visible=visible.filter(item=>toSafeString(item.category||item.Category||'').trim()===selectedCategory);
+        if(orderMode&&window.PharmFlowClassificationFilters){
+            const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
+            const selection={groups:read(groupFilter),categories:read(categoryFilter),subCategories:read(subCategoryFilter)};
+            visible=window.PharmFlowClassificationFilters.filter(visible,selection);
+        }
         if(orderMode&&priorityOnly) visible=visible.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
         const sort=qtySort?.value||'desc';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
@@ -8241,7 +8247,22 @@ function renderItemBrowser(body, rows, options={}){
             }
         });
     };
-    input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
+    const rebuildClassification=()=>{
+        if(!orderMode||!window.PharmFlowClassificationFilters)return;
+        const currentRows=getKpiPanelItems("total");
+        const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
+        const selected={groups:read(groupFilter),categories:read(categoryFilter),subCategories:read(subCategoryFilter)};
+        const choices=window.PharmFlowClassificationFilters.choices(currentRows,selected);
+        const fill=(el,values,keep)=>{if(!el)return;const chosen=new Set(keep);el.innerHTML=values.map(v=>`<option value="${esc(v)}" ${chosen.has(v)?"selected":""}>${esc(v)}</option>`).join("");};
+        fill(groupFilter,choices.groups,selected.groups);fill(categoryFilter,choices.categories,selected.categories);fill(subCategoryFilter,choices.subCategories,selected.subCategories);
+    };
+    rebuildClassification();
+    input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);
+    groupFilter?.addEventListener('change',()=>{if(categoryFilter)[...categoryFilter.options].forEach(o=>o.selected=false);if(subCategoryFilter)[...subCategoryFilter.options].forEach(o=>o.selected=false);rebuildClassification();draw();});
+    categoryFilter?.addEventListener('change',()=>{if(subCategoryFilter)[...subCategoryFilter.options].forEach(o=>o.selected=false);rebuildClassification();draw();});
+    subCategoryFilter?.addEventListener('change',draw);
+    clearClassification?.addEventListener('click',()=>{[groupFilter,categoryFilter,subCategoryFilter].forEach(el=>el&&[...el.options].forEach(o=>o.selected=false));rebuildClassification();draw();});
+    qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;if(clearPriority)clearPriority.hidden=!priorityOnly;draw();});
     clearPriority?.addEventListener('click',async()=>{
         const targets=visibleRows.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
