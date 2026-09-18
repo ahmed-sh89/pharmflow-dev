@@ -1085,9 +1085,9 @@ async function uploadGlobalMasterGTINInChunks(records,sourceFile){
         }
     }
 
-    const commitResult=await authRpc("commit_global_master_gtin_import",{
-        p_import_id:importId
-    });
+    let commitResult;
+    try{commitResult=await authRpc("commit_global_master_gtin_import_v2",{p_import_id:importId});}
+    catch(error){const message=String(error?.message||"");if(/PGRST202|commit_global_master_gtin_import_v2.*(does not exist|schema cache)/i.test(message))commitResult=await authRpc("commit_global_master_gtin_import",{p_import_id:importId});else throw error;}
     const row=Array.isArray(commitResult)?commitResult[0]:commitResult;
     return row || {version:String(importId),item_count:records.length};
 }
