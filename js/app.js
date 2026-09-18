@@ -57,6 +57,47 @@ window.addEventListener(
     bootstrapMedryvo
 );
 
+let authContextBootRetryTimer=null;
+let authContextBootRetryAttempt=0;
+
+function scheduleAuthContextBootRetry(){
+    if(
+        authContextBootRetryTimer ||
+        !getSupabaseAccessToken?.() ||
+        AuthState?.contextResolved
+    ){
+        return;
+    }
+
+    const delays=[750,2000,5000];
+    if(authContextBootRetryAttempt>=delays.length){ return; }
+    const delay=delays[authContextBootRetryAttempt++];
+
+    authContextBootRetryTimer=setTimeout(async()=>{
+        authContextBootRetryTimer=null;
+        try{
+            await loadMyAppContext();
+            if(typeof loadMyRegistrationStatus === "function"){
+                await loadMyRegistrationStatus().catch(()=>{});
+            }
+            renderAuthState?.();
+            if(hasApplicationAccess?.()){
+                document.body.classList.remove("authLocked");
+                await startApplication();
+            }
+        }catch(_){
+            scheduleAuthContextBootRetry();
+        }
+    },delay);
+}
+
+window.addEventListener("online",()=>{
+    if(AuthState?.session && !AuthState?.contextResolved){
+        authContextBootRetryAttempt=0;
+        scheduleAuthContextBootRetry();
+    }
+});
+
 async function bootstrapMedryvo(){
     try{
         applyBrandIdentity();
@@ -70,7 +111,12 @@ async function bootstrapMedryvo(){
             }
 
             if(typeof loadMyAppContext === "function" && getSupabaseAccessToken()){
-                await loadMyAppContext().catch(()=>{});
+                try{
+                    await loadMyAppContext();
+                    authContextBootRetryAttempt=0;
+                }catch(_){
+                    scheduleAuthContextBootRetry();
+                }
             }
 
             if(typeof loadMyRegistrationStatus === "function" && getSupabaseAccessToken()){
