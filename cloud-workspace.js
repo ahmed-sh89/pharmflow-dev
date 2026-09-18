@@ -826,7 +826,7 @@ async function patchActiveOrderPriorities(changes){
 
     try{
         const result=await authRpc(
-            "patch_pharmflow_item_priorities_v1",
+            "patch_pharmflow_item_priorities_v2",
             {
                 p_pharmacy_id:pharmacyId,
                 p_changes:normalized,
@@ -1030,6 +1030,10 @@ function applyActiveOrderManifest(manifest,revision){
     };
 
     rebuildStateIndexes();
+
+    /* A manifest refresh must not erase newer priority clicks that are still
+       waiting for their small server patch. */
+    window.applyPendingItemPrioritySelections?.();
 
     /* B10 Clean15.7 — the Active Order Manifest is structural authority only.
        Its orderData carries the uploaded/order structure and can contain stale
