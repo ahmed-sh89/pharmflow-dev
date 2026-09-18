@@ -111,14 +111,19 @@ function hhIsImmediateDuplicate(raw){
 }
 
 async function hhProcessReceiving(raw,input){
-    if(HandheldRuntime.receivingBusy) return false;
     if(!hhReceivingSessionReady()){
         if(input) input.value="";
         hhSetVisualState("blocked","SESSION / ORDERS NOT READY");
         showToast("No synchronized Active Order is available for this pharmacy","warning");
         return false;
     }
-    if(hhIsImmediateDuplicate(raw)) return false;
+    /* Every genuine hardware scan is durably accepted before resolver/network
+       work. Equal GTIN values are not time-debounced. */
+    if(window.PharmFlowReceivingScanQueue?.enqueue){
+        if(input) input.value="";
+        hhSetVisualState("processing","PROCESSING…");
+        return window.PharmFlowReceivingScanQueue.enqueue(raw);
+    }
 
     HandheldRuntime.receivingBusy=true;
     if(input) input.value="";
