@@ -8218,9 +8218,9 @@ function renderItemBrowser(body, rows, options={}){
         const receiptDocument=receipt.contentDocument;
         receiptDocument.open();
         receiptDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>High Priority Items</title><style>
-          @page{size:80mm auto;margin:1.5mm}
+          @page{size:80mm auto;margin:0}
           *{box-sizing:border-box}
-          html,body{width:77mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          html,body{width:80mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
           header{margin:0 0 1.5mm;padding:0 0 1mm;border-bottom:.35mm solid #000;text-align:center}
           h1{margin:0;font-size:14pt;line-height:1.1;font-weight:800}
           .meta{margin-top:.8mm;font-size:10pt;line-height:1.1;font-weight:700}
