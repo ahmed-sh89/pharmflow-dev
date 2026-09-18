@@ -20,6 +20,7 @@ const UI = {
     receivingFilters:{
         issues:new Set(["not_received","partial","received_any","over","manual"]),
         category:"all",
+        classification:{groups:[],categories:[],subCategories:[]},
         search:""
     },
 
@@ -2236,48 +2237,59 @@ function getVisibleReceivingItemsForExport(){
 
 function refreshReceivingTable(){
     const tbody=UI.elements.receivingTableBody;if(!tbody)return;refreshReceivingCategoryFilter();tbody.innerHTML="";
-    const issues=UI.receivingFilters.issues instanceof Set?UI.receivingFilters.issues:new Set(["not_received","partial","received_any","over","manual"]), categoryFilter=UI.receivingFilters.category||"all", searchFilter=toSafeString(UI.receivingFilters.search||"").trim().toLowerCase();
-    const scope=typeof getSelectedReceivingOrderNumber==="function"?getSelectedReceivingOrderNumber():"ALL", active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[], selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():(scope==="ALL"?active:[scope].filter(Boolean)), allMode=selectedOrders.length>1;
-    let rows=[];if(typeof getPerOrderReceivingRows==="function"&&active.length){const orders=selectedOrders.length?selectedOrders:[active[0]].filter(Boolean);orders.forEach(orderNumber=>getPerOrderReceivingRows(orderNumber).forEach(r=>{const received=toNumber(r["Received Qty"],0),issue=r.issueKey||"",cat=toSafeString(r["Category"]||"").trim(),match=issues.has(issue)||(issues.has("received_any")&&received>0);if(match&&(categoryFilter==="all"||cat===categoryFilter))rows.push({orderNumber,itemCode:r["Item Number"],itemName:r["Item Name"],orderedQty:toNumber(r["Ordered Qty"],0),receivedQty:received,remainingQty:Math.max(0,toNumber(r["Ordered Qty"],0)-received),status:r["Issue Type"]==="Received"?"Completed":r["Issue Type"],category:r["Category"]||"",manual:r.issueKey==="manual"});}));}else{rows=(AppState.workspace.orderData||[]).filter(item=>{if(selectedOrders.length && !selectedOrders.some(order=>itemBelongsToOrderScope(item,order)))return false;const issue=getReceivingIssueKey(item),received=toNumber(item.receivedQty,0),cat=toSafeString(item.category||"").trim();return (issues.has(issue)||(issues.has("received_any")&&received>0))&&(categoryFilter==="all"||cat===categoryFilter);});}
-    if(searchFilter){rows=rows.filter(item=>toSafeString(item.itemName||"").toLowerCase().includes(searchFilter)||toSafeString(item.itemCode||"").toLowerCase().includes(searchFilter));}
+    const issues=UI.receivingFilters.issues instanceof Set?UI.receivingFilters.issues:new Set(["not_received","partial","received_any","over","manual"]);
+    const searchFilter=toSafeString(UI.receivingFilters.search||"").trim().toLowerCase();
+    const active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[];
+    const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():active;
+    let rows=[];
+    if(typeof getPerOrderReceivingRows==="function"&&active.length){
+        const orders=selectedOrders.length?selectedOrders:[active[0]].filter(Boolean);
+        orders.forEach(orderNumber=>getPerOrderReceivingRows(orderNumber).forEach(r=>{
+            const received=toNumber(r["Received Qty"],0),issue=r.issueKey||"",match=issues.has(issue)||(issues.has("received_any")&&received>0);
+            if(match) rows.push({orderNumber,itemCode:r["Item Number"],itemName:r["Item Name"],orderedQty:toNumber(r["Ordered Qty"],0),receivedQty:received,remainingQty:Math.max(0,toNumber(r["Ordered Qty"],0)-received),status:r["Issue Type"]==="Received"?"Completed":r["Issue Type"],group_name:r["Group"]||r.group_name||"",category:r["Category"]||"",sub_category:r["Sub Category"]||r.sub_category||"",manual:r.issueKey==="manual"});
+        }));
+    }else{
+        rows=(AppState.workspace.orderData||[]).filter(item=>{
+            if(selectedOrders.length&&!selectedOrders.some(order=>itemBelongsToOrderScope(item,order)))return false;
+            const issue=getReceivingIssueKey(item),received=toNumber(item.receivedQty,0);
+            return issues.has(issue)||(issues.has("received_any")&&received>0);
+        });
+    }
+    if(window.PharmFlowClassificationFilters) rows=window.PharmFlowClassificationFilters.filter(rows,UI.receivingFilters.classification||{});
+    if(searchFilter) rows=rows.filter(item=>toSafeString(item.itemName||"").toLowerCase().includes(searchFilter)||toSafeString(item.itemCode||"").toLowerCase().includes(searchFilter));
     UI.receivingVisibleItems=rows.slice();const d=document.getElementById("rsDisplayedItems");if(d)d.textContent=rows.length;if(typeof refreshReceivingVerificationSummary==="function")refreshReceivingVerificationSummary();
     const inline=document.getElementById("receivingInlineResult");
-    if(!(AppState.workspace.orderData||[]).length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML=`<tr><td colspan="10" class="tableEmptyState">No order items loaded.</td></tr>`;return;}if(!rows.length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML=`<tr><td colspan="10" class="tableEmptyState">No items match the selected filters.</td></tr>`;return;}
+    if(!(AppState.workspace.orderData||[]).length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML='<tr><td colspan="10" class="tableEmptyState">No order items loaded.</td></tr>';return;}
+    if(!rows.length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML='<tr><td colspan="10" class="tableEmptyState">No items match the selected filters.</td></tr>';return;}
     rows.forEach((item,index)=>{const tr=createReceivingTableRow(item,index);tr.dataset.orderNumber=item.orderNumber||"";tbody.appendChild(tr);});
     if(inline){
-        if(searchFilter&&rows.length){
-            const item=rows[0], order=item.orderNumber||((Array.isArray(item.orderNumbers)&&item.orderNumbers[0])||"—");
-            inline.hidden=false;
-            inline.innerHTML=`<div class="pfnInlineRow"><span>${escapeHTML(order)}</span><b>${escapeHTML(item.itemCode||"")}</b><strong>${escapeHTML(item.itemName||"")}</strong><span>${escapeHTML(item.category||"—")}</span><span>Ordered <b>${toNumber(item.orderedQty,0)}</b></span><div class="tableQtyControl"><button type="button" class="tableQtyButton" data-inline-minus>−</button><button type="button" class="tableQtyValue" data-inline-edit>${toNumber(item.receivedQty,0)}</button><button type="button" class="tableQtyButton" data-inline-plus>+</button></div><span>Remaining <b>${toNumber(item.remainingQty,0)}</b></span><span>${escapeHTML(item.status||"")}</span></div>`;
-            inline.querySelector('[data-inline-plus]')?.addEventListener('click',()=>increaseItemQuantity(item.itemCode,1));
-            inline.querySelector('[data-inline-minus]')?.addEventListener('click',()=>decreaseItemQuantity(item.itemCode,1));
-            inline.querySelector('[data-inline-edit]')?.addEventListener('click',()=>openQuantityEditPrompt(item));
+        if(searchFilter&&rows.length){const item=rows[0],order=item.orderNumber||((Array.isArray(item.orderNumbers)&&item.orderNumbers[0])||"—"),cl=window.PharmFlowClassificationFilters?.normalize(item)||{};
+            inline.hidden=false;inline.innerHTML=`<div class="pfnInlineRow"><span>${escapeHTML(order)}</span><b>${escapeHTML(item.itemCode||"")}</b><strong>${escapeHTML(item.itemName||"")}</strong><span>${escapeHTML([cl.group,cl.category,cl.subCategory].filter(Boolean).join(" › ")||"—")}</span><span>Ordered <b>${toNumber(item.orderedQty,0)}</b></span><div class="tableQtyControl"><button type="button" class="tableQtyButton" data-inline-minus>−</button><button type="button" class="tableQtyValue" data-inline-edit>${toNumber(item.receivedQty,0)}</button><button type="button" class="tableQtyButton" data-inline-plus>+</button></div><span>Remaining <b>${toNumber(item.remainingQty,0)}</b></span><span>${escapeHTML(item.status||"")}</span></div>`;
+            inline.querySelector('[data-inline-plus]')?.addEventListener('click',()=>increaseItemQuantity(item.itemCode,1));inline.querySelector('[data-inline-minus]')?.addEventListener('click',()=>decreaseItemQuantity(item.itemCode,1));inline.querySelector('[data-inline-edit]')?.addEventListener('click',()=>openQuantityEditPrompt(item));
         }else{inline.hidden=true;inline.innerHTML="";}
     }
 }
 function refreshReceivingCategoryFilter(){
-    const select = UI.elements.receivingCategoryFilter;
-    if(!select){ return; }
-
-    const categories = Array.from(new Set(
-        (AppState.workspace.orderData || [])
-            .map(item=>toSafeString(item.category || "").trim())
-            .filter(Boolean)
-    )).sort((a,b)=>a.localeCompare(b));
-
-    const current = UI.receivingFilters.category || "all";
-    select.innerHTML = `<option value="all">All Categories</option>` +
-        categories.map(category=>`<option value="${escapeHTML(category)}">${escapeHTML(category)}</option>`).join("");
-
-    if(current !== "all" && categories.includes(current)){
-        select.value = current;
-    }
-    else{
-        UI.receivingFilters.category = "all";
-        select.value = "all";
+    const host=document.getElementById("receivingClassificationFilters");if(!host||!window.PharmFlowClassificationFilters)return;
+    const active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[];
+    const selected=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():active;
+    const scoped=(AppState.workspace.orderData||[]).filter(item=>!selected.length||selected.some(order=>itemBelongsToOrderScope(item,order)));
+    const state=UI.receivingFilters.classification||(UI.receivingFilters.classification={groups:[],categories:[],subCategories:[]});
+    const choices=window.PharmFlowClassificationFilters.choices(scoped,state);
+    const labels={groups:"Groups",categories:"Categories",subCategories:"Sub Categories"};
+    ["groups","categories","subCategories"].forEach(key=>{
+        const details=host.querySelector('[data-class-filter="'+key+'"]'),menu=details?.querySelector(".pfrFilterMenu");if(!menu)return;
+        const allowed=new Set(choices[key]);state[key]=(state[key]||[]).filter(v=>allowed.has(v));
+        const sig=choices[key].join("|")+"::"+state[key].join("|");if(menu.dataset.signature===sig)return;menu.dataset.signature=sig;
+        menu.innerHTML=choices[key].length?choices[key].map(v=>`<label><input type="checkbox" value="${escapeHTML(v)}" ${state[key].includes(v)?"checked":""}><span>${escapeHTML(v)}</span></label>`).join(""):'<span class="tableEmptyState">No values</span>';
+        details.querySelector("summary").textContent=state[key].length?state[key].length+" "+labels[key]+" selected":"All "+labels[key];
+    });
+    if(host.dataset.bound!=="1"){
+        host.dataset.bound="1";
+        host.addEventListener("change",event=>{const details=event.target.closest("[data-class-filter]");if(!details)return;const key=details.dataset.classFilter;state[key]=[...details.querySelectorAll('input:checked')].map(x=>x.value);if(key==="groups"){state.categories=[];state.subCategories=[];}if(key==="categories")state.subCategories=[];refreshReceivingTable();});
+        host.querySelector("#btnClearClassificationFilters")?.addEventListener("click",()=>{state.groups=[];state.categories=[];state.subCategories=[];refreshReceivingTable();});
     }
 }
-
 
 /* =====================================================
    RECEIVING TABLE ROW
@@ -2334,7 +2346,7 @@ function createReceivingTableRow(
         </td>
 
         <td class="receivingCategoryCell">
-            ${escapeHTML(toSafeString(item.category || "—"))}
+            ${escapeHTML(toSafeString(([window.PharmFlowClassificationFilters?.normalize(item)?.group,window.PharmFlowClassificationFilters?.normalize(item)?.category,window.PharmFlowClassificationFilters?.normalize(item)?.subCategory].filter(Boolean).join(" › ") || "—")))}
         </td>
 
         <td>
