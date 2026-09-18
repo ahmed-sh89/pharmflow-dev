@@ -8229,7 +8229,8 @@ function renderItemBrowser(body, rows, options={}){
           th{padding:.8mm 1mm;background:#fff;font-size:10pt;line-height:1;text-align:left;font-weight:800}
           td{height:5.5mm;padding:.7mm 1mm;font-size:10pt;line-height:1.05;white-space:nowrap;font-weight:600}
           td.name{overflow:hidden;text-overflow:ellipsis}
-          th.qty,td.qty{width:12mm;text-align:center;font-size:12pt;font-weight:900}
+          th.qty,td.qty{position:relative;width:18mm;padding-left:1mm;padding-right:5mm;text-align:center;font-size:12pt;font-weight:900;border-right:0}
+          th.qty::after,td.qty::after{content:"";position:absolute;top:0;right:2.5mm;bottom:0;border-right:.35mm solid #000}
           tr.group td{height:5mm;padding:.6mm 1mm;background:#fff;font-size:10pt;font-weight:900;border-top:.5mm solid #000;border-bottom:.5mm solid #000}
           tr:last-child td{border-bottom:0}
         </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><thead><tr><th>ITEM NAME</th><th class="qty">QTY</th></tr></thead><tbody>${['SHORT','NEW'].map(type=>{
