@@ -1,7 +1,7 @@
 PHARMFLOW CURRENT CHECKPOINT — PROJECT B RECEIVING RELEASE
 Date: 2026-09-19
 Branch: receiving-release-build
-Status: IN DEVELOPMENT — READY FOR AUTOMATED/DB REVIEW, NOT USER VERIFIED
+Status: READY FOR TEST — DATABASE MIGRATION APPLIED, NOT USER VERIFIED
 
 Verified baseline preserved:
 - Project A untouched.
@@ -20,7 +20,7 @@ Implemented on isolated Project B branch:
 - Cascading Receiving classification filters and Order Items classification controls.
 - High Priority print path retained; existing 80mm receipt sizing/borders/ellipsis behavior preserved.
 - Handheld compact/no-scroll CSS guard and high-contrast minus control.
-- Additive PREPARED SQL migration added; NOT applied.
+- Additive Receiving Release migration applied successfully to shared Supabase; legacy RPCs preserved.
 
 Prepared migration:
 PHASE2C1151_RECEIVING_RELEASE_PREPARED.sql
@@ -46,12 +46,19 @@ Changed release files:
 - css/responsive.css
 - PHASE2C1151_RECEIVING_RELEASE_PREPARED.sql
 
+Database verification after migration:
+- Receiving ledger unchanged at 3,610 rows.
+- Global GTIN Master unchanged at 52,792 rows.
+- Order source rows unchanged at 4,536 rows.
+- group_name/category/sub_category columns verified on all three target tables.
+- All seven versioned release RPCs verified present.
+- New SECURITY DEFINER RPCs: anon EXECUTE=false, authenticated EXECUTE=true, fixed search_path.
+- Security Advisor shows pre-existing legacy warnings; no new release RPC is exposed to anon.
+
 Still required before USER VERIFIED / DONE:
-1. Automated syntax/build/regression execution against branch.
-2. Final SQL review, then explicit approval before applying migration to shared Supabase.
-3. Project B real-device tests: rapid scans; restart/reconnect queue recovery; concurrent same-item PC+Handheld; device Work Scope; grouped History Edit/Delete; Needs Review states; classification consistency; Handheld no-scroll; High Priority receipt printer.
-4. Only after user verification: separate controlled B→A promotion.
-5. Then close Receiving feature work and move Project B to Expiry.
+1. Project B real-device tests: rapid scans; restart/reconnect queue recovery; concurrent same-item PC+Handheld; device Work Scope; grouped History Edit/Delete; Needs Review states; classification consistency; Handheld no-scroll; High Priority receipt printer.
+2. Only after user verification: separate controlled B→A promotion.
+3. Then close Receiving feature work and move Project B to Expiry.
 
 Critical non-regression:
 - Do not modify Project A during B verification.
