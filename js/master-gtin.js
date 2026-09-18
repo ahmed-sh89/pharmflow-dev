@@ -651,6 +651,12 @@ async function applyMasterGTINToCurrentOrder(
             if(record.category) orderItem.category=record.category;
             if(record.sub_category) orderItem.sub_category=record.sub_category;
         }
+        (AppState.workspace.orderFiles||[]).forEach(file=>(file.sourceRows||[]).forEach(sourceRow=>{
+            if(normalizeItemCode(sourceRow?.itemCode||"")!==record.itemCode)return;
+            if(record.group_name)sourceRow.group_name=record.group_name;
+            if(record.category)sourceRow.category=record.category;
+            if(record.sub_category)sourceRow.sub_category=record.sub_category;
+        }));
 
         matchedCodes.add(
             record.itemCode
