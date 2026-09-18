@@ -11,6 +11,9 @@ const MEDRYVO_RECOVERY_REDIRECT = "https://ahmed-sh89.github.io/pharmacy-receivi
 const AUTH_PENDING_INVITE_KEY = "PRS_V3_PENDING_INVITE";
 const AUTH_PENDING_OWNER_KEY = "PRS_V3_PENDING_OWNER_SETUP";
 const AUTH_PENDING_REGISTRATION_KEY = "PRS_V3_PENDING_PHARMACY_REGISTRATION";
+const AUTH_REFRESH_LOCK_KEY = "PRS_V3_SUPABASE_AUTH_REFRESH_LOCK";
+const AUTH_REFRESH_LOCK_MS = 8000;
+const AUTH_TAB_ID = "auth-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 
 const AuthState = {
     initialized:false,
@@ -18,6 +21,7 @@ const AuthState = {
     session:null,
     user:null,
     context:null,
+    contextError:null,
     contextLoading:false,
     ownerExists:true,
     refreshTimer:null,
@@ -452,6 +456,8 @@ function restoreAuthSession(){
 function persistAuthSession(session){
     AuthState.session = session || null;
     AuthState.user = session && session.user ? session.user : null;
+    AuthState.contextError = null;
+
     if(session){
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
         scheduleTokenRefresh(session);
@@ -461,6 +467,40 @@ function persistAuthSession(session){
         if(AuthState.refreshTimer){ clearTimeout(AuthState.refreshTimer); }
         AuthState.refreshTimer = null;
     }
+}
+
+function clearRejectedAuthSession(expectedRefreshToken){
+    const stored=readStoredAuthSession();
+    if(
+        stored?.refresh_token &&
+        String(stored.refresh_token)!==String(expectedRefreshToken||"")
+    ){
+        persistAuthSession(stored);
+        return false;
+    }
+
+    const previousScope=String(AuthState.lastContextScope||"");
+    AuthState.session=null;
+    AuthState.user=null;
+    AuthState.context=null;
+    AuthState.registration=null;
+    AuthState.lastContextScope="";
+    AuthState.contextError=null;
+    if(AuthState.refreshTimer){ clearTimeout(AuthState.refreshTimer); }
+    AuthState.refreshTimer=null;
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem(AUTH_REFRESH_LOCK_KEY);
+    publishAuthenticatedContextReady(previousScope,"");
+
+    queueMicrotask(()=>{
+        lockApplicationForAuth?.();
+        renderAuthState?.();
+        setAuthMessage?.(
+            "Your saved sign-in expired. Please sign in again.",
+            "error"
+        );
+    });
+    return true;
 }
 
 function scheduleTokenRefresh(session){
@@ -816,6 +856,69 @@ function isIrrecoverableRefreshError(error){
     );
 }
 
+function readAuthRefreshLock(){
+    try{
+        const parsed=JSON.parse(localStorage.getItem(AUTH_REFRESH_LOCK_KEY)||"null");
+        return parsed && parsed.owner && Number(parsed.expiresAt)>Date.now()
+            ? parsed
+            : null;
+    }catch(_){
+        return null;
+    }
+}
+
+function acquireAuthRefreshLock(){
+    const current=readAuthRefreshLock();
+    if(current && current.owner!==AUTH_TAB_ID){ return false; }
+
+    const lock={owner:AUTH_TAB_ID,expiresAt:Date.now()+AUTH_REFRESH_LOCK_MS};
+    try{
+        localStorage.setItem(AUTH_REFRESH_LOCK_KEY,JSON.stringify(lock));
+        return readAuthRefreshLock()?.owner===AUTH_TAB_ID;
+    }catch(_){
+        return true;
+    }
+}
+
+function releaseAuthRefreshLock(){
+    try{
+        if(readAuthRefreshLock()?.owner===AUTH_TAB_ID){
+            localStorage.removeItem(AUTH_REFRESH_LOCK_KEY);
+        }
+    }catch(_){ }
+}
+
+function waitForRotatedStoredSession(startingAccessToken,timeoutMs=3500){
+    return new Promise(resolve=>{
+        const deadline=Date.now()+timeoutMs;
+        const inspect=()=>{
+            const stored=readStoredAuthSession();
+            if(
+                stored?.access_token &&
+                String(stored.access_token)!==String(startingAccessToken||"")
+            ){
+                persistAuthSession(stored);
+                resolve(true);
+                return;
+            }
+            if(Date.now()>=deadline){ resolve(false); return; }
+            setTimeout(inspect,100);
+        };
+        inspect();
+    });
+}
+
+window.addEventListener("storage",event=>{
+    if(event.key!==AUTH_STORAGE_KEY || !event.newValue){ return; }
+    const stored=readStoredAuthSession();
+    if(
+        stored?.access_token &&
+        String(stored.access_token)!==String(AuthState.session?.access_token||"")
+    ){
+        persistAuthSession(stored);
+    }
+});
+
 async function refreshAuthToken(){
     if(!AuthState.session || !AuthState.session.refresh_token){ return false; }
 
@@ -839,7 +942,25 @@ async function refreshAuthToken(){
     const startingRefreshToken=String(startingSession?.refresh_token||"");
 
     AuthState.refreshPromise=(async()=>{
+        let ownsRefreshLock=false;
         try{
+            const storedBeforeRefresh=readStoredAuthSession();
+            if(
+                storedBeforeRefresh?.access_token &&
+                String(storedBeforeRefresh.access_token)!==startingAccessToken
+            ){
+                persistAuthSession(storedBeforeRefresh);
+                return true;
+            }
+
+            ownsRefreshLock=acquireAuthRefreshLock();
+            if(!ownsRefreshLock){
+                const adopted=await waitForRotatedStoredSession(startingAccessToken);
+                if(adopted){ return true; }
+                ownsRefreshLock=acquireAuthRefreshLock();
+                if(!ownsRefreshLock){ return false; }
+            }
+
             const session=await authRequest("/auth/v1/token?grant_type=refresh_token",{
                 method:"POST",
                 body:JSON.stringify({refresh_token:startingRefreshToken})
@@ -866,20 +987,17 @@ async function refreshAuthToken(){
                 return true;
             }
 
-            /* A temporary fetch/server error must not erase a valid refresh
-               token. Only a clear terminal refresh-token rejection signs out. */
-            /* B10 Clean15.2 — AUTH IS NEVER DESTROYED BY A BACKGROUND RPC.
-               Refresh-token rejection can be transient/stale while a scan write,
-               delta pull, visibility wake, or another tab is rotating credentials.
-               Background synchronization must never navigate an authenticated
-               Handheld away from Receiving. Keep the last known session/context;
-               the failed RPC may retry on the next sync pass. Explicit Sign Out
-               remains the only runtime path that clears a working user session. */
             if(isIrrecoverableRefreshError(error)){
-                Logger?.warn?.("Auth refresh rejected; preserving active UI session",error);
+                /* Give another tab's successful rotation one final chance to
+                   arrive before removing only this rejected local session. */
+                const adopted=await waitForRotatedStoredSession(startingAccessToken,500);
+                if(adopted){ return true; }
+                clearRejectedAuthSession(startingRefreshToken);
+                Logger?.warn?.("Expired local auth session cleared",error);
             }
             return false;
         }finally{
+            if(ownsRefreshLock){ releaseAuthRefreshLock(); }
             AuthState.refreshPromise=null;
         }
     })();
@@ -924,11 +1042,13 @@ window.getAuthContextScope=getAuthContextScope;
 async function loadMyAppContext(){
     if(!getSupabaseAccessToken()){
         AuthState.context = null;
+        AuthState.contextError = null;
         AuthState.contextLoading = false;
         return null;
     }
 
     AuthState.contextLoading = true;
+    AuthState.contextError = null;
     try{
         const rows = await authRpc("get_my_app_context",{});
         const row = Array.isArray(rows) ? rows[0] : rows;
@@ -937,6 +1057,7 @@ async function loadMyAppContext(){
         );
 
         AuthState.context = row || null;
+        AuthState.contextError = null;
 
         /*
            DEVISO3 AUTHENTICATION BOUNDARY HOOK
@@ -993,6 +1114,7 @@ async function loadMyAppContext(){
             const refreshed = await refreshAuthToken();
             if(refreshed){ return loadMyAppContext(); }
         }
+        AuthState.contextError = error;
         throw error;
     }
     finally{
@@ -1191,6 +1313,7 @@ async function signOutCurrentUser(){
     );
 
     AuthState.context = null;
+    AuthState.contextError = null;
     AuthState.registration = null;
     AuthState.lastContextScope="";
 
@@ -1547,9 +1670,8 @@ function isPharmacyAdmin(){
 }
 
 function renderAuthState(){
-    finishAuthBootState();
-
     if(AuthState.recoveryActive || window.__MEDRYVO_RECOVERY_ACTIVE){
+        finishAuthBootState();
         lockApplicationForAuth(true);
         showAuthPanel("recovery",{history:"replace"});
         return;
@@ -1577,10 +1699,23 @@ function renderAuthState(){
         window.pharmFlowDevHideAccessBoundary();
     }
 
-    // Authenticated session exists, but pharmacy/role context is still loading.
-    // Keep the current auth gate state unchanged rather than showing
-    // "Complete access" prematurely.
     if(AuthState.session && AuthState.contextLoading){
+        return;
+    }
+
+    finishAuthBootState();
+
+    /* A failed context request is not proof that this account has no
+       pharmacy. Reserve Complete access for a successful empty response. */
+    if(AuthState.session && AuthState.contextError && !account){
+        if(overlay){ overlay.classList.add("visible"); }
+        if(formsPanel){ formsPanel.hidden = false; }
+        if(accessPanel){ accessPanel.hidden = true; }
+        showAuthPanel("login");
+        setAuthMessage(
+            "We could not verify your pharmacy access. Check the connection, then sign in again.",
+            "error"
+        );
         return;
     }
 
