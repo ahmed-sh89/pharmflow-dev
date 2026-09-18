@@ -152,7 +152,7 @@ function learnedGTINResolution(record){
     return {kind:"PHARMACY_LEARNED",mappingId:record.mappingId,mappingRevision:record.mappingRevision,normalizedGtin:normalizeGTIN(record.gtin),resolvedItemCode:normalizeItemCode(record.itemCode)};
 }
 
-async function receiveParsedBarcode(parsed){
+async function receiveParsedBarcode(parsed,queueOptions={}){
     if(!parsed||!parsed.gtin){
         handleReceivingFailure("Barcode could not be identified");
         return false;
@@ -194,6 +194,7 @@ async function receiveParsedBarcode(parsed){
         return receiveOrderItem({
             item:current.item,
             quantity:getValidReceivingQuantity(parsed.quantity),
+            transactionId:queueOptions.transactionId||null,
             gtin,
             lot:parsed.lot,
             expiry:parsed.expiry,
@@ -240,6 +241,7 @@ async function receiveParsedBarcode(parsed){
     return receiveOrderItem({
         item,
         quantity:getValidReceivingQuantity(parsed.quantity),
+        transactionId:queueOptions.transactionId||null,
         gtin,
         lot:parsed.lot,
         expiry:parsed.expiry,
@@ -892,6 +894,7 @@ function openQuickGTINResolver(parsed,knownRecord=null){
                 const tx=receiveOrderItem({
                     item,
                     quantity:getValidReceivingQuantity(parsed.quantity),
+                    transactionId:queueOptions.transactionId||null,
                     gtin,
                     lot:parsed.lot,
                     expiry:parsed.expiry,
