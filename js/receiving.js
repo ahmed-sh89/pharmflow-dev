@@ -445,7 +445,10 @@ function renderKnownNotInOrderHandheld(parsed,masterRecord){
       </button>
     `;
 
-    lastScan.insertAdjacentElement("afterend",card);
+    /* Keep the exception card in the worker's immediate scan path, above
+       Last Scan, while the compact one-screen layout hides Last Scan until
+       the exception is saved or cancelled. */
+    lastScan.insertAdjacentElement("beforebegin",card);
     document.body.classList.add("handheldActionCardActive");
 
     const qty=card.querySelector("#handheldKnownExtraQty");
@@ -623,7 +626,7 @@ async function renderUnknownGTINHandheld(parsed,options={}){
       </div>
     `;
 
-    lastScan.insertAdjacentElement("afterend",card);
+    lastScan.insertAdjacentElement("beforebegin",card);
     document.body.classList.add("handheldActionCardActive");
     flashHandheldRed();
 

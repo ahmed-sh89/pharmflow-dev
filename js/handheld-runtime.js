@@ -193,6 +193,10 @@ function hhCaptureKey(event){
 }
 
 function hhWorkerIsEditing(){
+    /* History/Needs Review is an operational modal. Keep the hardware scan
+       target suspended until the worker closes it. */
+    if(document.getElementById("handheldScansOverlay")) return true;
+
     const active=document.activeElement;
     if(!active || active===document.body) return false;
 

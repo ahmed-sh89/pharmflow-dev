@@ -7614,8 +7614,9 @@ function refreshHandheldReceivingTools(){
     if(value) value.textContent = String(getHandheldTotalScans());
 }
 
-function openHandheldScansPanel(initialTab="THIS"){
+function openHandheldScansPanel(initialTab="SCANS"){
     document.getElementById("handheldScansOverlay")?.remove();
+    try{ document.activeElement?.blur?.(); }catch(_){ }
 
     const ownDeviceId=typeof ensureDeviceId==="function"
         ? String(ensureDeviceId()||"")
@@ -7633,29 +7634,62 @@ function openHandheldScansPanel(initialTab="THIS"){
         }catch(_){ return ""; }
     };
 
-    const deviceLabel=row=>{
-        const label=getFriendlyReceivingDeviceLabel(row,{ownDeviceId});
-        return label==="This PC" ? "PC" : label;
-    };
+    const scanRows=()=>getHandheldDeviceScannerRows().slice()
+        .sort((a,b)=>String(b?.dateTime||"").localeCompare(String(a?.dateTime||"")))
+        .slice(0,20);
 
-    const rowsFor=tab=>{
-        const source=tab==="ALL"
-            ? getAllWorkspaceScannerRows()
-            : getHandheldDeviceScannerRows();
-
-        return source.slice()
-            .sort((a,b)=>String(b?.dateTime||"").localeCompare(String(a?.dateTime||"")))
-            .slice(0,20);
-    };
+    let reviewRows=[];
+    let reviewLoading=true;
+    let reviewError="";
 
     const overlay=document.createElement("div");
     overlay.id="handheldScansOverlay";
     overlay.className="handheldScansOverlay handheldRecentOverlay";
-    overlay.dataset.tab=initialTab==="ALL"?"ALL":"THIS";
+    overlay.dataset.tab=initialTab==="REVIEW"?"REVIEW":"SCANS";
 
     const render=()=>{
-        const tab=overlay.dataset.tab||"THIS";
-        const recent=rowsFor(tab);
+        const tab=overlay.dataset.tab||"SCANS";
+        const recent=scanRows();
+        const showingReview=tab==="REVIEW";
+
+        const scanMarkup=recent.length ? recent.map((row,index)=>{
+            const qty=Math.max(1,Number(row?.quantity||1)||1);
+            return `
+              <article class="handheldRecentRow handheldScanHistoryRow">
+                <div class="handheldRecentIndex">${index+1}</div>
+                <div class="handheldRecentInfo">
+                  <strong>${esc(row?.itemName||"Item")}</strong>
+                  <span>${esc(row?.itemCode||"")} · ${esc(formatTime(row?.dateTime))}</span>
+                </div>
+                <div class="handheldRecentQty">+${qty}</div>
+                <span class="handheldRecentViewOnly">Saved</span>
+              </article>`;
+        }).join("") : `<div class="handheldScansEmpty">No recent scans on this Handheld.</div>`;
+
+        const reviewMarkup=reviewLoading
+            ? `<div class="handheldScansEmpty">Loading Needs Review…</div>`
+            : reviewError
+                ? `<div class="handheldScansEmpty">${esc(reviewError)}</div>`
+                : reviewRows.length
+                    ? reviewRows.map((row,index)=>{
+                        const qty=Math.max(1,Number(row?.pending_quantity||1)||1);
+                        const title=row?.master_item_name_hint || row?.item_name || "Item not recognised";
+                        return `
+                          <article class="handheldRecentRow handheldReviewHistoryRow" data-review-row="${esc(row?.review_id||"")}">
+                            <div class="handheldRecentIndex">${index+1}</div>
+                            <div class="handheldRecentInfo">
+                              <strong>${esc(title)}</strong>
+                              <span>GTIN ${esc(row?.gtin||"-")} · ${esc(formatTime(row?.created_at||row?.updated_at))}</span>
+                            </div>
+                            <div class="handheldReviewHistoryQty" aria-label="Needs Review quantity">
+                              <button type="button" data-review-step="-1">−</button>
+                              <strong>${qty}</strong>
+                              <button type="button" data-review-step="1">+</button>
+                            </div>
+                            <button type="button" class="handheldReviewDelete" data-review-delete>DELETE</button>
+                          </article>`;
+                    }).join("")
+                    : `<div class="handheldScansEmpty">No pending Needs Review items from this Handheld.</div>`;
 
         overlay.innerHTML=`
           <section class="handheldScansPanel handheldRecentPanel" role="dialog" aria-modal="true" aria-label="Recent scans">
@@ -7663,41 +7697,26 @@ function openHandheldScansPanel(initialTab="THIS"){
               <div>
                 <span>RECEIVING HISTORY</span>
                 <strong>Recent Scans</strong>
-                <small>Last ${Math.min(recent.length,20)} scan transactions</small>
+                <small>${showingReview?"Pending items saved by this Handheld":`Last ${Math.min(recent.length,20)} scan transactions`}</small>
               </div>
               <button type="button" data-close aria-label="Close">✕</button>
             </header>
 
             <div class="handheldRecentTabs">
-              <button type="button" data-tab="THIS" class="${tab==="THIS"?"active":""}">THIS HANDHELD</button>
-              <button type="button" data-tab="ALL" class="${tab==="ALL"?"active":""}">ALL DEVICES</button>
+              <button type="button" data-tab="SCANS" class="${tab==="SCANS"?"active":""}">SCANS</button>
+              <button type="button" data-tab="REVIEW" class="${tab==="REVIEW"?"active":""}">NEEDS REVIEW ${reviewRows.length?`(${reviewRows.length})`:""}</button>
             </div>
 
             <div id="handheldRecentFeedback" class="handheldRecentFeedback" aria-live="polite"></div>
 
             <div class="handheldRecentList">
-              ${recent.length ? recent.map((row,index)=>{
-                const qty=Math.max(1,Number(row?.quantity||1)||1);
-                const canUndo=tab==="THIS" && String(row?.deviceId||"")===ownDeviceId;
-                return `
-                  <article class="handheldRecentRow">
-                    <div class="handheldRecentIndex">${index+1}</div>
-                    <div class="handheldRecentInfo">
-                      <strong>${esc(row?.itemName||"Item")}</strong>
-                      <span>${esc(row?.itemCode||"")} · ${esc(formatTime(row?.dateTime))} · ${esc(deviceLabel(row))}</span>
-                    </div>
-                    <div class="handheldRecentQty">+${qty}</div>
-                    ${canUndo
-                      ? `<button type="button" class="handheldUndoItem" data-undo-item="${esc(row?.transactionId||"")}" aria-label="Undo this scan"><span aria-hidden="true">↶</span> UNDO</button>`
-                      : `<span class="handheldRecentViewOnly">View</span>`}
-                  </article>`;
-              }).join("") : `<div class="handheldScansEmpty">No recent scans.</div>`}
+              ${showingReview?reviewMarkup:scanMarkup}
             </div>
 
             <div class="handheldRecentFooter">
-              <span>${tab==="THIS"
-                ?"Undo is available only for this Handheld and remains in the audit trail."
-                :"All Devices is view-only to prevent accidental corrections to another device."}</span>
+              <span>${showingReview
+                ?"Quantity can be corrected here. Delete removes only the selected pending review item."
+                :"Scan history is view-only and shows work completed on this Handheld."}</span>
               <button type="button" class="handheldPanelDone" data-close>DONE</button>
             </div>
           </section>`;
@@ -7712,64 +7731,59 @@ function openHandheldScansPanel(initialTab="THIS"){
             render();
         });
 
-        overlay.querySelectorAll("[data-undo-item]").forEach(btn=>btn.onclick=()=>{
-            const transactionId=btn.getAttribute("data-undo-item");
-            if(!transactionId || btn.disabled) return;
+        overlay.querySelectorAll("[data-review-step]").forEach(btn=>btn.onclick=async()=>{
+            const article=btn.closest("[data-review-row]");
+            const reviewId=article?.dataset.reviewRow;
+            const row=reviewRows.find(item=>String(item?.review_id||"")===String(reviewId||""));
+            if(!row || btn.disabled) return;
+            const next=Math.max(1,(Number(row.pending_quantity||1)||1)+Number(btn.dataset.reviewStep||0));
+            overlay.querySelectorAll("[data-review-step],[data-review-delete]").forEach(el=>el.disabled=true);
+            try{
+                await nrV2SetQty(reviewId,next);
+                row.pending_quantity=next;
+                render();
+            }catch(error){
+                showToast?.(error?.message||"Unable to update review quantity","error");
+                render();
+            }
+        });
 
-            const row=recent.find(item=>
-                String(item?.transactionId||"")===String(transactionId)
-            );
-            const qty=Math.max(1,Number(row?.quantity||1)||1);
-
-            btn.disabled=true;
-            btn.textContent="UNDOING…";
-
-            const result=typeof undoRecentScannerTransaction==="function"
-                ? undoRecentScannerTransaction(transactionId)
-                : false;
-
-            if(result){
-                /*
-                   Do not wait for Supabase/history hydration before giving the
-                   worker feedback. Mark this transaction locally as corrected,
-                   then refresh from authoritative history on the next event.
-                */
-                const localTx=ReceivingEngine?.recentScans?.find?.(item=>
-                    String(item?.transactionId||"")===String(transactionId)
-                );
-                if(localTx) localTx.undone=true;
-
-                btn.textContent=`UNDONE -${qty}`;
-                btn.classList.add("undone");
-                btn.disabled=true;
-
-                const feedback=overlay.querySelector("#handheldRecentFeedback");
-                if(feedback){
-                    feedback.textContent=`${qty} pack${qty===1?"":"s"} undone`;
-                    feedback.classList.add("show");
-                }
-
-                refreshHandheldReceivingTools();
-
-                setTimeout(()=>{
-                    if(document.body.contains(overlay)){
-                        render();
-                        const refreshedFeedback=overlay.querySelector("#handheldRecentFeedback");
-                        if(refreshedFeedback){
-                            refreshedFeedback.textContent=`${qty} pack${qty===1?"":"s"} undone`;
-                            refreshedFeedback.classList.add("show");
-                        }
-                    }
-                },250);
-            }else{
-                btn.disabled=false;
-                btn.innerHTML='<span aria-hidden="true">↶</span> UNDO';
+        overlay.querySelectorAll("[data-review-delete]").forEach(btn=>btn.onclick=async()=>{
+            const article=btn.closest("[data-review-row]");
+            const reviewId=article?.dataset.reviewRow;
+            const row=reviewRows.find(item=>String(item?.review_id||"")===String(reviewId||""));
+            if(!row || btn.disabled) return;
+            if(!window.confirm("Delete this pending Needs Review item?")) return;
+            overlay.querySelectorAll("[data-review-step],[data-review-delete]").forEach(el=>el.disabled=true);
+            try{
+                if(row.photo_path && typeof nrV2DeletePhoto==="function") await nrV2DeletePhoto(row.photo_path).catch(()=>{});
+                await nrV2Delete(reviewId);
+                reviewRows=reviewRows.filter(item=>String(item?.review_id||"")!==String(reviewId));
+                refreshNeedsReviewCounters?.();
+                render();
+            }catch(error){
+                showToast?.(error?.message||"Unable to delete review item","error");
+                render();
             }
         });
     };
 
     document.body.appendChild(overlay);
     render();
+
+    Promise.resolve(typeof nrV2List==="function"?nrV2List("RECEIVING",null):[])
+        .then(rows=>{
+            reviewRows=(Array.isArray(rows)?rows:[]).filter(row=>
+                !ownDeviceId || String(row?.device_id||"")===ownDeviceId
+            );
+            reviewLoading=false;
+            if(document.body.contains(overlay)) render();
+        })
+        .catch(error=>{
+            reviewLoading=false;
+            reviewError=error?.message||"Unable to load Needs Review history.";
+            if(document.body.contains(overlay)) render();
+        });
 }
 
 

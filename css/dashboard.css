@@ -2977,7 +2977,23 @@ body.zebraDevice.zebraJoinActive .cloudJoinCard>small{display:block;margin-top:8
 .discrepancyGrid .displayedMetric{border-color:#bcd6fb;background:#f3f8ff}
 .discrepancyGrid .displayedMetric strong{color:#0d63dc}
 @media(max-width:900px){.issueMultiFilter{width:100%}.issueMultiFilterMenu{width:100%}.discrepancyGrid{grid-template-columns:repeat(2,1fr)}}
-\n\n/* =====================================================\n   PHASE 2C.4 — MANUAL FINALIZE RECEIVING\n===================================================== */\n.finalizeReceivingButton{\n    min-width:190px;\n    font-weight:700;\n}\n.finalizeReceivingButton:disabled{\n    opacity:.5;\n    cursor:not-allowed;\n}\n@media (max-width:1100px){\n    .receivingSummaryActions .finalizeReceivingButton{\n        flex-basis:100%;\n    }\n}\n
+
+/* =====================================================
+   PHASE 2C.4 — MANUAL FINALIZE RECEIVING
+===================================================== */
+.finalizeReceivingButton{
+    min-width:190px;
+    font-weight:700;
+}
+.finalizeReceivingButton:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+}
+@media (max-width:1100px){
+    .receivingSummaryActions .finalizeReceivingButton{
+        flex-basis:100%;
+    }
+}
 /* =====================================================
    PHASE 2C.5 — ITEM TRANSFER REPORT
 ===================================================== */
@@ -4702,7 +4718,7 @@ body.zebraDevice.zebraHomeActive select{
 
 /* Hardware receiving scanner remains keyboard-free. */
 body.zebraDevice.zebraReceivingActive #barcodeInput{
-  caret-color:transparent !important;
+  caret-color:#16864f !important;
 }
 
 
@@ -7149,6 +7165,41 @@ body.zebraDevice .handheldReceivedEditCard .quantityAdjustmentInput{
     font-weight:900!important;
     color:#8a958e!important;
 }
+.handheldReviewHistoryRow{
+    grid-template-columns:25px minmax(0,1fr) 86px 48px!important;
+}
+.handheldReviewHistoryQty{
+    display:grid!important;
+    grid-template-columns:24px 30px 24px!important;
+    gap:3px!important;
+    align-items:center!important;
+}
+.handheldReviewHistoryQty button{
+    width:24px!important;
+    height:28px!important;
+    padding:0!important;
+    border:1px solid #bad3c2!important;
+    border-radius:7px!important;
+    background:#eef8f1!important;
+    color:#23653d!important;
+    font-size:15px!important;
+    font-weight:950!important;
+}
+.handheldReviewHistoryQty strong{
+    text-align:center!important;
+    font-size:14px!important;
+    color:#234d33!important;
+}
+.handheldReviewDelete{
+    min-height:28px!important;
+    padding:3px!important;
+    border:1px solid #e6c2c2!important;
+    border-radius:7px!important;
+    background:#fff5f5!important;
+    color:#a53c3c!important;
+    font-size:7px!important;
+    font-weight:950!important;
+}
 
 
 /* ============================================================
@@ -8475,3 +8526,46 @@ body.zebraDevice .zebraConnectedDot.isOffline:before{background:#d14b4b!importan
 body.zebraDevice .zebraConnectedDot.isEmpty{background:#fff2d8!important;color:#8a641c!important}
 body.zebraDevice .zebraConnectedDot.isEmpty:before{background:#d69a2d!important}
 
+/* B10 Clean32 — final Handheld scan focus + read-only history overrides. */
+body.zebraDevice.zebraReceivingActive #barcodeInput{
+    caret-color:#16864f!important;
+}
+body.zebraDevice .handheldScanHistoryRow{
+    grid-template-columns:22px minmax(0,1fr) 34px 48px!important;
+}
+body.zebraDevice .handheldReviewHistoryRow{
+    grid-template-columns:22px minmax(0,1fr) 86px 48px!important;
+}
+body.zebraDevice .handheldReviewHistoryQty{
+    display:grid!important;
+    grid-template-columns:24px 30px 24px!important;
+    gap:3px!important;
+    align-items:center!important;
+}
+body.zebraDevice .handheldReviewHistoryQty button{
+    width:24px!important;
+    height:28px!important;
+    min-height:28px!important;
+    padding:0!important;
+    border:1px solid #bad3c2!important;
+    border-radius:7px!important;
+    background:#eef8f1!important;
+    color:#23653d!important;
+    font-size:15px!important;
+    font-weight:950!important;
+}
+body.zebraDevice .handheldReviewHistoryQty strong{
+    text-align:center!important;
+    font-size:14px!important;
+    color:#234d33!important;
+}
+body.zebraDevice .handheldReviewDelete{
+    min-height:28px!important;
+    padding:3px!important;
+    border:1px solid #e6c2c2!important;
+    border-radius:7px!important;
+    background:#fff5f5!important;
+    color:#a53c3c!important;
+    font-size:7px!important;
+    font-weight:950!important;
+}
