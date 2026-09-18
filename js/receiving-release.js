@@ -100,3 +100,29 @@ window.PharmFlowClassificationFilters={
         return rows.filter(row=>{const c=this.normalize(row);return(!sets.groups.size||sets.groups.has(c.group))&&(!sets.categories.size||sets.categories.has(c.category))&&(!sets.subCategories.size||sets.subCategories.has(c.subCategory));});
     }
 };
+
+
+/* Device-local Handheld work-scope chooser. */
+(function installHandheldWorkScopeChooser(){
+    function isHandheld(){try{return typeof isLikelyZebraDevice==="function"&&isLikelyZebraDevice();}catch(_){return false;}}
+    function mount(){
+        if(!isHandheld()||document.getElementById("pfrChangeOrders"))return;
+        const scan=document.getElementById("scanBox");if(!scan)return;
+        const button=document.createElement("button");button.id="pfrChangeOrders";button.type="button";button.className="pfrChangeOrders";button.textContent="CHANGE ORDERS";
+        button.addEventListener("click",()=>{
+            const active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[];
+            const selected=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():active;
+            const overlay=document.createElement("div");overlay.className="quickKpiOverlay pfrWorkScopeOverlay";
+            const esc=v=>String(v||"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+            overlay.innerHTML=`<section class="pfrWorkScopeCard"><h3>My Work Orders</h3><p>Select the Active Orders for this Handheld.</p><label class="pfrWorkAll"><input type="checkbox" data-all ${selected.length===active.length?"checked":""}> ALL ACTIVE ORDERS</label><div class="pfrWorkOrders">${active.map(order=>`<label><input type="checkbox" data-order="${esc(order)}" ${selected.includes(order)?"checked":""}> <span>${esc(order)}</span></label>`).join("")}</div><div class="pfrWorkActions"><button type="button" data-cancel>Cancel</button><button type="button" data-save>Apply</button></div></section>`;
+            document.body.appendChild(overlay);window.PharmFlowModalStack?.open(overlay);
+            const close=()=>{window.PharmFlowModalStack?.close(overlay);overlay.remove();};
+            overlay.querySelector("[data-cancel]").onclick=close;
+            overlay.querySelector("[data-all]").onchange=e=>overlay.querySelectorAll("[data-order]").forEach(x=>x.checked=e.target.checked);
+            overlay.querySelector("[data-save]").onclick=()=>{const values=[...overlay.querySelectorAll("[data-order]:checked")].map(x=>x.dataset.order);if(!values.length){showToast?.("Select at least one Order","warning");return;}if(setSelectedReceivingOrderNumbers?.(values)){close();hhRefreshReadyState?.();focusScannerInput?.();}};
+        });
+        scan.appendChild(button);
+    }
+    if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>setTimeout(mount,250));else setTimeout(mount,250);
+    AppEvents?.on?.("workspace:loaded",()=>setTimeout(mount,100));
+})();
