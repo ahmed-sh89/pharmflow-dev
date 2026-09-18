@@ -8036,11 +8036,19 @@ function openReceivingActivityEditor(row,allRows){
     const esc=value=>escapeHTML(toSafeString(value));
     const modal=document.createElement("div");
     modal.className="quickKpiOverlay pfnActivityEditOverlay";
-    modal.innerHTML=`<form class="pfnActivityEdit" aria-label="Edit receiving activity"><h3>Edit Receiving Activity</h3><p><b>${esc(row.itemName||item.itemName)}</b><br>Item ${esc(row.itemCode)} · Order ${esc(order||"Current")}</p><label>Current transaction quantity<input value="${esc(current)}" disabled></label><label>Correct quantity<input data-corrected type="number" min="0" step="1" value="${esc(current)}" required></label><div><button type="button" data-cancel>Cancel</button><button type="submit">Save Correction</button></div></form>`;
+    modal.innerHTML=`<form class="pfnActivityEdit" aria-label="Edit receiving activity"><h3>Edit Receiving Activity</h3><p><b>${esc(row.itemName||item.itemName)}</b><br>Item ${esc(row.itemCode)} · Order ${esc(order||"Current")}</p><label>Current transaction quantity<input value="${esc(current)}" disabled></label><label>Correct quantity<input data-corrected type="number" min="0" step="1" value="${esc(current)}" required></label><div><button type="button" data-cancel>Cancel</button><button type="button" class="dangerButton" data-delete-entry>Delete Entry</button><button type="submit">Save Correction</button></div></form>`;
     document.body.appendChild(modal);
     window.PharmFlowModalStack?.open(modal);
     const close=()=>{window.PharmFlowModalStack?.close(modal);modal.remove();};
     modal.querySelector("[data-cancel]").onclick=close;
+    modal.querySelector("[data-delete-entry]").onclick=()=>{
+        if(!window.confirm("Delete this receiving contribution? The item and order will not be deleted.")) return;
+        const effective=getActivityEffectiveQuantity(row,allRows);
+        if(effective<=0){showToast?.("This entry is already cancelled","warning");return;}
+        const tx=applyQuantityAdjustment({item,difference:-effective,targetOrder:order,source:"RECEIVING_CORRECTION",correctionReason:"Receiving activity deleted",correctsTransactionId:row.transactionId});
+        if(!tx)return;
+        close();refreshDashboard?.();refreshOpenKpiPanel();showToast?.("Receiving entry cancelled","success");
+    };
     modal.addEventListener("click",event=>{if(event.target===modal) close();});
     modal.querySelector("form").addEventListener("submit",event=>{
         event.preventDefault();
