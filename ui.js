@@ -8572,7 +8572,7 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
       <section class="needsReviewPanel">
         <header>
           <div><span class="needsReviewKicker">RECEIVING EXCEPTIONS</span><h2 id="needsReviewTitle">Needs Review <b class="pfnReviewCount">${groups.length}</b></h2><p>Resolve each grouped unknown GTIN to an item in the current Active Order.</p></div>
-          <button class="needsReviewClose" type="button" data-review-close aria-label="Close Needs Review">Close</button>
+          <div class="needsReviewHeaderActions"><button type="button" data-review-history>History</button><button class="needsReviewClose" type="button" data-review-close aria-label="Close Needs Review">Close</button></div>
         </header>
         ${admin?`<details class="needsReviewAdmin"><summary>Pharmacy learned GTIN maintenance</summary><div class="needsReviewAdminBody">
           <p>Correct or remove a pharmacy-scoped learned mapping. Global GTIN Master data is never changed.</p>
@@ -8610,6 +8610,13 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
         overlay.remove();
     };
     overlay.querySelectorAll("[data-review-close]").forEach(button=>button.addEventListener("click",closePanel));
+    overlay.querySelector("[data-review-history]")?.addEventListener("click",async()=>{
+        const list=overlay.querySelector("[data-review-list]");if(!list)return;
+        try{
+            const history=await nrV3ListHistory?.(workflow,null)||[];
+            list.innerHTML=history.length?`<div class="phase263TableWrap"><table class="quickKpiTable phase263Table"><thead><tr><th>Status</th><th>Updated</th><th>GTIN</th><th>Order</th><th>Quantity</th><th>Photo</th></tr></thead><tbody>${history.slice().sort((a,b)=>String(b.updated_at||b.created_at||"").localeCompare(String(a.updated_at||a.created_at||""))).map(row=>`<tr><td><b>${esc(row.status||"PENDING")}</b></td><td>${esc(typeof formatDateTime==="function"?formatDateTime(row.updated_at||row.created_at):row.updated_at||row.created_at||"—")}</td><td>${esc(row.gtin||"—")}</td><td>${esc(row.order_number||"—")}</td><td>${esc(row.pending_quantity||1)}</td><td>${row.photo_path?"Photo retained":"—"}</td></tr>`).join("")}</tbody></table></div>`:'<div class="needsReviewEmpty">No Needs Review history.</div>';
+        }catch(error){showToast?.(error?.message||"Unable to load Needs Review history","error");}
+    });
 
     groups.forEach((group,index)=>{
         const section=overlay.querySelector(`[data-i="${index}"]`);
