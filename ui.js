@@ -7768,7 +7768,6 @@ function openHandheldScansPanel(initialTab="SCANS"){
             if(!window.confirm("Delete this pending Needs Review item?")) return;
             overlay.querySelectorAll("[data-review-step],[data-review-delete]").forEach(el=>el.disabled=true);
             try{
-                if(row.photo_path && typeof nrV2DeletePhoto==="function") await nrV2DeletePhoto(row.photo_path).catch(()=>{});
                 await nrV2Delete(reviewId);
                 reviewRows=reviewRows.filter(item=>String(item?.review_id||"")!==String(reviewId));
                 refreshNeedsReviewCounters?.();
@@ -8470,9 +8469,6 @@ async function nrV2ResolveGroupToOrderItem(group,item){
     for(const row of group.rows){
         await nrV2MarkResolved(row,item,"LINK_ORDER_ITEM",transactionId);
     }
-    for(const path of group.photos){
-        try{ await nrV2DeletePhoto?.(path); }catch(_){ }
-    }
 }
 
 function nrV2ItemMetrics(item){
@@ -8581,9 +8577,8 @@ async function openNeedsReviewPanel(workflow="RECEIVING"){
             try{
                 /* The current V2 delete RPC has no reason field. Deletion is
                    intentionally limited to the exact rows in this displayed
-                   GTIN/order/reason group; photos are removed only afterward. */
+                   GTIN/order/reason group; Storage objects are intentionally preserved until a verified lifecycle policy exists. */
                 for(const row of group.rows) await nrV2Delete(row.review_id);
-                for(const path of group.photos){try{await nrV2DeletePhoto?.(path);}catch(_){}}
                 section.remove(); await refreshNeedsReviewCounters();
                 const count=overlay.querySelectorAll(".needsReviewRow").length;
                 const countNode=overlay.querySelector(".pfnReviewCount");
@@ -8935,7 +8930,6 @@ async function requestRemoveActiveOrderFile(fileId){
             /* Temporary review evidence belongs to this active order only. */
             for(const row of reviewRows){
                 try{
-                    if(row?.photo_path && typeof nrV2DeletePhoto==="function")await nrV2DeletePhoto(row.photo_path);
                     if(row?.review_id && typeof nrV2Delete==="function")await nrV2Delete(row.review_id);
                 }catch(reviewError){
                     Logger.warn?.("Temporary review cleanup failed after active-order removal",reviewError);
