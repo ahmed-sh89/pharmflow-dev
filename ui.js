@@ -7985,6 +7985,27 @@ function getReceivingActivityRows(){
     });
 }
 
+function getGroupedReceivingActivityRows(){
+    const rows=getReceivingActivityRows();
+    const chronological=rows.slice().sort((a,b)=>(new Date(a?.dateTime||0).getTime()||0)-(new Date(b?.dateTime||0).getTime()||0));
+    const grouped=[];
+    for(const row of chronological){
+        const source=toSafeString(row?.source||"").toUpperCase();
+        const isScanner=source.includes("SCAN")&&!source.includes("CORRECTION");
+        const order=normalizeOrderNumber(row?.selectedOrderNumber||row?.orderId||row?.orderNumber||"");
+        const previous=grouped[grouped.length-1];
+        if(isScanner&&previous?.__scannerGroup===true&&normalizeItemCode(previous.itemCode)===normalizeItemCode(row.itemCode)&&normalizeOrderNumber(previous.selectedOrderNumber||previous.orderId||"")===order&&toSafeString(previous.deviceId||"")===toSafeString(row.deviceId||"")){
+            previous.quantity=toNumber(previous.quantity,0)+toNumber(row.quantity,0);
+            previous.qtyChange=previous.quantity;
+            previous.transactionIds.push(row.transactionId);
+            previous.dateTime=row.dateTime||previous.dateTime;
+        }else{
+            grouped.push({...row,__scannerGroup:isScanner,transactionIds:[row.transactionId],quantity:toNumber(row.quantity,0),qtyChange:toNumber(row.quantity,0)});
+        }
+    }
+    return grouped.sort((a,b)=>(new Date(b?.dateTime||0).getTime()||0)-(new Date(a?.dateTime||0).getTime()||0));
+}
+
 function getActivitySourceLabel(source){
     const value=toSafeString(source||"").toUpperCase();
     if(value.includes("UNDO")||value.includes("CORRECTION")) return "Correction";
@@ -8286,9 +8307,9 @@ function renderDashboardKpiPanel(key,body){
     if(!body) return;
     const esc=value=>typeof escapeHtml==="function"?escapeHtml(toSafeString(value)):toSafeString(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
     if(key==="scans"){
-        const allRows=getReceivingActivityRows();
+        const allRows=getGroupedReceivingActivityRows();
         if(!allRows.length){body.innerHTML='<div class="tableEmptyState">No receiving activity in the current workspace yet.</div>';return;}
-        body.innerHTML=`<div class="pfnActivityControls"><label for="pfnActivitySourceFilter">Source</label><select id="pfnActivitySourceFilter"><option value="All">All</option><option value="Handheld">Handheld</option><option value="PC Scan">PC Scan</option><option value="Manual">Manual</option><option value="Correction">Correction</option></select></div><div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Date / Time</th><th>Item Name</th><th>Item Number</th><th>GTIN</th><th>Quantity Effect</th><th>Source</th><th>Target Order</th><th>Action</th></tr></thead><tbody data-activity-rows></tbody></table></div>`;
+        body.innerHTML=`<div class="pfnActivityControls"><label for="pfnActivitySourceFilter">Source</label><select id="pfnActivitySourceFilter"><option value="All">All</option><option value="Handheld">Handheld</option><option value="PC Scan">PC Scan</option><option value="Manual">Manual</option><option value="Correction">Correction</option></select></div><div class="phase263TableWrap pfnActivityWorklist"><table class="quickKpiTable phase263Table"><thead><tr><th>Date / Time</th><th>Item Name</th><th>Item Number</th><th>GTIN</th><th>Recent Action Qty</th><th>Source</th><th>Order Number</th><th>Action</th></tr></thead><tbody data-activity-rows></tbody></table></div>`;
         const tbody=body.querySelector("[data-activity-rows]");
         const sourceFilter=body.querySelector("#pfnActivitySourceFilter");
         const draw=()=>{
