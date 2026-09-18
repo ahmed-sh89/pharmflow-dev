@@ -392,11 +392,13 @@ async function parseMasterGTINFile(file){
             const gtin = normalizeBarcodeFromExcel(row[header.gtin]);
             const itemCode = normalizeItemCode(row[header.itemCode]);
             const itemName = toSafeString(row[header.itemName]);
-            const category = header.category >= 0 ? toSafeString(row[header.category]) : "";
+            const groupName=header.groupName>=0?toSafeString(row[header.groupName]):"";
+            const category=header.category>=0?toSafeString(row[header.category]):"";
+            const subCategory=header.subCategory>=0?toSafeString(row[header.subCategory]):"";
             if(!gtin || !itemCode){ continue; }
 
-            const key = itemCode + "|" + gtin;
-            recordMap.set(key,{itemCode,gtin,itemName,category});
+            const key=itemCode+"|"+gtin;
+            recordMap.set(key,{itemCode,gtin,itemName,group_name:groupName,category,sub_category:subCategory});
 
             if(!gtinOwners.has(gtin)){ gtinOwners.set(gtin,new Set()); }
             gtinOwners.get(gtin).add(itemCode);
@@ -483,18 +485,9 @@ function findMasterGTINHeader(matrix){
                 ].includes(value)
             );
 
-        const category =
-            normalized.findIndex(value=>
-                [
-                    "category",
-                    "item category",
-                    "product category",
-                    "department",
-                    "group",
-                    "item group",
-                    "classification"
-                ].includes(value)
-            );
+        const groupName=normalized.findIndex(value=>["group","item group","department"].includes(value));
+        const category=normalized.findIndex(value=>["category","item category","product category"].includes(value));
+        const subCategory=normalized.findIndex(value=>["sub category","subcategory","sub-category"].includes(value));
 
         if(gtin >= 0 && itemCode >= 0){
 
@@ -506,7 +499,9 @@ function findMasterGTINHeader(matrix){
                     itemName >= 0
                     ? itemName
                     : itemCode,
-                category:category
+                groupName:groupName,
+                category:category,
+                subCategory:subCategory
             };
 
         }
@@ -651,8 +646,10 @@ async function applyMasterGTINToCurrentOrder(
         });
 
         const orderItem = AppState.indexes.itemByCode.get(record.itemCode);
-        if(orderItem && record.category){
-            orderItem.category = record.category;
+        if(orderItem){
+            if(record.group_name) orderItem.group_name=record.group_name;
+            if(record.category) orderItem.category=record.category;
+            if(record.sub_category) orderItem.sub_category=record.sub_category;
         }
 
         matchedCodes.add(
@@ -1145,7 +1142,9 @@ async function performGlobalMasterGTINSync(options = {}){
                     itemCode,
                     gtin,
                     itemName:toSafeString(row.item_name || ""),
-                    category:toSafeString(row.category || "")
+                    group_name:toSafeString(row.group_name || ""),
+                    category:toSafeString(row.category || ""),
+                    sub_category:toSafeString(row.sub_category || "")
                 });
             }
         });
