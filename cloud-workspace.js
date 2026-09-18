@@ -314,7 +314,7 @@ async function uploadCloudReceivingTransaction(tx,pharmacyId){
         normalizeItemCode(resolution.resolvedItemCode);
     const rpcName=learnedQuantity
         ? "append_pharmflow_learned_transaction_v3"
-        : "append_pharmflow_cloud_transaction_v2";
+        : "append_pharmflow_receiving_action_v4";
     const params={
         p_pharmacy_id:pharmacyId,
         p_transaction_id:tx.transactionId,
@@ -339,7 +339,23 @@ async function uploadCloudReceivingTransaction(tx,pharmacyId){
         params.p_mapping_id=toSafeString(resolution.mappingId);
         params.p_mapping_revision=toSafeString(resolution.mappingRevision);
     }
-    await authRpc(rpcName,params);
+    let acknowledgement;
+    try{
+        acknowledgement=await authRpc(rpcName,params);
+    }catch(error){
+        /* Temporary pre-migration compatibility only. Never downgrade on a
+           validation, authorization, network or server error. */
+        const message=String(error?.message||"");
+        if(!learnedQuantity && /PGRST202|function .*append_pharmflow_receiving_action_v4.*does not exist|append_pharmflow_receiving_action_v4.*schema cache/i.test(message)){
+            acknowledgement=await authRpc("append_pharmflow_cloud_transaction_v2",params);
+        }else{
+            throw error;
+        }
+    }
+    const ackRow=Array.isArray(acknowledgement)?acknowledgement[0]:acknowledgement;
+    if(!learnedQuantity && ackRow && ackRow.acknowledged===false){
+        throw new Error("Receiving action was not acknowledged by the server");
+    }
 
     const local=(AppState?.workspace?.receivingHistory||[])
         .find(row=>row.transactionId===tx.transactionId);
@@ -347,6 +363,8 @@ async function uploadCloudReceivingTransaction(tx,pharmacyId){
     if(local){
         local.cloudSynced=true;
     }
+
+    AppEvents.emit("receiving:cloud-confirmed",{transactionId:tx.transactionId});
 
     return tx.transactionId;
 }
@@ -373,7 +391,7 @@ async function flushCloudWorkspaceQueue(){
 
         /* Small controlled concurrency keeps a burst of 50–100 +/- actions
            responsive without launching one independent flush per click. */
-        const CHUNK_SIZE=4;
+        const CHUNK_SIZE=1;
 
         while(
             navigator.onLine &&
