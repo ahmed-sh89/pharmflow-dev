@@ -7897,7 +7897,22 @@ function openDashboardKpiPanel(key){
     window.PharmFlowModalStack?.open(overlay);
     overlay.querySelector("[data-close]").onclick=closeDashboardKpiPanel;
     overlay.addEventListener("click",event=>{if(event.target===overlay) closeDashboardKpiPanel();});
-    renderDashboardKpiPanel(key,overlay.querySelector("[data-body]"));
+    const body=overlay.querySelector("[data-body]");
+    const cloudReady=
+        window.PharmFlowCloudWorkspace?.startupAuthorityReady!==false;
+    if(
+        key==="total" && !cloudReady &&
+        typeof ensureStartupCloudAuthority==="function"
+    ){
+        body.innerHTML='<div class="tableEmptyState">Loading current order items…</div>';
+        Promise.resolve(ensureStartupCloudAuthority()).finally(()=>{
+            if(document.body.contains(overlay)){
+                renderDashboardKpiPanel(key,body);
+            }
+        });
+    }else{
+        renderDashboardKpiPanel(key,body);
+    }
 }
 
 function closeDashboardKpiPanel(){
@@ -7995,8 +8010,29 @@ function openReceivingActivityEditor(row,allRows){
     modal.querySelector("[data-corrected]").focus();
 }
 
-let itemPrioritySaveQueue=Promise.resolve();
-const itemPrioritySaveVersions=new Map();
+const itemPriorityPendingSelections=new Map();
+let itemPriorityBatchTimer=null;
+let itemPriorityBatchPromise=null;
+let itemPriorityBatchVersion=0;
+let itemPriorityRetryCount=0;
+
+function applyPendingItemPrioritySelections(){
+    itemPriorityPendingSelections.forEach((entry,itemCode)=>{
+        const current=getItemByCode?.(itemCode);
+        if(current){
+            current.priorityType=entry.priorityType;
+            current.highPriority=!!entry.priorityType;
+        }
+    });
+}
+window.applyPendingItemPrioritySelections=applyPendingItemPrioritySelections;
+
+function getEffectiveItemPriority(item){
+    const itemCode=toSafeString(item?.itemCode||item?.itemNumber||"");
+    return itemPriorityPendingSelections.has(itemCode)
+        ? itemPriorityPendingSelections.get(itemCode).priorityType
+        : toSafeString(item?.priorityType||"");
+}
 
 function savePriorityApplicationState(){
     const nextUi=window.PharmFlowNext;
@@ -8009,205 +8045,75 @@ function savePriorityApplicationState(){
     }
 }
 
-async function persistItemPrioritySelection(item,priorityType,previousPriorityType){
-    if(!item) return false;
+function queueItemPrioritySelection(item,priorityType){
+    const itemCode=toSafeString(item?.itemCode||item?.itemNumber||"");
+    if(!itemCode) return Promise.resolve(false);
 
-    const itemCode=toSafeString(item.itemCode||item.itemNumber||"");
-    const previousType=toSafeString(
-        previousPriorityType===undefined
-            ? item.priorityType||""
-            : previousPriorityType
-    );
-    const previousHigh=!!previousType;
     const nextType=toSafeString(priorityType||"");
-
+    const version=++itemPriorityBatchVersion;
+    itemPriorityPendingSelections.set(itemCode,{priorityType:nextType,version});
     item.priorityType=nextType;
     item.highPriority=!!nextType;
-    savePriorityApplicationState();
+    applyPendingItemPrioritySelections();
+    itemPriorityRetryCount=0;
 
-    try{
-        if(typeof patchActiveOrderPriorities!=="function"){
-            throw new Error("Item priority cloud save is unavailable");
-        }
-
-        for(let attempt=1;attempt<=2;attempt++){
-            const revisionBefore=Number(
-                window.PharmFlowCloudWorkspace?.activeManifestRevision||0
-            );
-            const saved=await patchActiveOrderPriorities([
-                {itemCode,priorityType:nextType}
-            ]);
-            if(saved===true) return true;
-
-            const saveError=toSafeString(
-                window.PharmFlowCloudWorkspace?.lastPrioritySaveError||""
-            );
-
-            /* The write can succeed while its read-after-write response is
-               interrupted. Pull the authority before reporting failure. */
-            if(typeof pullActiveOrderManifest==="function"){
-                await pullActiveOrderManifest({force:true,clearIfMissing:false});
-            }
-            const serverAdvanced=Number(
-                window.PharmFlowCloudWorkspace?.activeManifestRevision||0
-            )>revisionBefore;
-
-            const authoritativeItem=
-                typeof getItemByCode==="function"
-                    ? getItemByCode(itemCode)
-                    : null;
-
-            if(
-                serverAdvanced && authoritativeItem &&
-                toSafeString(authoritativeItem.priorityType||"")===nextType
-            ){
-                return true;
-            }
-
-            const stale=
-                saveError.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION") ||
-                saveError.includes("STALE_WORKSPACE_GENERATION");
-
-            if(attempt===1 && stale && authoritativeItem){
-                authoritativeItem.priorityType=nextType;
-                authoritativeItem.highPriority=!!nextType;
-                savePriorityApplicationState();
-                continue;
-            }
-
-            throw new Error(
-                saveError || "Supabase did not confirm the priority change"
-            );
-        }
-
-        return false;
-    }
-    catch(_error){
-        const currentItem=
-            typeof getItemByCode==="function"
-                ? getItemByCode(itemCode)
-                : item;
-        item.priorityType=previousType;
-        item.highPriority=previousHigh;
-        currentItem.priorityType=previousType;
-        currentItem.highPriority=previousHigh;
-        savePriorityApplicationState();
-        return false;
-    }
+    clearTimeout(itemPriorityBatchTimer);
+    itemPriorityBatchTimer=setTimeout(flushItemPriorityBatch,220);
+    return Promise.resolve(true);
 }
 
-function queueItemPrioritySelection(item,priorityType,previousPriorityType){
-    const itemCode=toSafeString(item?.itemCode||item?.itemNumber||"");
-    const version=Number(itemPrioritySaveVersions.get(itemCode)||0)+1;
-    itemPrioritySaveVersions.set(itemCode,version);
+async function flushItemPriorityBatch(){
+    if(itemPriorityBatchPromise) return itemPriorityBatchPromise;
 
-    const run=async()=>{
-        /* If the same item was changed again before its queued save started,
-           only the newest visual choice is authoritative. */
-        if(itemPrioritySaveVersions.get(itemCode)!==version) return true;
-        try{
-            return await persistItemPrioritySelection(
-                item,
-                priorityType,
-                previousPriorityType
-            );
-        }finally{
-            if(itemPrioritySaveVersions.get(itemCode)===version){
-                itemPrioritySaveVersions.delete(itemCode);
-            }
+    const batch=Array.from(itemPriorityPendingSelections.entries()).map(
+        ([itemCode,entry])=>({itemCode,...entry})
+    );
+    if(!batch.length) return true;
+
+    /* Persist the complete optimistic batch once. Saving the whole workspace
+       on every rapid click made older pharmacy PCs appear unresponsive. */
+    applyPendingItemPrioritySelections();
+    savePriorityApplicationState();
+
+    itemPriorityBatchPromise=(async()=>{
+        let saved=false;
+        for(let attempt=1;attempt<=2&&!saved;attempt++){
+            saved=await patchActiveOrderPriorities?.(
+                batch.map(({itemCode,priorityType})=>({itemCode,priorityType}))
+            )===true;
+            if(!saved) applyPendingItemPrioritySelections();
         }
-    };
 
-    const queued=itemPrioritySaveQueue.then(run,run);
-    itemPrioritySaveQueue=queued.then(()=>undefined,()=>undefined);
-    return queued;
+        if(saved){
+            itemPriorityRetryCount=0;
+            batch.forEach(entry=>{
+                const pending=itemPriorityPendingSelections.get(entry.itemCode);
+                if(pending?.version===entry.version){
+                    itemPriorityPendingSelections.delete(entry.itemCode);
+                }
+            });
+            savePriorityApplicationState();
+        }
+
+        applyPendingItemPrioritySelections();
+        return saved;
+    })().finally(()=>{
+        itemPriorityBatchPromise=null;
+        if(itemPriorityPendingSelections.size&&itemPriorityRetryCount<2){
+            itemPriorityRetryCount+=1;
+            clearTimeout(itemPriorityBatchTimer);
+            itemPriorityBatchTimer=setTimeout(flushItemPriorityBatch,2000);
+        }
+    });
+
+    return itemPriorityBatchPromise;
 }
 
 function queueClearVisiblePriorities(items){
-    const targets=items
-        .map(item=>({
-            item,
-            itemCode:toSafeString(item?.itemCode||item?.itemNumber||""),
-            priorityType:toSafeString(item?.priorityType||"")
-        }))
-        .filter(entry=>entry.itemCode&&entry.priorityType);
-
-    if(!targets.length) return Promise.resolve(true);
-
-    targets.forEach(entry=>{
-        const nextVersion=Number(itemPrioritySaveVersions.get(entry.itemCode)||0)+1;
-        itemPrioritySaveVersions.set(entry.itemCode,nextVersion);
-        entry.item.priorityType="";
-        entry.item.highPriority=false;
-    });
-    savePriorityApplicationState();
-
-    const run=async()=>{
-        try{
-            for(let attempt=1;attempt<=2;attempt++){
-                const revisionBefore=Number(
-                    window.PharmFlowCloudWorkspace?.activeManifestRevision||0
-                );
-                const saved=await patchActiveOrderPriorities?.(
-                    targets.map(entry=>({
-                        itemCode:entry.itemCode,
-                        priorityType:""
-                    }))
-                );
-                if(saved===true) return true;
-
-                const saveError=toSafeString(
-                    window.PharmFlowCloudWorkspace?.lastPrioritySaveError||""
-                );
-                if(typeof pullActiveOrderManifest==="function"){
-                    await pullActiveOrderManifest({force:true,clearIfMissing:false});
-                }
-                const serverAdvanced=Number(
-                    window.PharmFlowCloudWorkspace?.activeManifestRevision||0
-                )>revisionBefore;
-
-                const allCleared=serverAdvanced&&targets.every(entry=>{
-                    const current=getItemByCode?.(entry.itemCode);
-                    return current&&!toSafeString(current.priorityType||"");
-                });
-                if(allCleared) return true;
-
-                const stale=
-                    saveError.includes("STALE_ACTIVE_ORDER_MANIFEST_REVISION") ||
-                    saveError.includes("STALE_WORKSPACE_GENERATION");
-                if(attempt===1&&stale){
-                    targets.forEach(entry=>{
-                        const current=getItemByCode?.(entry.itemCode);
-                        if(current){
-                            current.priorityType="";
-                            current.highPriority=false;
-                        }
-                    });
-                    savePriorityApplicationState();
-                    continue;
-                }
-                break;
-            }
-        }catch(_error){}
-
-        targets.forEach(entry=>{
-            entry.item.priorityType=entry.priorityType;
-            entry.item.highPriority=true;
-            const current=getItemByCode?.(entry.itemCode);
-            if(current){
-                current.priorityType=entry.priorityType;
-                current.highPriority=true;
-            }
-        });
-        savePriorityApplicationState();
-        return false;
-    };
-
-    const queued=itemPrioritySaveQueue.then(run,run);
-    itemPrioritySaveQueue=queued.then(()=>undefined,()=>undefined);
-    return queued.finally(()=>{
-        targets.forEach(entry=>itemPrioritySaveVersions.delete(entry.itemCode));
-    });
+    items.forEach(item=>queueItemPrioritySelection(item,""));
+    clearTimeout(itemPriorityBatchTimer);
+    itemPriorityBatchTimer=setTimeout(flushItemPriorityBatch,0);
+    return Promise.resolve(true);
 }
 
 function renderItemBrowser(body, rows, options={}){
@@ -8234,24 +8140,26 @@ function renderItemBrowser(body, rows, options={}){
     let visibleRows=[];
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
-        const pt=item.priorityType||'';
+        const pt=getEffectiveItemPriority(item);
         if(orderMode)return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell" data-label="Priority"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell" data-label="Category">${esc(item.category||item.Category||'—')}</td><td class="pfnOrderedQty" data-label="Quantity">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo" data-label="Order No.">${esc(orders)}</td></tr>`;
         return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty" data-label="Ordered">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td data-label="Received">${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
     };
     const draw=()=>{
         const q=toSafeString(input?.value||'').trim().toLowerCase();
-        let visible=rows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
+        const currentRows=orderMode?getKpiPanelItems("total"):rows;
+        applyPendingItemPrioritySelections();
+        let visible=currentRows.filter(item=>!q||toSafeString(item.itemName).toLowerCase().includes(q)||toSafeString(item.itemCode).toLowerCase().includes(q));
         const selectedOrder=orderFilter?.value||'ALL';
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
         const selectedCategory=categoryFilter?.value||'ALL';
         if(orderMode&&selectedCategory!=='ALL') visible=visible.filter(item=>toSafeString(item.category||item.Category||'').trim()===selectedCategory);
-        if(orderMode&&priorityOnly) visible=visible.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
+        if(orderMode&&priorityOnly) visible=visible.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
         const sort=qtySort?.value||'desc';
         if(sort==='desc') visible=visible.slice().sort((a,b)=>toNumber(b.orderedQty,0)-toNumber(a.orderedQty,0));
         if(sort==='asc') visible=visible.slice().sort((a,b)=>toNumber(a.orderedQty,0)-toNumber(b.orderedQty,0));
         visibleRows=visible;
         if(orderMode&&priorityOnly){
-            const groups=[['SHORT',visible.filter(i=>i.priorityType==='SHORT')],['NEW',visible.filter(i=>i.priorityType==='NEW')]];
+            const groups=[['SHORT',visible.filter(i=>getEffectiveItemPriority(i)==='SHORT')],['NEW',visible.filter(i=>getEffectiveItemPriority(i)==='NEW')]];
             tbody.innerHTML=groups.map(([name,list])=>list.length?`<tr class="pfnPriorityGroup"><td colspan="6"><strong>${name}</strong><span>${list.length} items</span></td></tr>${list.map(rowHtml).join('')}`:'').join('')||`<tr><td colspan="6" class="tableEmptyState">No high priority items.</td></tr>`;
         }else{
             const colspan=orderMode?6:(receivedMode?4:3);
@@ -8259,8 +8167,8 @@ function renderItemBrowser(body, rows, options={}){
         }
         tbody.querySelectorAll('[data-mark]').forEach(btn=>btn.onclick=async()=>{
             const item=typeof getItemByCode==='function'?getItemByCode(btn.dataset.code):null;if(!item)return;
-            const previousType=toSafeString(item.priorityType||'');
-            const nextType=item.priorityType===btn.dataset.mark?'':btn.dataset.mark;
+            const previousType=getEffectiveItemPriority(item);
+            const nextType=previousType===btn.dataset.mark?'':btn.dataset.mark;
             item.priorityType=nextType;
             item.highPriority=!!nextType;
             const segment=btn.closest('.pfnPrioritySegment');
@@ -8271,7 +8179,7 @@ function renderItemBrowser(body, rows, options={}){
                 mark.classList.toggle('new',active&&nextType==='NEW');
             });
             const wrap=body.querySelector('.phase263TableWrap'),top=wrap?.scrollTop||0;
-            const saved=await queueItemPrioritySelection(item,nextType,previousType);
+            const saved=await queueItemPrioritySelection(item,nextType);
             if(!saved||priorityOnly){
                 draw();
                 const finalWrap=body.querySelector('.phase263TableWrap');
@@ -8282,7 +8190,7 @@ function renderItemBrowser(body, rows, options={}){
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);categoryFilter?.addEventListener('change',draw);qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;if(clearPriority)clearPriority.hidden=!priorityOnly;draw();});
     clearPriority?.addEventListener('click',async()=>{
-        const targets=visibleRows.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
+        const targets=visibleRows.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
         if(!targets.length) return;
         if(!window.confirm(`Clear High Priority from ${targets.length} visible item(s)?`)) return;
         const top=body.querySelector('.phase263TableWrap')?.scrollTop||0;
@@ -8298,7 +8206,7 @@ function renderItemBrowser(body, rows, options={}){
         }
     });
     printPriority?.addEventListener('click',()=>{
-        const printable=visibleRows.filter(item=>item.priorityType==='NEW'||item.priorityType==='SHORT');
+        const printable=visibleRows.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
         if(!printable.length) return;
 
         const selectedOrder=orderFilter?.value||'ALL';
@@ -8310,27 +8218,27 @@ function renderItemBrowser(body, rows, options={}){
         const receiptDocument=receipt.contentDocument;
         receiptDocument.open();
         receiptDocument.write(`<!doctype html><html><head><meta charset="utf-8"><title>High Priority Items</title><style>
-          @page{margin:2mm}
+          @page{size:80mm auto;margin:1.5mm}
           *{box-sizing:border-box}
-          html,body{width:76mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,sans-serif}
-          header{margin:0 0 2mm;padding:0 0 1.5mm;border-bottom:1px dashed #000;text-align:center}
-          h1{margin:0;font-size:12px;line-height:1.2}
-          .meta{margin-top:1mm;font-size:9px;line-height:1.2}
-          table{width:100%;border:1px solid #000;border-collapse:collapse;table-layout:fixed}
-          th,td{border-right:1px solid #000;border-bottom:1px solid #000;vertical-align:middle}
-          th{padding:.5mm .8mm;background:#eee;font-size:8px;line-height:1;text-align:left}
-          td{height:4.3mm;padding:.35mm .8mm;font-size:8px;line-height:1;white-space:nowrap}
+          html,body{width:77mm;margin:0;padding:0;background:#fff;color:#000;font-family:Arial,Helvetica,sans-serif;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+          header{margin:0 0 1.5mm;padding:0 0 1mm;border-bottom:.35mm solid #000;text-align:center}
+          h1{margin:0;font-size:14pt;line-height:1.1;font-weight:800}
+          .meta{margin-top:.8mm;font-size:10pt;line-height:1.1;font-weight:700}
+          table{width:100%;border:.35mm solid #000;border-collapse:collapse;table-layout:fixed}
+          th,td{border-right:.35mm solid #000;border-bottom:.25mm solid #000;vertical-align:middle;color:#000}
+          th{padding:.8mm 1mm;background:#fff;font-size:10pt;line-height:1;text-align:left;font-weight:800}
+          td{height:5.5mm;padding:.7mm 1mm;font-size:10pt;line-height:1.05;white-space:nowrap;font-weight:600}
           th:last-child,td:last-child{border-right:0}
           td.name{overflow:hidden;text-overflow:ellipsis}
-          th.qty,td.qty{width:12mm;text-align:right;font-size:9px;font-weight:700}
-          tr.group td{height:4mm;padding:.4mm .8mm;background:#eee;font-size:8px;font-weight:700}
+          th.qty,td.qty{width:14mm;text-align:center;font-size:12pt;font-weight:900}
+          tr.group td{height:5mm;padding:.6mm 1mm;background:#fff;font-size:10pt;font-weight:900;border-top:.5mm solid #000;border-bottom:.5mm solid #000}
           tr:last-child td{border-bottom:0}
         </style></head><body><header><h1>HIGH PRIORITY ITEMS</h1><div class="meta">${selectedOrder==='ALL'?'All Orders':`Order: ${esc(selectedOrder)}`}</div></header><table><thead><tr><th>ITEM NAME</th><th class="qty">QTY</th></tr></thead><tbody>${['SHORT','NEW'].map(type=>{
-            const group=printable.filter(item=>item.priorityType===type);
+            const group=printable.filter(item=>getEffectiveItemPriority(item)===type);
             if(!group.length) return '';
             return `<tr class="group"><td colspan="2">${type}</td></tr>${group.map(item=>{
                 const name=toSafeString(item.itemName||item.itemCode||'—');
-                const fontSize=name.length>64?'5.5px':name.length>48?'6.2px':name.length>36?'7px':'8px';
+                const fontSize=name.length>64?'8pt':name.length>48?'8.5pt':'10pt';
                 return `<tr><td class="name" style="font-size:${fontSize}">${esc(name)}</td><td class="qty">${esc(toNumber(item.orderedQty,0))}</td></tr>`;
             }).join('')}`;
         }).join('')}</tbody></table></body></html>`);
