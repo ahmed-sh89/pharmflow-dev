@@ -911,30 +911,20 @@ function getActiveReceivingOrderNumbers(){
 
 function getSelectedReceivingOrderNumbers(){
     const active=getActiveReceivingOrderNumbers();
+    /* Receiving Release: order selection is a device-local work scope, never
+       shared business state.  An empty saved scope means ALL ACTIVE ORDERS. */
+    if(window.PharmFlowDeviceWorkScope){
+        const saved=window.PharmFlowDeviceWorkScope.prune(active);
+        return saved.length ? saved : active.slice();
+    }
     const saved=Array.isArray(AppState?.workspace?.selectedOrderNumbers)
-        ? AppState.workspace.selectedOrderNumbers
-              .map(normalizeOrderNumber)
-              .filter(order=>active.includes(order))
+        ? AppState.workspace.selectedOrderNumbers.map(normalizeOrderNumber).filter(order=>active.includes(order))
         : [];
-
-    if(saved.length){
-        return [...new Set(saved)];
-    }
-
-    const legacy=toSafeString(
-        AppState?.workspace?.selectedOrderNumber || ""
-    ).trim();
-
-    if(legacy.toUpperCase()==="ALL"){
-        return active.slice();
-    }
-
+    if(saved.length) return [...new Set(saved)];
+    const legacy=toSafeString(AppState?.workspace?.selectedOrderNumber||"").trim();
+    if(legacy.toUpperCase()==="ALL") return active.slice();
     const normalized=normalizeOrderNumber(legacy);
-    if(normalized && active.includes(normalized)){
-        return [normalized];
-    }
-
-    return active.slice();
+    return normalized&&active.includes(normalized)?[normalized]:active.slice();
 }
 
 function isAllReceivingOrdersSelected(){
@@ -957,33 +947,17 @@ function getSelectedReceivingOrderNumber(){
 
 function setSelectedReceivingOrderNumbers(orderNumbers){
     const active=getActiveReceivingOrderNumbers();
-    let selected=(Array.isArray(orderNumbers)?orderNumbers:[])
-        .map(normalizeOrderNumber)
-        .filter(order=>active.includes(order));
-
-    selected=[...new Set(selected)];
-
-    if(!selected.length){
-        return false;
+    let selected=[...new Set((Array.isArray(orderNumbers)?orderNumbers:[]).map(normalizeOrderNumber).filter(order=>active.includes(order)))];
+    if(!selected.length) return false;
+    if(window.PharmFlowDeviceWorkScope){
+        /* Store ALL as an empty preference so newly-active orders are included
+           automatically and finalized/removed orders cannot become stale. */
+        window.PharmFlowDeviceWorkScope.set(selected.length===active.length?[]:selected);
+    }else{
+        AppState.workspace.selectedOrderNumbers=selected;
+        AppState.workspace.selectedOrderNumber=selected.length===active.length?"ALL":selected.length===1?selected[0]:"MULTI";
+        saveWorkspaceSnapshot?.();
     }
-
-    AppState.workspace.selectedOrderNumbers=selected;
-
-    if(selected.length===active.length){
-        AppState.workspace.selectedOrderNumber="ALL";
-        AppState.workspace.orderName="All Orders";
-    }
-    else if(selected.length===1){
-        AppState.workspace.selectedOrderNumber=selected[0];
-        AppState.workspace.orderName=selected[0];
-    }
-    else{
-        AppState.workspace.selectedOrderNumber="MULTI";
-        AppState.workspace.orderName=
-            selected.length+" Orders Selected";
-    }
-
-    saveWorkspaceSnapshot?.();
     refreshEntireUI?.();
     return true;
 }
