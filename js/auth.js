@@ -13,6 +13,7 @@ const AUTH_PENDING_OWNER_KEY = "PRS_V3_PENDING_OWNER_SETUP";
 const AUTH_PENDING_REGISTRATION_KEY = "PRS_V3_PENDING_PHARMACY_REGISTRATION";
 const AUTH_REFRESH_LOCK_KEY = "PRS_V3_SUPABASE_AUTH_REFRESH_LOCK";
 const AUTH_REFRESH_LOCK_MS = 8000;
+const AUTH_REQUEST_TIMEOUT_MS = 12000;
 const AUTH_TAB_ID = "auth-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2);
 
 const AuthState = {
@@ -516,7 +517,37 @@ async function authRequest(path, options = {}){
         "Content-Type":"application/json",
         ...(options.headers || {})
     };
-    const response = await fetch(getSupabaseProjectUrl() + path, {...options, headers});
+    let abortTimer=null;
+    let controller=null;
+    let requestOptions={...options,headers};
+
+    if(typeof AbortController!=="undefined" && !options.signal){
+        controller=new AbortController();
+        requestOptions={...requestOptions,signal:controller.signal};
+        abortTimer=setTimeout(()=>controller.abort(),AUTH_REQUEST_TIMEOUT_MS);
+    }
+
+    let response;
+    let timeoutTimer=null;
+    try{
+        response=await Promise.race([
+            fetch(getSupabaseProjectUrl() + path,requestOptions),
+            new Promise((_,reject)=>{
+                timeoutTimer=setTimeout(
+                    ()=>reject(new Error("PharmFlow connection timed out. Please try again.")),
+                    AUTH_REQUEST_TIMEOUT_MS
+                );
+            })
+        ]);
+    }catch(error){
+        if(error?.name==="AbortError"){
+            throw new Error("PharmFlow connection timed out. Please try again.");
+        }
+        throw error;
+    }finally{
+        if(abortTimer){ clearTimeout(abortTimer); }
+        if(timeoutTimer){ clearTimeout(timeoutTimer); }
+    }
     const text = await response.text();
     let data = null;
     try{ data = text ? JSON.parse(text) : null; }

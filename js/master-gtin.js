@@ -15,6 +15,8 @@
 
 const MasterGTINEngine = {
     initialized:false,
+    initializationPromise:null,
+    syncPromise:null,
     db:null,
     dbName:null,
     recordsStore:"records",
@@ -43,11 +45,17 @@ const MasterGTINEngine = {
 
 async function initializeMasterGTIN(){
 
+    if(MasterGTINEngine.initializationPromise){
+        return MasterGTINEngine.initializationPromise;
+    }
+
     if(MasterGTINEngine.initialized){
-        return;
+        return true;
     }
 
     MasterGTINEngine.initialized = true;
+
+    MasterGTINEngine.initializationPromise=(async()=>{
 
     try{
 
@@ -144,6 +152,15 @@ async function initializeMasterGTIN(){
         );
 
     }
+
+    finally{
+        MasterGTINEngine.initializationPromise=null;
+    }
+
+    return !!MasterGTINEngine.db;
+    })();
+
+    return MasterGTINEngine.initializationPromise;
 }
 
 
@@ -1077,7 +1094,7 @@ async function getGlobalMasterGTINCloudMeta(){
     return row || null;
 }
 
-async function syncGlobalMasterGTINFromCloud(options = {}){
+async function performGlobalMasterGTINSync(options = {}){
     if(typeof authRpc !== "function" || typeof AuthState === "undefined" || !AuthState.context || !AuthState.context.pharmacy_id){
         return false;
     }
@@ -1170,9 +1187,28 @@ async function syncGlobalMasterGTINFromCloud(options = {}){
     return true;
 }
 
+async function syncGlobalMasterGTINFromCloud(options = {}){
+    /* The optional-module loader and startApplication can request readiness
+       together. Join one authoritative download/index pass instead of making
+       older Handhelds process the 52k Global Master twice concurrently. */
+    if(MasterGTINEngine.syncPromise){
+        return MasterGTINEngine.syncPromise;
+    }
+
+    MasterGTINEngine.syncPromise=performGlobalMasterGTINSync(options);
+    try{
+        return await MasterGTINEngine.syncPromise;
+    }finally{
+        MasterGTINEngine.syncPromise=null;
+    }
+}
+
 async function ensureGlobalMasterGTINReady(options = {}){
     const forceCloud=options.forceCloud===true;
     try{
+        if(MasterGTINEngine.initializationPromise){
+            await MasterGTINEngine.initializationPromise;
+        }
         const meta=await getGlobalMasterGTINCloudMeta();
         const cloudVersion=meta ? String(meta.version || "") : "";
         const cloudCount=meta ? Number(meta.item_count || 0) : 0;

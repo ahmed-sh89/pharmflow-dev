@@ -395,4 +395,13 @@ window.HandheldRuntime=HandheldRuntime;
 window.hhRefreshReadyState=hhRefreshReadyState;
 window.hhRepairScannerFocus=hhRepairScannerFocus;
 
-window.addEventListener("load",()=>setTimeout(hhInstall,120));
+/* Install the hardware boundary as soon as the DOM is ready. Waiting for the
+   full window load lets slow cache/network work leave DataWedge input parked
+   in the scan field before the capture listener exists. Keep load as an
+   idempotent fallback for older Zebra Chrome builds. */
+if(document.readyState==="loading"){
+    document.addEventListener("DOMContentLoaded",()=>setTimeout(hhInstall,0),{once:true});
+}else{
+    setTimeout(hhInstall,0);
+}
+window.addEventListener("load",()=>setTimeout(hhInstall,0),{once:true});
