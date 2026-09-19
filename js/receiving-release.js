@@ -40,6 +40,19 @@
         });
     }
     async function nextSequence(){const rows=await pending();return rows.reduce((m,r)=>Math.max(m,Number(r.sequence||0)),0)+1;}
+    function localTransaction(transactionId){
+        return (AppState?.workspace?.receivingHistory||[]).find(
+            row=>String(row?.transactionId||"")===String(transactionId||"")
+        )||null;
+    }
+    async function discardConfirmedHead(row){
+        const tx=localTransaction(row?.transactionId);
+        if(tx?.cloudSynced===true){
+            await remove(row.transactionId);
+            return true;
+        }
+        return false;
+    }
     async function run(){
         if(worker) return worker;
         worker=(async()=>{
@@ -47,13 +60,22 @@
                 const row=(await pending())[0]; if(!row) break;
                 if(!navigator.onLine){window.refreshHandheldWorkspaceStatus?.();break;}
                 try{
+                    if(row.state==="awaitingConfirmation"){
+                        if(await discardConfirmedHead(row)) continue;
+                        /* The cloud queue owns retries for an already-created
+                           transaction. Replaying it here would duplicate the
+                           local receive path, so preserve strict ordering. */
+                        break;
+                    }
                     if(row.state!=="awaitingConfirmation"){
                         const clean=typeof cleanScannerInput==="function"?cleanScannerInput(row.raw):String(row.raw||"").trim();
                         const parsed=typeof parseGS1Barcode==="function"?parseGS1Barcode(clean):null;
                         if(!parsed?.gtin) throw new Error("GTIN could not be extracted from queued scan");
+                        /* Persist the wait state before receiveParsedBarcode
+                           can schedule and complete a cloud acknowledgement. */
+                        row.state="awaitingConfirmation"; row.lastError=""; row.lastAttemptAt=new Date().toISOString(); await put(row);
                         const result=await receiveParsedBarcode(parsed,{transactionId:row.transactionId});
                         if(result===false){await remove(row.transactionId);continue;}
-                        row.state="awaitingConfirmation"; row.lastError=""; row.lastAttemptAt=new Date().toISOString(); await put(row);
                     }
                     break;
                 }catch(error){
@@ -75,6 +97,37 @@
     window.addEventListener("auth:context-ready",()=>{if(!started){started=true;setTimeout(()=>void run(),350);}});
     if(document.readyState!=="loading") setTimeout(()=>void run(),600);
 })();
+
+/* The visible Handheld work-scope control is the live status chip. */
+window.openHandheldWorkOrderPicker=function(){
+    if(typeof isLikelyZebraDevice!=="function"||!isLikelyZebraDevice()) return;
+    if(document.getElementById("pfrHandheldWorkScopeOverlay")) return;
+    const active=typeof getActiveReceivingOrderNumbers==="function"?getActiveReceivingOrderNumbers():[];
+    const selected=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():active;
+    if(!active.length){showToast?.("No Active Orders are available","warning");return;}
+    const overlay=document.createElement("div");
+    overlay.id="pfrHandheldWorkScopeOverlay";
+    overlay.className="quickKpiOverlay pfrWorkScopeOverlay";
+    const escapeValue=value=>String(value||"").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const orderRows=active.map(order=>'<label><input type="checkbox" data-order="'+escapeValue(order)+'" '+(selected.includes(order)?"checked":"")+'> <span>'+escapeValue(order)+'</span></label>').join("");
+    overlay.innerHTML='<section class="pfrWorkScopeCard" role="dialog" aria-modal="true" aria-label="My Work Orders"><h3>My Work Orders</h3><p>Select only the Active Orders for this Handheld.</p><label class="pfrWorkAll"><input type="checkbox" data-all '+(selected.length===active.length?"checked":"")+'> <strong>ALL ACTIVE ORDERS</strong></label><div class="pfrWorkOrders">'+orderRows+'</div><div class="pfrWorkActions"><button type="button" data-cancel>Cancel</button><button type="button" data-save>Apply</button></div></section>';
+    document.body.appendChild(overlay);
+    window.PharmFlowModalStack?.open(overlay);
+    const close=()=>{window.PharmFlowModalStack?.close(overlay);overlay.remove();};
+    overlay.querySelector("[data-cancel]").onclick=close;
+    overlay.querySelector("[data-all]").onchange=event=>overlay.querySelectorAll("[data-order]").forEach(input=>input.checked=event.target.checked);
+    overlay.querySelector("[data-save]").onclick=()=>{
+        const values=[...overlay.querySelectorAll("[data-order]:checked")].map(input=>input.dataset.order);
+        if(!values.length){showToast?.("Select at least one Order","warning");return;}
+        if(setSelectedReceivingOrderNumbers?.(values)){close();hhRefreshReadyState?.();focusScannerInput?.();}
+    };
+};
+document.addEventListener("click",event=>{
+    if(event.target.closest?.("#handheldWorkspaceStatus")){
+        event.preventDefault();
+        window.openHandheldWorkOrderPicker?.();
+    }
+});
 
 window.PharmFlowDeviceWorkScope={
     key(){return "PHARMFLOW_WORK_SCOPE_V1::"+String(AuthState?.context?.pharmacy_id||"")+"::"+(typeof ensureDeviceId==="function"?ensureDeviceId():"");},

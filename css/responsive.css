@@ -135,6 +135,8 @@ body.zebraDevice #page-dashboard .quantityButton,
 body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-weight:800!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 body.zebraDevice #page-dashboard [data-action="minus"],
 body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
+body.zebraDevice #handheldWorkspaceStatus.handheldWorkScopeButton{appearance:none!important;border:0!important;cursor:pointer!important;font:inherit!important;text-align:left!important}
+body.zebraDevice #pfrChangeOrders{display:none!important}
 
 /* B11.5 Consolidated Receiving controls — clean owner, no stacked selector patch */
 @media (min-width:769px){
@@ -275,4 +277,22 @@ body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;col
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterActions [data-group-action="ok"]{
     background:#0b8fd3!important;border-color:#0b8fd3!important;color:#fff!important
   }
+}
+
+/* B11.6 — shared bounded multi-select for Receiving, Order Items and
+   Receiving Report. It blocks inherited horizontal scrolling. */
+@media (min-width:769px){
+  body:not(.zebraDevice) #page-receiving .pfnUnifiedMultiSelect,body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect{position:relative!important;width:260px!important;min-width:260px!important;max-width:260px!important}
+  body:not(.zebraDevice) #page-receiving .pfnUnifiedMultiSelectMenu,body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu{position:absolute!important;z-index:10060!important;top:calc(100% + 6px)!important;left:0!important;box-sizing:border-box!important;width:260px!important;min-width:260px!important;max-width:calc(100vw - 32px)!important;max-height:min(286px,calc(100vh - 112px))!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;padding:0!important;background:#fff!important;border:1px solid #d8dee8!important;border-radius:11px!important;box-shadow:0 12px 30px rgba(15,23,42,.16)!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterOptions,body:not(.zebraDevice) .pfnUnifiedMultiSelectOptions{overflow-y:auto!important;overflow-x:hidden!important;min-width:0!important;padding:6px!important;flex:1 1 auto!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;min-height:30px!important;margin:0!important;padding:4px 6px!important;border-radius:7px!important;font-size:13px!important;font-weight:600!important;line-height:1.2!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label span{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu input{flex:0 0 auto!important;margin:0!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterActions,body:not(.zebraDevice) .pfnUnifiedMultiSelectActions{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:5px!important;padding:6px!important;border-top:1px solid #e5e9ef!important;background:#fff!important;flex:0 0 auto!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterActions button,body:not(.zebraDevice) .pfnUnifiedMultiSelectActions button{min-width:0!important;min-height:32px!important;padding:4px 5px!important;border:1px solid #d8dee8!important;border-radius:7px!important;background:#fff!important;font-size:11px!important;font-weight:800!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu [data-group-action="ok"],body:not(.zebraDevice) .pfnUnifiedMultiSelectActions .issueFilterOkButton{background:#0b8fd3!important;border-color:#0b8fd3!important;color:#fff!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary{box-sizing:border-box!important;display:flex!important;flex-direction:column!important;justify-content:center!important;width:100%!important;height:58px!important;min-height:58px!important;padding:8px 38px 8px 14px!important;border:1px solid #d8dee8!important;border-radius:12px!important;background:#fff!important;list-style:none!important;cursor:pointer!important;position:relative!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary::after{content:"⌄"!important;position:absolute!important;right:13px!important;top:50%!important;transform:translateY(-50%)!important;font-size:13px!important;color:#64748b!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary span{display:block!important;margin:0 0 2px!important;font-size:10px!important;font-weight:800!important;line-height:1.1!important;letter-spacing:.06em!important;text-transform:uppercase!important;color:#64748b!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary strong{display:block!important;margin:0!important;font-size:14px!important;font-weight:800!important;line-height:1.25!important;color:#334155!important}
 }

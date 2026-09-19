@@ -44,7 +44,7 @@
 
     <link
         rel="stylesheet"
-        href="css/responsive.css?v=B10CLEAN15_15"
+        href="css/responsive.css?v=B11RECEIVING4"
     >
 
     <link
@@ -941,9 +941,9 @@
                         <div class="headerActions receivingFilterBar">
 
                             <div id="receivingClassificationFilters" class="pfrClassificationFilters pfrGroupOnlyFilters" aria-label="Group filter">
-                                <details data-class-filter="groups" class="pfnMultiSelector operationalMultiFilter">
+                                <details data-class-filter="groups" class="pfnMultiSelector operationalMultiFilter pfnUnifiedMultiSelect">
                                     <summary><span>Group</span><strong id="receivingGroupFilterLabel">All groups</strong></summary>
-                                    <div class="pfrFilterMenu"></div>
+                                    <div class="pfrFilterMenu pfnUnifiedMultiSelectMenu"></div>
                                 </details>
                             </div>
 
@@ -952,15 +952,15 @@
                                     <span>Discrepancy Types</span>
                                     <strong id="receivingIssueFilterLabel">All discrepancies</strong>
                                 </summary>
-                                <div class="issueMultiFilterMenu" role="group" aria-label="Discrepancy types">
-                                    <div class="issueMultiFilterOptions">
+                                <div class="issueMultiFilterMenu pfnUnifiedMultiSelectMenu" role="group" aria-label="Discrepancy types">
+                                    <div class="issueMultiFilterOptions pfnUnifiedMultiSelectOptions">
                                         <label><input type="checkbox" data-receiving-issue value="not_received" checked> Not Received</label>
                                         <label><input type="checkbox" data-receiving-issue value="partial" checked> Partial Shortage</label>
                                         <label><input type="checkbox" data-receiving-issue value="received_any" checked> Received Any Quantity</label>
                                         <label><input type="checkbox" data-receiving-issue value="over" checked> Over Received</label>
                                         <label><input type="checkbox" data-receiving-issue value="manual" checked> Manual / Unordered Extra</label>
                                     </div>
-                                    <div class="issueMultiFilterActions">
+                                    <div class="issueMultiFilterActions pfnUnifiedMultiSelectActions">
                                         <button type="button" id="btnSelectAllReceivingIssues">Select all</button>
                                         <button type="button" id="btnClearReceivingIssues">Clear</button>
                                         <button type="button" id="btnOkReceivingIssues" class="issueFilterOkButton">OK</button>
@@ -2758,45 +2758,46 @@
 
 <script src="js/utils.js?v=B10CLEAN15_15"></script>
 
-<script src="js/state.js?v=B10CLEAN15_15"></script>
+<script src="js/state.js?v=B11RECEIVING4"></script>
 
 <script src="js/router.js?v=B10CLEAN15_15"></script>
 
-<script src="ui.js?v=B10CLEAN32"></script>
+<script src="ui.js?v=B11RECEIVING4"></script>
 
 <script src="js/excel.js?v=B10CLEAN15_15"></script>
 
-<script src="js/master-gtin.js?v=B10CLEAN15_16"></script>
+<script src="js/master-gtin.js?v=B11RECEIVING4"></script>
 
 <script src="js/scanner.js?v=B10CLEAN15_15"></script>
 
-<script src="js/receiving.js?v=B10CLEAN15_16"></script>
+<script src="js/receiving.js?v=B11RECEIVING4"></script>
 
 <script src="js/session.js?v=B10CLEAN15_15"></script>
 
-<script src="js/reports.js?v=B10CLEAN15_15"></script>
+<script src="js/reports.js?v=B11RECEIVING4"></script>
 
 <script src="js/supabase.js?v=B10CLEAN15_15"></script>
 
-<script src="js/orders.js?v=B10CLEAN15_15"></script>
+<script src="js/orders.js?v=B11RECEIVING4"></script>
 
 <script src="js/auth.js?v=B10CLEAN22"></script>
 
 <!-- DEV-ONLY: hard tenant/write isolation. Never copy to Production A. -->
 <script src="js/dev-isolation.js?v=B10CLEAN15_15"></script>
 
-<script src="js/needs-review.js?v=B10CLEAN15_15"></script>
+<script src="js/needs-review.js?v=B11RECEIVING4"></script>
 
 <script src="js/expiry.js?v=B10CLEAN15_15"></script>
 
-<script src="cloud-workspace.js?v=B10CLEAN24"></script>
+<script src="cloud-workspace.js?v=B11RECEIVING4"></script>
 
 <script src="js/data-layer.js?v=B10CLEAN15_15"></script>
 <script src="js/pharmflow-next.js?v=B10CLEAN15_15"></script>
 
 <script src="js/app.js?v=B10CLEAN19"></script>
 
-<script src="js/handheld-runtime.js?v=B10CLEAN15_18"></script>\n<script src="js/receiving-release.js?v=B11RECEIVING2"></script>
+<script src="js/handheld-runtime.js?v=B11RECEIVING4"></script>
+<script src="js/receiving-release.js?v=B11RECEIVING4"></script>
 
 
 </body>

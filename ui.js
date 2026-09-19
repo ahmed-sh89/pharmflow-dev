@@ -7557,7 +7557,12 @@ function refreshHandheldWorkspaceStatus(){
     if(!isLikelyZebraDevice()) return;
     const state=document.getElementById("handheldWorkspaceStatus");
     if(!state) return;
-    const orders=Array.isArray(AppState?.workspace?.orderFiles)?AppState.workspace.orderFiles.length:0;
+    const activeOrders=typeof getActiveReceivingOrderNumbers==="function"
+        ? getActiveReceivingOrderNumbers()
+        : [];
+    const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"
+        ? getSelectedReceivingOrderNumbers()
+        : activeOrders;
     const authenticated=!!AuthState?.context?.pharmacy_id;
     const loading=document.body.dataset.hhWorkspaceLoading==="1";
     const online=navigator.onLine!==false;
@@ -7572,8 +7577,13 @@ function refreshHandheldWorkspaceStatus(){
     }else if(!authenticated){
         state.textContent="WORKSPACE NOT CONNECTED";
         state.classList.add("isOffline");
-    }else if(orders>0){
-        state.textContent=`CONNECTED · ${orders} ACTIVE ORDER${orders===1?"":"S"}`;
+    }else if(activeOrders.length>0){
+        const scopeLabel=selectedOrders.length===activeOrders.length
+            ? "ALL ACTIVE ORDERS"
+            : selectedOrders.length===1
+                ? "ORDER "+selectedOrders[0]
+                : selectedOrders.length+" ORDERS";
+        state.textContent=`CONNECTED • ${scopeLabel}`;
     }else{
         state.textContent="CONNECTED · NO ACTIVE ORDERS";
         state.classList.add("isEmpty");
@@ -7601,7 +7611,7 @@ function ensureHandheldReceivingTools(){
         header.innerHTML=`
             <div class="zebraFinalHeader">
                 <div class="zebraFinalTitle">
-                    <span id="handheldWorkspaceStatus" class="zebraConnectedDot">SYNCING…</span>
+                    <button id="handheldWorkspaceStatus" class="zebraConnectedDot handheldWorkScopeButton" type="button" aria-haspopup="dialog" title="Change Work Orders">SYNCING…</button>
                 </div>
                 <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>
             </div>
@@ -8192,7 +8202,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><div class="pfrClassificationFilters pfrGroupOnlyFilters"><details data-group-filter class="pfnMultiSelector"><summary>ALL GROUPS</summary><div class="pfrFilterMenu"></div></details></div><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><div class="pfrClassificationFilters pfrGroupOnlyFilters"><details data-group-filter class="pfnMultiSelector operationalMultiFilter pfnUnifiedMultiSelect"><summary><span>Group</span><strong>All groups</strong></summary><div class="pfrFilterMenu pfnUnifiedMultiSelectMenu"></div></details></div><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8268,7 +8278,7 @@ function renderItemBrowser(body, rows, options={}){
         if(!menu)return;
         const allowed=new Set(choices.groups);selectedGroups=selectedGroups.filter(value=>allowed.has(value));
         menu.innerHTML=`<div class="pfrFilterOptions">${choices.groups.map(value=>`<label><input type="checkbox" value="${esc(value)}" ${selectedGroups.includes(value)?"checked":""}><span>${esc(value)}</span></label>`).join('')||'<span class="tableEmptyState">No groups</span>'}</div><div class="pfrFilterActions"><button type="button" data-group-action="all">Select All</button><button type="button" data-group-action="clear">Clear</button><button type="button" data-group-action="ok">OK</button></div>`;
-        const summary=groupFilter.querySelector('summary');if(summary)summary.textContent=selectedGroups.length===0||selectedGroups.length===choices.groups.length?'ALL GROUPS':selectedGroups.length===1?selectedGroups[0]:selectedGroups.length+' GROUPS';
+        const label=groupFilter.querySelector('summary strong');if(label)label.textContent=selectedGroups.length===0||selectedGroups.length===choices.groups.length?'All groups':selectedGroups.length===1?selectedGroups[0]:selectedGroups.length+' groups';
     };
     rebuildClassification();
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);
