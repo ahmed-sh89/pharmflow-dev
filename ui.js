@@ -1726,7 +1726,7 @@ function refreshHeader(){
                 ? getSelectedReceivingOrderNumber()
                 : "";
 
-        if(hasActiveOrder && activeOrders.length>1 && picker){
+        if(hasActiveOrder && activeOrders.length && picker){
             orderLabel.hidden=true;
             picker.hidden=false;
 
@@ -2276,18 +2276,18 @@ function refreshReceivingCategoryFilter(){
     const scoped=(AppState.workspace.orderData||[]).filter(item=>!selected.length||selected.some(order=>itemBelongsToOrderScope(item,order)));
     const state=UI.receivingFilters.classification||(UI.receivingFilters.classification={groups:[],categories:[],subCategories:[]});
     const choices=window.PharmFlowClassificationFilters.choices(scoped,state);
-    const labels={groups:"Groups",categories:"Categories",subCategories:"Sub Categories"};
-    ["groups","categories","subCategories"].forEach(key=>{
+    const labels={groups:"GROUPS"};
+    ["groups"].forEach(key=>{
         const details=host.querySelector('[data-class-filter="'+key+'"]'),menu=details?.querySelector(".pfrFilterMenu");if(!menu)return;
         const allowed=new Set(choices[key]);state[key]=(state[key]||[]).filter(v=>allowed.has(v));
         const sig=choices[key].join("|")+"::"+state[key].join("|");if(menu.dataset.signature===sig)return;menu.dataset.signature=sig;
-        menu.innerHTML=choices[key].length?choices[key].map(v=>`<label><input type="checkbox" value="${escapeHTML(v)}" ${state[key].includes(v)?"checked":""}><span>${escapeHTML(v)}</span></label>`).join(""):'<span class="tableEmptyState">No values</span>';
-        details.querySelector("summary").textContent=state[key].length?state[key].length+" "+labels[key]+" selected":"All "+labels[key];
+        menu.innerHTML=`<div class="pfrFilterOptions">${choices[key].length?choices[key].map(v=>`<label><input type="checkbox" value="${escapeHTML(v)}" ${state[key].includes(v)?"checked":""}><span>${escapeHTML(v)}</span></label>`).join(""):'<span class="tableEmptyState">No groups</span>'}</div><div class="pfrFilterActions"><button type="button" data-group-action="all">Select All</button><button type="button" data-group-action="clear">Clear</button><button type="button" data-group-action="ok">OK</button></div>`;
+        details.querySelector("summary").textContent=!state[key].length||state[key].length===choices[key].length?"ALL GROUPS":state[key].length===1?state[key][0]:state[key].length+" "+labels[key];
     });
     if(host.dataset.bound!=="1"){
         host.dataset.bound="1";
         host.addEventListener("change",event=>{const details=event.target.closest("[data-class-filter]");if(!details)return;const key=details.dataset.classFilter;state[key]=[...details.querySelectorAll('input:checked')].map(x=>x.value);if(key==="groups"){state.categories=[];state.subCategories=[];}if(key==="categories")state.subCategories=[];refreshReceivingTable();});
-        host.querySelector("#btnClearClassificationFilters")?.addEventListener("click",()=>{state.groups=[];state.categories=[];state.subCategories=[];refreshReceivingTable();});
+        host.addEventListener("click",event=>{const action=event.target.closest('[data-group-action]')?.dataset.groupAction;if(!action)return;event.preventDefault();const details=event.target.closest('details'),boxes=[...details.querySelectorAll('input[type="checkbox"]')];if(action==="all")boxes.forEach(box=>box.checked=true);if(action==="clear")boxes.forEach(box=>box.checked=false);if(action==="ok")details.open=false;state.groups=boxes.filter(box=>box.checked).map(box=>box.value);state.categories=[];state.subCategories=[];refreshReceivingTable();});
     }
 }
 
@@ -7873,7 +7873,12 @@ function itemBelongsToOrderScope(item, scope=getActiveOrderScope()){
 
 function getScopedOrderItems(){
     const items=Array.isArray(AppState.workspace?.orderData)?AppState.workspace.orderData:[];
-    return items.filter(item=>itemBelongsToOrderScope(item));
+    const selected=typeof getSelectedReceivingOrderNumbers==="function"
+        ? getSelectedReceivingOrderNumbers()
+        : [];
+    return selected.length
+        ? items.filter(item=>selected.some(order=>itemBelongsToOrderScope(item,order)))
+        : items;
 }
 
 function getKpiPanelItems(key){
@@ -8177,19 +8182,17 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Group<select data-group-filter multiple size="3"></select></label><button type="button" class="pfnHighPriorityFilter" data-clear-classification>Clear Group</button><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><div class="pfrClassificationFilters pfrGroupOnlyFilters"><details data-group-filter><summary>ALL GROUPS</summary><div class="pfrFilterMenu"></div></details></div><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
-      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr>${orderMode?'<th>Item Code</th><th>Item Name</th><th>Priority</th><th>Classification</th><th>Quantity</th><th>Order No.</th>':'<th>Item Code</th><th>Item Name</th><th>Ordered</th>'}${receivedMode?'<th>Received</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
+      <div class="phase263TableWrap pfnCleanWorklist"><table class="quickKpiTable phase263Table"><thead><tr>${orderMode?'<th>Item Code</th><th>Item Name</th><th>Priority</th><th>Group</th><th>Quantity</th><th>Order No.</th>':'<th>Item Code</th><th>Item Name</th><th>Ordered</th>'}${receivedMode?'<th>Received</th>':''}</tr></thead><tbody data-rows></tbody></table></div>`;
     const input=body.querySelector('.phase263Search');
     const tbody=body.querySelector('[data-rows]');
     const orderFilter=body.querySelector('[data-order-filter]');
     const qtySort=body.querySelector('[data-qty-sort]');
     const groupFilter=body.querySelector('[data-group-filter]');
-    const categoryFilter=body.querySelector('[data-category-filter]');
-    const subCategoryFilter=body.querySelector('[data-subcategory-filter]');
-    const clearClassification=body.querySelector('[data-clear-classification]');
+    let selectedGroups=[];
     const priorityFilter=body.querySelector('[data-priority-filter]');
     const printPriority=body.querySelector('[data-print-priority]');
     const clearPriority=body.querySelector('[data-clear-priority]');
@@ -8198,7 +8201,7 @@ function renderItemBrowser(body, rows, options={}){
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
         const pt=getEffectiveItemPriority(item);
-        if(orderMode)return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell" data-label="Priority"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell" data-label="Category">${esc((()=>{const x=window.PharmFlowClassificationFilters?.normalize(item)||{};return x.group||"—";})())}</td><td class="pfnOrderedQty" data-label="Quantity">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo" data-label="Order No.">${esc(orders)}</td></tr>`;
+        if(orderMode)return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell" data-label="Priority"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell" data-label="Group">${esc((()=>{const x=window.PharmFlowClassificationFilters?.normalize(item)||{};return x.group||"—";})())}</td><td class="pfnOrderedQty" data-label="Quantity">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo" data-label="Order No.">${esc(orders)}</td></tr>`;
         return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty" data-label="Ordered">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td data-label="Received">${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
     };
     const draw=()=>{
@@ -8209,8 +8212,7 @@ function renderItemBrowser(body, rows, options={}){
         const selectedOrder=orderFilter?.value||'ALL';
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
         if(orderMode&&window.PharmFlowClassificationFilters){
-            const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
-            const selection={groups:read(groupFilter),categories:[],subCategories:[]};
+            const selection={groups:selectedGroups,categories:[],subCategories:[]};
             visible=window.PharmFlowClassificationFilters.filter(visible,selection);
         }
         if(orderMode&&priorityOnly) visible=visible.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
@@ -8250,18 +8252,18 @@ function renderItemBrowser(body, rows, options={}){
     const rebuildClassification=()=>{
         if(!orderMode||!window.PharmFlowClassificationFilters)return;
         const currentRows=getKpiPanelItems("total");
-        const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
-        const selected={groups:read(groupFilter),categories:[],subCategories:[]};
+        const selected={groups:selectedGroups,categories:[],subCategories:[]};
         const choices=window.PharmFlowClassificationFilters.choices(currentRows,selected);
-        const fill=(el,values,keep)=>{if(!el)return;const chosen=new Set(keep);el.innerHTML=values.map(v=>`<option value="${esc(v)}" ${chosen.has(v)?"selected":""}>${esc(v)}</option>`).join("");};
-        fill(groupFilter,choices.groups,selected.groups);fill(categoryFilter,choices.categories,selected.categories);fill(subCategoryFilter,choices.subCategories,selected.subCategories);
+        const menu=groupFilter?.querySelector('.pfrFilterMenu');
+        if(!menu)return;
+        const allowed=new Set(choices.groups);selectedGroups=selectedGroups.filter(value=>allowed.has(value));
+        menu.innerHTML=`<div class="pfrFilterOptions">${choices.groups.map(value=>`<label><input type="checkbox" value="${esc(value)}" ${selectedGroups.includes(value)?"checked":""}><span>${esc(value)}</span></label>`).join('')||'<span class="tableEmptyState">No groups</span>'}</div><div class="pfrFilterActions"><button type="button" data-group-action="all">Select All</button><button type="button" data-group-action="clear">Clear</button><button type="button" data-group-action="ok">OK</button></div>`;
+        const summary=groupFilter.querySelector('summary');if(summary)summary.textContent=selectedGroups.length===0||selectedGroups.length===choices.groups.length?'ALL GROUPS':selectedGroups.length===1?selectedGroups[0]:selectedGroups.length+' GROUPS';
     };
     rebuildClassification();
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);
-    groupFilter?.addEventListener('change',()=>{if(categoryFilter)[...categoryFilter.options].forEach(o=>o.selected=false);if(subCategoryFilter)[...subCategoryFilter.options].forEach(o=>o.selected=false);rebuildClassification();draw();});
-    categoryFilter?.addEventListener('change',()=>{if(subCategoryFilter)[...subCategoryFilter.options].forEach(o=>o.selected=false);rebuildClassification();draw();});
-    subCategoryFilter?.addEventListener('change',draw);
-    clearClassification?.addEventListener('click',()=>{[groupFilter,categoryFilter,subCategoryFilter].forEach(el=>el&&[...el.options].forEach(o=>o.selected=false));rebuildClassification();draw();});
+    groupFilter?.addEventListener('click',event=>{const action=event.target.closest('[data-group-action]')?.dataset.groupAction;if(!action)return;event.preventDefault();const boxes=[...groupFilter.querySelectorAll('input[type="checkbox"]')];if(action==='all')boxes.forEach(box=>box.checked=true);if(action==='clear')boxes.forEach(box=>box.checked=false);if(action==='ok')groupFilter.open=false;selectedGroups=boxes.filter(box=>box.checked).map(box=>box.value);rebuildClassification();draw();});
+    groupFilter?.addEventListener('change',event=>{if(!event.target.matches('input[type="checkbox"]'))return;selectedGroups=[...groupFilter.querySelectorAll('input:checked')].map(box=>box.value);rebuildClassification();draw();});
     qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;if(clearPriority)clearPriority.hidden=!priorityOnly;draw();});
     clearPriority?.addEventListener('click',async()=>{
