@@ -678,11 +678,11 @@
                             </button>
 
                             <div class="headerInfo pfnOrderSelector">
-                                <span>Select Orders</span>
+                                <span>Work Orders</span>
                                 <strong id="headerOrderId">No Active Order</strong>
                                 <div id="headerOrderPicker" class="headerOrderPicker" hidden>
                                     <button id="headerOrderPickerButton" class="headerOrderPickerButton" type="button" aria-haspopup="true" aria-expanded="false">
-                                        <span id="headerOrderPickerLabel">All Orders</span>
+                                        <span id="headerOrderPickerLabel">ALL ACTIVE ORDERS</span>
                                         <span class="headerOrderPickerChevron" aria-hidden="true">⌄</span>
                                     </button>
                                     <div id="headerOrderPickerMenu" class="headerOrderPickerMenu" role="menu" hidden></div>
@@ -959,11 +959,9 @@
                                 </div>
                             </details>
 
-                            <div id="receivingClassificationFilters" class="pfrClassificationFilters" aria-label="Classification filters">
+                            <div id="receivingClassificationFilters" class="pfrClassificationFilters pfrGroupOnlyFilters" aria-label="Group filter">
                                 <details data-class-filter="groups"><summary>All Groups</summary><div class="pfrFilterMenu"></div></details>
-                                <details data-class-filter="categories"><summary>All Categories</summary><div class="pfrFilterMenu"></div></details>
-                                <details data-class-filter="subCategories"><summary>All Sub Categories</summary><div class="pfrFilterMenu"></div></details>
-                                <button type="button" id="btnClearClassificationFilters" class="secondaryButton">Clear Classification Filters</button>
+                                <button type="button" id="btnClearClassificationFilters" class="secondaryButton">Clear Group</button>
                             </div>
 
 
