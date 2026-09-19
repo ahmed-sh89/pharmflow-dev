@@ -914,8 +914,16 @@ function getSelectedReceivingOrderNumbers(){
     /* Receiving Release: order selection is a device-local work scope, never
        shared business state.  An empty saved scope means ALL ACTIVE ORDERS. */
     if(window.PharmFlowDeviceWorkScope){
-        const saved=window.PharmFlowDeviceWorkScope.prune(active);
-        return saved.length ? saved : active.slice();
+        /* Local/cache state is rendered before the authoritative manifest can
+           arrive during refresh and sign-in. Never prune against that
+           transient startup state; prune only after manifest authority exists. */
+        const manifestAuthoritative=
+            window.PharmFlowCloudWorkspace?.activeManifestPresent===true &&
+            window.PharmFlowCloudWorkspace?.hydratedPharmacyId===AuthState?.context?.pharmacy_id;
+        return window.PharmFlowDeviceWorkScope.resolve(
+            active,
+            {authoritative:manifestAuthoritative}
+        ).orders;
     }
     const saved=Array.isArray(AppState?.workspace?.selectedOrderNumbers)
         ? AppState.workspace.selectedOrderNumbers.map(normalizeOrderNumber).filter(order=>active.includes(order))
@@ -950,9 +958,8 @@ function setSelectedReceivingOrderNumbers(orderNumbers){
     let selected=[...new Set((Array.isArray(orderNumbers)?orderNumbers:[]).map(normalizeOrderNumber).filter(order=>active.includes(order)))];
     if(!selected.length) return false;
     if(window.PharmFlowDeviceWorkScope){
-        /* Store ALL as an empty preference so newly-active orders are included
-           automatically and finalized/removed orders cannot become stale. */
-        window.PharmFlowDeviceWorkScope.set(selected.length===active.length?[]:selected);
+        if(selected.length===active.length) window.PharmFlowDeviceWorkScope.setAll();
+        else window.PharmFlowDeviceWorkScope.setSelected(selected);
     }else{
         AppState.workspace.selectedOrderNumbers=selected;
         AppState.workspace.selectedOrderNumber=selected.length===active.length?"ALL":selected.length===1?selected[0]:"MULTI";
