@@ -1711,8 +1711,8 @@ function exportReceivingSummaryExcel(){
     (s.orders||[]).forEach(o=>aoa.push([o.orderNumber,o.orderDate,o.fromWarehouse,o.toWarehouse,o.sourceFile]));
     aoa.push([]);
     const headerRow=aoa.length+1;
-    aoa.push(["Item Number","Item Name","Ordered Qty","Received Qty","Difference","Issue Type","Group","Category","Sub Category"]);
-    s.rows.forEach(r=>aoa.push([r["Item Number"],r["Item Name"],r["Ordered Qty"],r["Received Qty"],r.Difference,r["Issue Type"],r.Group||"",r.Category||"",r["Sub Category"]||""]));
+    aoa.push(["Item Number","Item Name","Ordered Qty","Received Qty","Difference","Issue Type","Group"]);
+    s.rows.forEach(r=>aoa.push([r["Item Number"],r["Item Name"],r["Ordered Qty"],r["Received Qty"],r.Difference,r["Issue Type"],r.Group||""]));
     const ws=XLSX.utils.aoa_to_sheet(aoa);
     ws["!cols"]=[{wch:18},{wch:44},{wch:13},{wch:13},{wch:12},{wch:25},{wch:22}];
     ws["!freeze"]={xSplit:0,ySplit:headerRow};
@@ -1738,7 +1738,7 @@ function exportReceivingSummaryPDF(){
         {key:"Received Qty",label:"Received",x:454,w:68},
         {key:"Difference",label:"Difference",x:522,w:68},
         {key:"Issue Type",label:"Issue Type",x:590,w:150},
-        {key:"Category",label:"Category",x:740,w:68}
+        {key:"Group",label:"Group",x:740,w:68}
     ];
     const rowH=24;
     let y=0,pageNo=0;
@@ -1780,7 +1780,7 @@ function exportReceivingSummaryPDF(){
         if(y+rowH>pageH-38){footer();doc.addPage();header();}
         doc.setFont("helvetica","normal");doc.setFontSize(8);
         const nameLines=doc.splitTextToSize(String(r["Item Name"]||""),cols[1].w-8).slice(0,2);
-        const catLines=doc.splitTextToSize(String(r.Category||""),cols[6].w-4).slice(0,2);
+        const catLines=doc.splitTextToSize(String(r.Group||""),cols[6].w-4).slice(0,2);
         doc.text(String(r["Item Number"]||""),cols[0].x,y);
         doc.text(nameLines,cols[1].x,y);
         doc.text(String(r["Ordered Qty"]),cols[2].x,y);
