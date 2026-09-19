@@ -111,22 +111,30 @@ window.bootProtectedApplication = async function(){
 
 async function startApplication(){
 
+    /* Do not expose partially hydrated KPI/dashboard markup while the
+       authoritative workspace is still loading. */
+    document.body.classList.add("workspaceBooting");
+
     if(PharmacyApp.initialized){
         /*
            Re-authentication in the same tab must also be server-first.
            Never render the previous/stale runtime before cloud authority.
         */
-        ensureCloudAccountContextIsolation?.();
+        try{
+            ensureCloudAccountContextIsolation?.();
 
-        if(typeof restoreCloudWorkspaceOnLogin==="function"){
-            await restoreCloudWorkspaceOnLogin();
+            if(typeof restoreCloudWorkspaceOnLogin==="function"){
+                await restoreCloudWorkspaceOnLogin();
+            }
+
+            if(typeof restoreHistoricalArchive==="function"){
+                await Promise.resolve(restoreHistoricalArchive());
+            }
+
+            refreshEntireUI?.();
+        }finally{
+            document.body.classList.remove("workspaceBooting");
         }
-
-        if(typeof restoreHistoricalArchive==="function"){
-            await Promise.resolve(restoreHistoricalArchive());
-        }
-
-        refreshEntireUI?.();
         return;
     }
 
@@ -202,6 +210,8 @@ async function startApplication(){
 
         PharmacyApp.initialized = true;
 
+        document.body.classList.remove("workspaceBooting");
+
 
         setSystemStatus(
             "READY",
@@ -215,6 +225,8 @@ async function startApplication(){
 
     }
     catch(error){
+
+        document.body.classList.remove("workspaceBooting");
 
         handleFatalStartupError(
             error

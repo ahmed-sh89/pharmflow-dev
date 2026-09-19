@@ -39,12 +39,12 @@
 
     <link
         rel="stylesheet"
-        href="css/dashboard.css?v=B12RECEIVING1"
+        href="css/dashboard.css?v=B13ROOTFIX1"
     >
 
     <link
         rel="stylesheet"
-        href="css/responsive.css?v=B12RECEIVING1"
+        href="css/responsive.css?v=B13ROOTFIX1"
     >
 
     <link
@@ -52,7 +52,7 @@
         href="css/auth.css?v=B10CLEAN15_15"
     >
 
-<link rel="stylesheet" href="css/pharmflow-next.css?v=B12RECEIVING1">
+<link rel="stylesheet" href="css/pharmflow-next.css?v=B13ROOTFIX1">
 
     <!-- B10 Clean15.15 — bootstrap UI gate.
          While the persisted auth session/workspace is being resolved, keep
@@ -71,6 +71,14 @@
 
 
 <body class="authBooting">
+<div id="workspaceBootOverlay" class="workspaceBootOverlay" role="status" aria-live="polite" aria-label="Loading PharmFlow">
+    <div class="workspaceBootCard">
+        <div class="authBootSpinner" aria-hidden="true"></div>
+        <span>LOADING WORKSPACE</span>
+        <strong>Preparing PharmFlow</strong>
+        <small>Loading your receiving workspace…</small>
+    </div>
+</div>
 <script>
 (function(){
     try{
@@ -955,7 +963,7 @@
                         <div class="receivingSummaryHeader">
                             <div class="pfnReportTitleBlock">
                                 <span class="sectionEyebrow">RECEIVING RECONCILIATION</span>
-                                <div class="pfnReportTitleLine"><button id="btnBackToReceivingDashboard" class="pfnReportBack" type="button" aria-label="Back to Receiving">←</button><h3>Discrepancy Report</h3></div>
+                                <div class="pfnReportTitleLine"><button id="btnBackToReceivingDashboard" class="pfnReportBack" type="button" aria-label="Back to Receiving"><span aria-hidden="true">←</span><span>Back to Receiving</span></button><h3>Discrepancy Report</h3></div>
                             </div>
                             <div class="receivingSummaryActions">
                                 <details class="pfnReportActionMenu">
@@ -2743,23 +2751,23 @@
 
 <script src="js/router.js?v=B10CLEAN15_15"></script>
 
-<script src="ui.js?v=B12RECEIVING1"></script>
+<script src="ui.js?v=B13ROOTFIX1"></script>
 
 <script src="js/excel.js?v=B10CLEAN15_15"></script>
 
 <script src="js/master-gtin.js?v=B11RECEIVING4"></script>
 
-<script src="js/scanner.js?v=B10CLEAN15_15"></script>
+<script src="js/scanner.js?v=B13ROOTFIX1"></script>
 
 <script src="js/receiving.js?v=B11RECEIVING4"></script>
 
 <script src="js/session.js?v=B10CLEAN15_15"></script>
 
-<script src="js/reports.js?v=B12RECEIVING1"></script>
+<script src="js/reports.js?v=B13ROOTFIX1"></script>
 
 <script src="js/supabase.js?v=B10CLEAN15_15"></script>
 
-<script src="js/orders.js?v=B12RECEIVING1"></script>
+<script src="js/orders.js?v=B13ROOTFIX1"></script>
 
 <script src="js/auth.js?v=B10CLEAN22"></script>
 
@@ -2775,10 +2783,10 @@
 <script src="js/data-layer.js?v=B10CLEAN15_15"></script>
 <script src="js/pharmflow-next.js?v=B10CLEAN15_15"></script>
 
-<script src="js/app.js?v=B10CLEAN19"></script>
+<script src="js/app.js?v=B13ROOTFIX1"></script>
 
-<script src="js/handheld-runtime.js?v=B11RECEIVING4"></script>
-<script src="js/receiving-release.js?v=B12RECEIVING1"></script>
+<script src="js/handheld-runtime.js?v=B13ROOTFIX1"></script>
+<script src="js/receiving-release.js?v=B13ROOTFIX1"></script>
 
 
 </body>

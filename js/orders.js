@@ -667,15 +667,15 @@ function buildFinalizedDiscrepancyEmailHTML(report){
 
     const sections=groups.map(group=>{
         const rows=group.rows;
-        const title=`فرق توريد - ${group.orderNumber||"-"} - ${group.orderDate||"-"}`;
+        const title=`فرق توريد | ${group.orderNumber||"-"} | ${group.orderDate||"-"}`;
 
         return `
-        <section style="margin:18px 0 0">
-          <div dir="rtl" style="padding:0 0 8px;color:#173d63;font-size:18px;font-weight:700;text-align:right">
+        <section dir="rtl" style="margin:20px 0 0;border:1px solid #d9e5f0;border-radius:12px;overflow:hidden;background:#ffffff">
+          <div style="padding:13px 16px 11px;background:#edf5fb;color:#173d63;font-size:18px;font-weight:800;text-align:right">
             ${esc(title)}
           </div>
-
-          <table style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;text-align:center;border:1px solid #d7e2ee" cellpadding="0" cellspacing="0">
+          <div style="padding:0 14px 14px">
+          <table dir="ltr" style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;text-align:center;border:1px solid #d7e2ee" cellpadding="0" cellspacing="0">
             <thead>
               <tr style="background:#eef5fb;color:#173d63">
                 <th style="padding:8px 6px;text-align:center;font-weight:700">Item Code</th>
@@ -695,24 +695,33 @@ function buildFinalizedDiscrepancyEmailHTML(report){
                       ""
                   );
 
+                  const diffStyle=diff<0
+                      ? "color:#b42318;background:#fff1f0"
+                      : diff>0
+                          ? "color:#9a6700;background:#fff7df"
+                          : "color:#3f627f;background:#f4f7fa";
                   return `
-                  <tr>
+                  <tr style="background:${rows.indexOf(row)%2?"#fbfdff":"#ffffff"}">
                     <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Item Number"]||"")}</td>
                     <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:left">${esc(row["Item Name"]||"")}</td>
                     <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
                     <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Received Qty"]??0)}</td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center"><strong style="font-weight:800;color:${diff<0?"#bd2637":(diff>0?"#9a5a08":"#3f627f")}">${diff>0?"+":""}${esc(diff)}</strong></td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center"><strong style="display:inline-block;min-width:36px;padding:3px 7px;border-radius:999px;font-weight:800;${diffStyle}">${diff>0?"+":""}${esc(diff)}</strong></td>
                     <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(status)}</td>
                   </tr>`;
               }).join("")}
             </tbody>
-          </table>
+          </table></div>
         </section>`;
     }).join("");
 
     return `
-    <div style="max-width:920px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#173d63;background:#ffffff;font-size:13px;line-height:1.45">
+    <div dir="rtl" style="max-width:920px;margin:0 auto;padding:26px 30px;font-family:Arial,Tahoma,sans-serif;color:#173d63;background:#f4f8fc;font-size:14px;line-height:1.7;text-align:right">
+      <div style="max-width:820px;margin:0 auto;padding:26px;background:#ffffff;border:1px solid #dce7f0;border-radius:16px;box-shadow:0 4px 14px rgba(23,61,99,.08)">
+      <p style="margin:0 0 18px;font-size:16px;font-weight:700;color:#173d63">الإخوة الكرام بالمستودع،<br>تحية طيبة وبعد،<br>يوجد فرق توريد بالطلبية أدناه، برجاء المراجعة والتشييك.</p>
       ${sections}
+      <p style="margin:24px 0 0;font-size:15px;font-weight:700;color:#173d63">خالص الشكر والتقدير.</p>
+      </div>
     </div>`;
 }
 
@@ -748,11 +757,16 @@ function buildFinalizedDiscrepancyEmailText(report){
     const groups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const lines=[];
+    const lines=[
+        "الإخوة الكرام بالمستودع،",
+        "تحية طيبة وبعد،",
+        "يوجد فرق توريد بالطلبية أدناه، برجاء المراجعة والتشييك.",
+        ""
+    ];
 
     groups.forEach(group=>{
         lines.push(
-            "فرق توريد - "+(group.orderNumber||"-")+" - "+(group.orderDate||"-"),
+            "فرق توريد | "+(group.orderNumber||"-")+" | "+(group.orderDate||"-"),
             "",
             "Item Code | Item Name | Ordered | Received | Difference | Status"
         );
@@ -771,6 +785,7 @@ function buildFinalizedDiscrepancyEmailText(report){
 
         lines.push("");
     });
+    lines.push("خالص الشكر والتقدير.");
     return lines.join("\r\n");
 }
 
@@ -844,7 +859,7 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
     const reportGroups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const subject=`فرق توريد - ${orderLabel||"-"} - ${orderDate||"-"}`;
+    const subject=`فرق توريد | ${orderLabel||"-"} | ${orderDate||"-"}`;
     const rows=Array.isArray(report?.rows)?report.rows:[];
 
     const overlay=document.createElement("div");

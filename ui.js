@@ -7576,15 +7576,28 @@ function refreshHandheldWorkspaceStatus(){
     const loading=document.body.dataset.hhWorkspaceLoading==="1";
     const online=navigator.onLine!==false;
 
+    const setStatus=(connection,scope="")=>{
+        state.replaceChildren();
+        const connectionEl=document.createElement("span");
+        connectionEl.className="handheldConnectionState";
+        connectionEl.textContent=connection;
+        state.appendChild(connectionEl);
+        if(scope){
+            const scopeEl=document.createElement("span");
+            scopeEl.className="handheldConnectionScope";
+            scopeEl.textContent=scope;
+            state.appendChild(scopeEl);
+        }
+    };
     state.classList.remove("isSyncing","isOffline","isEmpty");
     if(loading){
-        state.textContent="SYNCING WORKSPACE…";
+        setStatus("SYNCING WORKSPACE…");
         state.classList.add("isSyncing");
     }else if(!online){
-        state.textContent="OFFLINE · RECONNECTING";
+        setStatus("OFFLINE","RECONNECTING");
         state.classList.add("isOffline");
     }else if(!authenticated){
-        state.textContent="WORKSPACE NOT CONNECTED";
+        setStatus("WORKSPACE","NOT CONNECTED");
         state.classList.add("isOffline");
     }else if(activeOrders.length>0){
         const scopeLabel=selectedOrders.length===activeOrders.length
@@ -7592,9 +7605,9 @@ function refreshHandheldWorkspaceStatus(){
             : selectedOrders.length===1
                 ? "ORDER "+selectedOrders[0]
                 : selectedOrders.length+" ORDERS";
-        state.textContent=`CONNECTED • ${scopeLabel}`;
+        setStatus("CONNECTED",scopeLabel);
     }else{
-        state.textContent="CONNECTED · NO ACTIVE ORDERS";
+        setStatus("CONNECTED","NO ACTIVE ORDERS");
         state.classList.add("isEmpty");
     }
 }
@@ -7648,17 +7661,9 @@ function ensureHandheldReceivingTools(){
 
     recent.onclick=openHandheldScansPanel;
 
-    let monitoring=document.getElementById("btnHandheldMonitoring");
-    if(!monitoring){
-        monitoring=document.createElement("button");
-        monitoring.id="btnHandheldMonitoring";
-        monitoring.className="handheldTotalScansButton handheldRecentButton";
-        monitoring.type="button";
-        monitoring.setAttribute("aria-label","Open receiving monitoring");
-        monitoring.innerHTML="<span>MONITOR</span>";
-        header.appendChild(monitoring);
-    }
-    monitoring.onclick=()=>openHandheldScansPanel("MONITOR");
+    /* Monitoring remains a tab inside History. One top-level control leaves
+       more space for the actual receiving work. */
+    document.getElementById("btnHandheldMonitoring")?.remove();
     refreshHandheldReceivingTools();
 }
 

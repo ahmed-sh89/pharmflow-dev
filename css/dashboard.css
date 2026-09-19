@@ -8435,7 +8435,8 @@ body.zebraDevice .zebraConnectedDot.isEmpty:before{background:#d69a2d}
    HANDHELD RECEIVING — CANONICAL PRESENTATION
    Handheld-only. Desktop/PC selectors and behavior are intentionally untouched.
 ============================================================ */
-body.zebraDevice.zebraReceivingActive{overflow:hidden!important;background:#edf3f9!important}
+body.zebraDevice.zebraReceivingActive{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;overflow:hidden!important;background:#edf3f9!important}
+body.zebraDevice.zebraReceivingActive .mainApplication{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;overflow:hidden!important}
 body.zebraDevice.zebraReceivingActive .mainContent{height:100dvh!important;max-height:100dvh!important;overflow:hidden!important;padding:3px!important;box-sizing:border-box!important}
 body.zebraDevice.zebraReceivingActive #page-dashboard{height:100%!important;max-height:100%!important;overflow:hidden!important;padding:2px!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;gap:4px!important}
 body.zebraDevice.zebraReceivingActive #page-dashboard>.pageHeading,
@@ -8448,14 +8449,17 @@ body.zebraDevice [data-handheld-worker-hidden="1"]{display:none!important}
 body.zebraDevice.zebraReceivingActive #zebraQuickHeader{flex:0 0 auto!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:4px!important;margin:0!important;padding:4px 6px!important;border:1px solid #cfe0ee!important;border-radius:9px!important;background:#eaf4fb!important;box-shadow:none!important}
 body.zebraDevice .zebraFinalHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:4px!important;min-width:0!important}
 body.zebraDevice .zebraFinalTitle{display:flex!important;align-items:center!important;min-width:0!important}
-body.zebraDevice .zebraConnectedDot{display:inline-flex!important;align-items:center!important;min-height:24px!important;max-width:100%!important;padding:3px 8px!important;border-radius:999px!important;background:#e7f7ec!important;color:#15703a!important;font-size:8px!important;line-height:1.05!important;font-weight:950!important;white-space:normal!important}
+body.zebraDevice .zebraConnectedDot{display:inline-flex!important;align-items:center!important;gap:5px!important;min-height:24px!important;max-width:100%!important;padding:3px 8px!important;border-radius:999px!important;background:#e7f7ec!important;color:#15703a!important;font-size:8px!important;line-height:1.05!important;font-weight:950!important;white-space:normal!important}
 body.zebraDevice .zebraConnectedDot:before{content:"";width:7px;height:7px;flex:0 0 7px;margin-right:5px;border-radius:50%;background:#159447}
+body.zebraDevice .handheldConnectionState{font-weight:950!important}body.zebraDevice .handheldConnectionScope{padding-left:5px;border-left:1px solid currentColor;font-weight:800!important;opacity:.86}
 body.zebraDevice .zebraModesButton{min-height:28px!important;padding:0 9px!important;border:1px solid #bfd2e5!important;border-radius:8px!important;background:#f5f9fd!important;color:var(--pf-navy)!important;font-size:9px!important;font-weight:950!important}
 body.zebraDevice.zebraReceivingActive #btnHandheldTotalScans.handheldRecentButton{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:4px!important;min-height:25px!important;padding:2px 7px!important;border:1px solid #c4d7e9!important;border-radius:7px!important;background:#f4f8fc!important;color:var(--pf-blue)!important;font-weight:950!important}
 body.zebraDevice .handheldRecentButton span{font-size:7px!important} body.zebraDevice .handheldRecentButton strong{font-size:10px!important}
 
 /* Scan item — compact, keyboard-free hardware scanner field. */
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanel{flex:0 0 auto!important;margin:0!important;padding:5px!important;border:1px solid #c8dced!important;border-radius:10px!important;background:#eaf5fc!important;overflow:hidden!important;box-shadow:none!important}
+body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #page-dashboard .scanPanel,body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #lastScanCard{visibility:hidden!important}
+body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #page-dashboard:after{content:"Loading receiving workspace…";display:grid;place-items:center;flex:1;min-height:0;border:1px solid #cfe0ee;border-radius:10px;background:#f8fbfe;color:#315f9e;font-size:12px;font-weight:800}
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:5px!important;margin:0 0 4px!important;padding:0!important;min-height:20px!important}
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader .sectionEyebrow,
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader p{display:none!important}
