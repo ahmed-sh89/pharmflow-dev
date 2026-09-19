@@ -57,27 +57,28 @@
         if(worker) return worker;
         worker=(async()=>{
             while(true){
-                const row=(await pending())[0]; if(!row) break;
+                const rows=await pending();
+                /* An older confirmed row can remain in IndexedDB after a
+                   browser restart. It must stay durable until cloud sync
+                   proves it safe to remove, but it must never make every
+                   later hardware scan appear unread. The cloud transaction
+                   queue serializes server upload; this scan-acceptance queue
+                   may therefore continue with the next unprocessed entry. */
+                for(const waiting of rows.filter(entry=>entry.state==="awaitingConfirmation")){
+                    await discardConfirmedHead(waiting);
+                }
+                const row=(await pending()).find(entry=>entry.state!=="awaitingConfirmation");
+                if(!row) break;
                 if(!navigator.onLine){window.refreshHandheldWorkspaceStatus?.();break;}
                 try{
-                    if(row.state==="awaitingConfirmation"){
-                        if(await discardConfirmedHead(row)) continue;
-                        /* The cloud queue owns retries for an already-created
-                           transaction. Replaying it here would duplicate the
-                           local receive path, so preserve strict ordering. */
-                        break;
-                    }
-                    if(row.state!=="awaitingConfirmation"){
-                        const clean=typeof cleanScannerInput==="function"?cleanScannerInput(row.raw):String(row.raw||"").trim();
-                        const parsed=typeof parseGS1Barcode==="function"?parseGS1Barcode(clean):null;
-                        if(!parsed?.gtin) throw new Error("GTIN could not be extracted from queued scan");
-                        /* Persist the wait state before receiveParsedBarcode
-                           can schedule and complete a cloud acknowledgement. */
-                        row.state="awaitingConfirmation"; row.lastError=""; row.lastAttemptAt=new Date().toISOString(); await put(row);
-                        const result=await receiveParsedBarcode(parsed,{transactionId:row.transactionId});
-                        if(result===false){await remove(row.transactionId);continue;}
-                    }
-                    break;
+                    const clean=typeof cleanScannerInput==="function"?cleanScannerInput(row.raw):String(row.raw||"").trim();
+                    const parsed=typeof parseGS1Barcode==="function"?parseGS1Barcode(clean):null;
+                    if(!parsed?.gtin) throw new Error("GTIN could not be extracted from queued scan");
+                    /* Persist the wait state before receiveParsedBarcode can
+                       schedule and complete a cloud acknowledgement. */
+                    row.state="awaitingConfirmation"; row.lastError=""; row.lastAttemptAt=new Date().toISOString(); await put(row);
+                    const result=await receiveParsedBarcode(parsed,{transactionId:row.transactionId});
+                    if(result===false){await remove(row.transactionId);}
                 }catch(error){
                     row.lastError=String(error?.message||error);row.lastAttemptAt=new Date().toISOString();await put(row);
                     Logger?.warn?.("Queued scan awaiting retry",error);break;
