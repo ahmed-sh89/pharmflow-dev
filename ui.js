@@ -1736,10 +1736,10 @@ function refreshHeader(){
             if(pickerLabel){
                 pickerLabel.textContent=
                     allSelected
-                        ? "All Orders"
+                        ? "ALL ACTIVE ORDERS"
                         : selectedOrders.length===1
                             ? selectedOrders[0]
-                            : selectedOrders.length+" Orders Selected";
+                            : selectedOrders.length+" ORDERS";
             }
 
             if(pickerMenu){
@@ -1751,7 +1751,7 @@ function refreshHeader(){
                 if(pickerMenu.dataset.signature!==signature){
                     pickerMenu.innerHTML=`
                         <div class="headerOrderPickerTitle">
-                            <strong>Select Orders</strong>
+                            <strong>Work Orders</strong>
                             <span>Choose one or multiple active orders</span>
                         </div>
 
@@ -1766,7 +1766,7 @@ function refreshHeader(){
                                     <span class="headerOrderCheckBox"></span>
                                     <span class="headerOrderCheckText">
                                         <strong>${escapeHTML(order)}</strong>
-                                        <small>Include in Dashboard & Receiving</small>
+                                        <small>Include in Receiving</small>
                                     </span>
                                 </label>
                             `).join("")}
@@ -2264,7 +2264,7 @@ function refreshReceivingTable(){
     rows.forEach((item,index)=>{const tr=createReceivingTableRow(item,index);tr.dataset.orderNumber=item.orderNumber||"";tbody.appendChild(tr);});
     if(inline){
         if(searchFilter&&rows.length){const item=rows[0],order=item.orderNumber||((Array.isArray(item.orderNumbers)&&item.orderNumbers[0])||"—"),cl=window.PharmFlowClassificationFilters?.normalize(item)||{};
-            inline.hidden=false;inline.innerHTML=`<div class="pfnInlineRow"><span>${escapeHTML(order)}</span><b>${escapeHTML(item.itemCode||"")}</b><strong>${escapeHTML(item.itemName||"")}</strong><span>${escapeHTML([cl.group,cl.category,cl.subCategory].filter(Boolean).join(" › ")||"—")}</span><span>Ordered <b>${toNumber(item.orderedQty,0)}</b></span><div class="tableQtyControl"><button type="button" class="tableQtyButton" data-inline-minus>−</button><button type="button" class="tableQtyValue" data-inline-edit>${toNumber(item.receivedQty,0)}</button><button type="button" class="tableQtyButton" data-inline-plus>+</button></div><span>Remaining <b>${toNumber(item.remainingQty,0)}</b></span><span>${escapeHTML(item.status||"")}</span></div>`;
+            inline.hidden=false;inline.innerHTML=`<div class="pfnInlineRow"><span>${escapeHTML(order)}</span><b>${escapeHTML(item.itemCode||"")}</b><strong>${escapeHTML(item.itemName||"")}</strong><span>${escapeHTML(cl.group||"—")}</span><span>Ordered <b>${toNumber(item.orderedQty,0)}</b></span><div class="tableQtyControl"><button type="button" class="tableQtyButton" data-inline-minus>−</button><button type="button" class="tableQtyValue" data-inline-edit>${toNumber(item.receivedQty,0)}</button><button type="button" class="tableQtyButton" data-inline-plus>+</button></div><span>Remaining <b>${toNumber(item.remainingQty,0)}</b></span><span>${escapeHTML(item.status||"")}</span></div>`;
             inline.querySelector('[data-inline-plus]')?.addEventListener('click',()=>increaseItemQuantity(item.itemCode,1));inline.querySelector('[data-inline-minus]')?.addEventListener('click',()=>decreaseItemQuantity(item.itemCode,1));inline.querySelector('[data-inline-edit]')?.addEventListener('click',()=>openQuantityEditPrompt(item));
         }else{inline.hidden=true;inline.innerHTML="";}
     }
@@ -2346,7 +2346,7 @@ function createReceivingTableRow(
         </td>
 
         <td class="receivingCategoryCell">
-            ${escapeHTML(toSafeString(([window.PharmFlowClassificationFilters?.normalize(item)?.group,window.PharmFlowClassificationFilters?.normalize(item)?.category,window.PharmFlowClassificationFilters?.normalize(item)?.subCategory].filter(Boolean).join(" › ") || "—")))}
+            ${escapeHTML(toSafeString((window.PharmFlowClassificationFilters?.normalize(item)?.group || "—")))}
         </td>
 
         <td>
@@ -8177,7 +8177,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Group<select data-group-filter multiple size="3"></select></label><label>Category<select data-category-filter multiple size="3"></select></label><label>Sub Category<select data-subcategory-filter multiple size="3"></select></label><button type="button" class="pfnHighPriorityFilter" data-clear-classification>Clear Classification</button><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><label>Group<select data-group-filter multiple size="3"></select></label><button type="button" class="pfnHighPriorityFilter" data-clear-classification>Clear Group</button><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8198,7 +8198,7 @@ function renderItemBrowser(body, rows, options={}){
     const rowHtml=item=>{
         const orders=(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean).join(', ')||'—';
         const pt=getEffectiveItemPriority(item);
-        if(orderMode)return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell" data-label="Priority"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell" data-label="Category">${esc((()=>{const x=window.PharmFlowClassificationFilters?.normalize(item)||{};return [x.group,x.category,x.subCategory].filter(Boolean).join(" › ")||"—";})())}</td><td class="pfnOrderedQty" data-label="Quantity">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo" data-label="Order No.">${esc(orders)}</td></tr>`;
+        if(orderMode)return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnPriorityCell" data-label="Priority"><div class="pfnPrioritySegment"><button type="button" class="pfnPriorityMark ${pt==='SHORT'?'active short':''}" data-mark="SHORT" data-code="${esc(item.itemCode)}">SHORT</button><button type="button" class="pfnPriorityMark ${pt==='NEW'?'active new':''}" data-mark="NEW" data-code="${esc(item.itemCode)}">NEW</button></div></td><td class="pfnCategoryCell" data-label="Category">${esc((()=>{const x=window.PharmFlowClassificationFilters?.normalize(item)||{};return x.group||"—";})())}</td><td class="pfnOrderedQty" data-label="Quantity">${esc(toNumber(item.orderedQty,0))}</td><td class="pfnOrderNo" data-label="Order No.">${esc(orders)}</td></tr>`;
         return `<tr class="pfnMobileItemCard"><td class="pfnItemCode" data-label="Item Number">${esc(item.itemCode)}</td><td class="pfnItemName" data-label="Item Name"><b>${esc(item.itemName)}</b></td><td class="pfnOrderedQty" data-label="Ordered">${esc(toNumber(item.orderedQty,0))}</td>${receivedMode?`<td data-label="Received">${esc(toNumber(item.receivedQty,0))}</td>`:''}</tr>`;
     };
     const draw=()=>{
@@ -8210,7 +8210,7 @@ function renderItemBrowser(body, rows, options={}){
         if(orderMode&&selectedOrder!=='ALL') visible=visible.filter(item=>(Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).includes(selectedOrder));
         if(orderMode&&window.PharmFlowClassificationFilters){
             const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
-            const selection={groups:read(groupFilter),categories:read(categoryFilter),subCategories:read(subCategoryFilter)};
+            const selection={groups:read(groupFilter),categories:[],subCategories:[]};
             visible=window.PharmFlowClassificationFilters.filter(visible,selection);
         }
         if(orderMode&&priorityOnly) visible=visible.filter(item=>['NEW','SHORT'].includes(getEffectiveItemPriority(item)));
@@ -8251,7 +8251,7 @@ function renderItemBrowser(body, rows, options={}){
         if(!orderMode||!window.PharmFlowClassificationFilters)return;
         const currentRows=getKpiPanelItems("total");
         const read=el=>el?[...el.selectedOptions].map(o=>o.value):[];
-        const selected={groups:read(groupFilter),categories:read(categoryFilter),subCategories:read(subCategoryFilter)};
+        const selected={groups:read(groupFilter),categories:[],subCategories:[]};
         const choices=window.PharmFlowClassificationFilters.choices(currentRows,selected);
         const fill=(el,values,keep)=>{if(!el)return;const chosen=new Set(keep);el.innerHTML=values.map(v=>`<option value="${esc(v)}" ${chosen.has(v)?"selected":""}>${esc(v)}</option>`).join("");};
         fill(groupFilter,choices.groups,selected.groups);fill(categoryFilter,choices.categories,selected.categories);fill(subCategoryFilter,choices.subCategories,selected.subCategories);
