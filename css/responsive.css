@@ -136,91 +136,143 @@ body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-w
 body.zebraDevice #page-dashboard [data-action="minus"],
 body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
 
-/* B11.3 Consolidated operational selectors — single visual system */
+/* B11.4 Final Receiving UI cleanup — replaces B11.3 selector overrides */
 @media (min-width:769px){
+  /* Work Orders and Manage Orders: one clear, compact control group. */
+  body:not(.zebraDevice) #page-dashboard .pfnOrderControlGroup{
+    display:flex!important;align-items:flex-end!important;gap:10px!important;padding:8px 10px!important;
+    border:1px solid #e2e8f0!important;border-radius:12px!important;background:#f8fafc!important
+  }
+  body:not(.zebraDevice) #page-dashboard .pfnManageOrdersButton{
+    height:42px!important;min-width:150px!important;border-radius:9px!important
+  }
   body:not(.zebraDevice) #page-dashboard .pfnOrderSelector{
-    display:flex!important;align-items:center!important;gap:10px!important;
-    min-height:44px!important;padding:0!important;border:0!important;background:transparent!important;
-    box-shadow:none!important
+    display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;
+    min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important
   }
   body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{
-    margin:0!important;font-size:11px!important;font-weight:800!important;letter-spacing:.08em!important;
-    color:#64748b!important;white-space:nowrap!important
+    margin:0 0 0 2px!important;font-size:10px!important;font-weight:800!important;letter-spacing:.08em!important;
+    line-height:1!important;color:#64748b!important;text-transform:uppercase!important
   }
-  body:not(.zebraDevice) #page-dashboard .headerOrderPicker{
-    display:block!important;position:relative!important;margin:0!important
-  }
+  body:not(.zebraDevice) #page-dashboard .headerOrderPicker{display:block!important;position:relative!important;margin:0!important}
   body:not(.zebraDevice) #page-dashboard .headerOrderPickerButton{
-    min-width:210px!important;height:40px!important;padding:0 12px!important;border:1px solid #d8dee8!important;
-    border-radius:10px!important;background:#fff!important;box-shadow:none!important
+    min-width:210px!important;height:42px!important;padding:0 12px!important;border:1px solid #cbd5e1!important;
+    border-radius:9px!important;background:#fff!important;box-shadow:none!important
   }
-  body:not(.zebraDevice) #page-dashboard #headerOrderPickerLabel{font-size:13px!important;font-weight:800!important}
+  body:not(.zebraDevice) #page-dashboard #headerOrderPickerLabel{font-size:13px!important;font-weight:800!important;color:#334155!important}
   body:not(.zebraDevice) #page-dashboard .headerOrderPickerMenu{
     position:fixed!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
-    width:min(360px,calc(100vw - 40px))!important;max-height:min(480px,calc(100vh - 72px))!important;
+    width:min(350px,calc(100vw - 40px))!important;max-height:min(430px,calc(100vh - 72px))!important;
     display:flex!important;flex-direction:column!important;overflow:hidden!important;background:#fff!important;
     border:1px solid #d8dee8!important;border-radius:12px!important;box-shadow:0 18px 48px rgba(15,23,42,.22)!important;
     z-index:10050!important
   }
   body:not(.zebraDevice) #page-dashboard .headerOrderPickerMenu[hidden]{display:none!important}
-  body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle{padding:13px 14px 8px!important}
-  body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle strong{font-size:15px!important}
-  body:not(.zebraDevice) #page-dashboard .headerOrderPickerOptions{overflow-y:auto!important;min-height:0!important;padding:3px 10px!important}
-  body:not(.zebraDevice) #page-dashboard .headerOrderCheckOption{min-height:42px!important;padding:6px 5px!important}
+  body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle{padding:11px 12px 6px!important}
+  body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle strong{font-size:14px!important}
+  body:not(.zebraDevice) #page-dashboard .headerOrderPickerOptions{overflow-y:auto!important;min-height:0!important;padding:2px 8px!important}
+  body:not(.zebraDevice) #page-dashboard .headerOrderCheckOption{min-height:36px!important;padding:4px!important}
   body:not(.zebraDevice) #page-dashboard .headerOrderPickerActions{
-    display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;padding:9px 10px!important;
-    border-top:1px solid #e5e9ef!important;background:#fff!important
+    display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;padding:7px 8px!important;
+    border-top:1px solid #e5e9ef!important;background:#fff!important;flex:0 0 auto!important
   }
 
-  body:not(.zebraDevice) .pfnMultiSelector{position:relative!important;min-width:180px!important}
-  body:not(.zebraDevice) .pfnMultiSelector>summary{
-    display:flex!important;align-items:center!important;min-height:58px!important;padding:9px 14px!important;
-    border:1px solid #d8dee8!important;border-radius:12px!important;background:#fff!important;
-    font-size:14px!important;font-weight:800!important;color:#334155!important;list-style:none!important
+  /* Receiving Report selectors share one visual language. */
+  body:not(.zebraDevice) #page-receiving .receivingFilterBar{
+    display:flex!important;align-items:flex-start!important;gap:10px!important;flex-wrap:nowrap!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector>summary::-webkit-details-marker{display:none!important}
-  body:not(.zebraDevice) .pfnMultiSelector>summary::after{
-    content:"⌄";margin-left:auto;font-size:13px;color:#64748b
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter{
+    position:relative!important;width:230px!important;min-width:230px!important;margin:0!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterMenu{
-    position:absolute!important;top:calc(100% + 6px)!important;left:0!important;right:auto!important;
-    width:280px!important;min-width:280px!important;max-width:min(280px,calc(100vw - 32px))!important;
-    max-height:min(330px,calc(100vh - 110px))!important;display:flex!important;flex-direction:column!important;
-    overflow:hidden!important;padding:0!important;background:#fff!important;border:1px solid #d8dee8!important;
-    border-radius:12px!important;box-shadow:0 14px 34px rgba(15,23,42,.18)!important;z-index:10045!important
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter>summary{
+    box-sizing:border-box!important;display:flex!important;flex-direction:column!important;justify-content:center!important;
+    width:100%!important;height:58px!important;min-height:58px!important;padding:8px 38px 8px 14px!important;
+    border:1px solid #d8dee8!important;border-radius:12px!important;background:#fff!important;list-style:none!important;
+    cursor:pointer!important;position:relative!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterOptions{
-    overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;padding:8px!important;background:#fff!important
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter>summary::-webkit-details-marker{display:none!important}
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter>summary::after{
+    content:"⌄";position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:13px;color:#64748b
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterOptions label{
-    display:flex!important;align-items:center!important;gap:10px!important;min-height:38px!important;
-    margin:0!important;padding:7px 8px!important;border-radius:8px!important;font-size:13px!important;
-    font-weight:600!important;color:#334155!important;white-space:normal!important
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter>summary span{
+    display:block!important;margin:0 0 2px!important;font-size:10px!important;font-weight:800!important;
+    line-height:1.1!important;letter-spacing:.06em!important;text-transform:uppercase!important;color:#64748b!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterOptions label:hover{background:#f6f8fb!important}
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterOptions input{flex:0 0 auto!important;margin:0!important}
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterActions{
-    position:static!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:6px!important;
-    padding:8px!important;border-top:1px solid #e5e9ef!important;background:#fff!important
+  body:not(.zebraDevice) #page-receiving .operationalMultiFilter>summary strong{
+    display:block!important;margin:0!important;font-size:14px!important;font-weight:800!important;
+    line-height:1.25!important;color:#334155!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterActions button{
-    width:100%!important;min-width:0!important;min-height:36px!important;padding:5px!important;
-    border:1px solid #d8dee8!important;border-radius:8px!important;background:#fff!important;
+
+  body:not(.zebraDevice) #page-receiving .pfrClassificationFilters{display:block!important}
+  body:not(.zebraDevice) #page-receiving .pfnMultiSelector .pfrFilterMenu,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterMenu{
+    position:absolute!important;top:calc(100% + 5px)!important;left:0!important;right:auto!important;
+    width:260px!important;min-width:260px!important;max-width:calc(100vw - 32px)!important;
+    max-height:min(285px,calc(100vh - 110px))!important;overflow:hidden!important;
+    display:flex!important;flex-direction:column!important;padding:0!important;background:#fff!important;
+    border:1px solid #d8dee8!important;border-radius:11px!important;box-shadow:0 12px 30px rgba(15,23,42,.16)!important;
+    z-index:10045!important
+  }
+  body:not(.zebraDevice) #page-receiving .pfrFilterOptions,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterOptions{
+    overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;padding:5px 6px!important;flex:1 1 auto!important
+  }
+  body:not(.zebraDevice) #page-receiving .pfrFilterOptions label,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterOptions label{
+    display:flex!important;align-items:center!important;gap:8px!important;min-height:30px!important;
+    margin:0!important;padding:4px 6px!important;border-radius:7px!important;font-size:13px!important;
+    font-weight:600!important;line-height:1.2!important;color:#334155!important
+  }
+  body:not(.zebraDevice) #page-receiving .pfrFilterOptions label:hover,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterOptions label:hover{background:#f6f8fb!important}
+  body:not(.zebraDevice) #page-receiving .pfrFilterOptions input,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterOptions input{flex:0 0 auto!important;margin:0!important}
+
+  body:not(.zebraDevice) #page-receiving .pfrFilterActions,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterActions{
+    position:sticky!important;bottom:0!important;display:grid!important;grid-template-columns:1fr 1fr 1fr!important;
+    gap:5px!important;padding:6px!important;border-top:1px solid #e5e9ef!important;background:#fff!important;
+    flex:0 0 auto!important
+  }
+  body:not(.zebraDevice) #page-receiving .pfrFilterActions button,
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterActions button{
+    width:100%!important;min-width:0!important;min-height:32px!important;padding:4px 5px!important;
+    border:1px solid #d8dee8!important;border-radius:7px!important;background:#fff!important;
     font-size:11px!important;font-weight:800!important
   }
-  body:not(.zebraDevice) .pfnMultiSelector .pfrFilterActions [data-group-action="ok"]{
+  body:not(.zebraDevice) #page-receiving .pfrFilterActions [data-group-action="ok"],
+  body:not(.zebraDevice) #page-receiving .issueMultiFilterActions .issueFilterOkButton{
     background:#0b8fd3!important;border-color:#0b8fd3!important;color:#fff!important
   }
 
-  body:not(.zebraDevice) #receivingClassificationFilters{align-items:stretch!important}
-  body:not(.zebraDevice) #receivingClassificationFilters .pfnMultiSelector>summary{
-    min-height:58px!important;min-width:190px!important
-  }
+  /* Order Item Browser uses the same compact Group option rows and fixed actions. */
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfrClassificationFilters{display:block!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnMultiSelector{position:relative!important;min-width:180px!important}
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnMultiSelector>summary{
-    min-height:42px!important;min-width:190px!important;padding:8px 12px!important;border-radius:8px!important
+    display:flex!important;align-items:center!important;min-height:42px!important;min-width:190px!important;
+    padding:8px 12px!important;border:1px solid #d8dee8!important;border-radius:8px!important;
+    background:#fff!important;font-size:13px!important;font-weight:800!important;color:#334155!important;list-style:none!important
   }
-  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnMultiSelector .pfrFilterMenu{
-    left:0!important;right:auto!important
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnMultiSelector>summary::after{content:"⌄";margin-left:auto;color:#64748b}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterMenu{
+    position:absolute!important;top:calc(100% + 5px)!important;left:0!important;width:250px!important;max-height:260px!important;
+    display:flex!important;flex-direction:column!important;overflow:hidden!important;padding:0!important;background:#fff!important;
+    border:1px solid #d8dee8!important;border-radius:10px!important;box-shadow:0 12px 28px rgba(15,23,42,.16)!important;z-index:10045!important
+  }
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterOptions{overflow-y:auto!important;padding:5px!important;min-height:0!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterOptions label{
+    display:flex!important;align-items:center!important;gap:8px!important;min-height:30px!important;padding:4px 6px!important;
+    margin:0!important;border-radius:7px!important;font-size:13px!important;font-weight:600!important
+  }
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterActions{
+    display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:5px!important;padding:6px!important;
+    border-top:1px solid #e5e9ef!important;background:#fff!important;flex:0 0 auto!important
+  }
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterActions button{
+    min-height:32px!important;padding:4px!important;border:1px solid #d8dee8!important;border-radius:7px!important;
+    background:#fff!important;font-size:11px!important;font-weight:800!important
+  }
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfrFilterActions [data-group-action="ok"]{
+    background:#0b8fd3!important;border-color:#0b8fd3!important;color:#fff!important
   }
 }
