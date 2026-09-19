@@ -132,3 +132,35 @@ body.zebraDevice #page-dashboard .quantityButton,
 body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-weight:800!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 body.zebraDevice #page-dashboard [data-action="minus"],
 body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
+
+/* B11.1 PC UI correction — compact Group-only filtering and safe Work Orders */
+body:not(.zebraDevice) #page-dashboard .pfrGroupOnlyFilters{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+body:not(.zebraDevice) #page-dashboard .pfrGroupOnlyFilters details{min-width:170px;max-width:220px}
+body:not(.zebraDevice) #page-dashboard .pfrGroupOnlyFilters summary{min-height:34px;padding:7px 10px}
+body:not(.zebraDevice) #page-dashboard .pfrGroupOnlyFilters .pfrFilterMenu{max-height:220px;overflow-y:auto}
+body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{font-size:12px!important;font-weight:800!important;letter-spacing:.04em}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerButton{min-width:210px!important;min-height:38px!important;padding:8px 12px!important}
+body:not(.zebraDevice) #page-dashboard #headerOrderPickerLabel{font-size:13px!important;font-weight:800!important;letter-spacing:.02em!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerMenu{
+ position:fixed!important;left:50%!important;top:50%!important;right:auto!important;bottom:auto!important;
+ transform:translate(-50%,-50%)!important;width:min(430px,calc(100vw - 32px))!important;
+ max-height:min(560px,calc(100vh - 80px))!important;overflow:hidden!important;
+ display:flex!important;flex-direction:column!important;z-index:10050!important;
+ background:#fff!important;border:1px solid #d7dce3!important;border-radius:14px!important;
+ box-shadow:0 18px 55px rgba(0,0,0,.22)!important;padding:0!important
+}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerMenu[hidden]{display:none!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle{padding:16px 18px 10px!important;flex:0 0 auto}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerTitle strong{font-size:17px!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerOptions{overflow-y:auto!important;min-height:0!important;max-height:none!important;padding:4px 14px!important;flex:1 1 auto}
+body:not(.zebraDevice) #page-dashboard .headerOrderCheckOption{min-height:52px!important;padding:9px 6px!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderCheckText strong{font-size:14px!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderCheckText small{font-size:11px!important}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerActions{
+ position:sticky!important;bottom:0!important;display:grid!important;grid-template-columns:1fr 1fr 1.2fr!important;
+ gap:8px!important;padding:12px 14px!important;background:#fff!important;border-top:1px solid #e5e9ef!important;
+ flex:0 0 auto!important
+}
+body:not(.zebraDevice) #page-dashboard .headerOrderPickerActions button{min-height:40px!important;font-size:13px!important;font-weight:800!important}
+body:not(.zebraDevice) .pfnOrderBrowserControls .pfnBrowserControlRow{align-items:flex-end!important;gap:8px!important}
+body:not(.zebraDevice) .pfnOrderBrowserControls [data-group-filter]{min-width:170px!important;max-height:78px!important}
