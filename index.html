@@ -940,17 +940,26 @@
 
                         <div class="headerActions receivingFilterBar">
 
-                            <details id="receivingIssueFilter" class="issueMultiFilter">
+                            <div id="receivingClassificationFilters" class="pfrClassificationFilters pfrGroupOnlyFilters" aria-label="Group filter">
+                                <details data-class-filter="groups" class="pfnMultiSelector operationalMultiFilter">
+                                    <summary><span>Group</span><strong id="receivingGroupFilterLabel">All groups</strong></summary>
+                                    <div class="pfrFilterMenu"></div>
+                                </details>
+                            </div>
+
+                            <details id="receivingIssueFilter" class="issueMultiFilter operationalMultiFilter">
                                 <summary>
                                     <span>Discrepancy Types</span>
                                     <strong id="receivingIssueFilterLabel">All discrepancies</strong>
                                 </summary>
                                 <div class="issueMultiFilterMenu" role="group" aria-label="Discrepancy types">
-                                    <label><input type="checkbox" data-receiving-issue value="not_received" checked> Not Received</label>
-                                    <label><input type="checkbox" data-receiving-issue value="partial" checked> Partial Shortage</label>
-                                    <label><input type="checkbox" data-receiving-issue value="received_any" checked> Received Any Quantity</label>
-                                    <label><input type="checkbox" data-receiving-issue value="over" checked> Over Received</label>
-                                    <label><input type="checkbox" data-receiving-issue value="manual" checked> Manual / Unordered Extra</label>
+                                    <div class="issueMultiFilterOptions">
+                                        <label><input type="checkbox" data-receiving-issue value="not_received" checked> Not Received</label>
+                                        <label><input type="checkbox" data-receiving-issue value="partial" checked> Partial Shortage</label>
+                                        <label><input type="checkbox" data-receiving-issue value="received_any" checked> Received Any Quantity</label>
+                                        <label><input type="checkbox" data-receiving-issue value="over" checked> Over Received</label>
+                                        <label><input type="checkbox" data-receiving-issue value="manual" checked> Manual / Unordered Extra</label>
+                                    </div>
                                     <div class="issueMultiFilterActions">
                                         <button type="button" id="btnSelectAllReceivingIssues">Select all</button>
                                         <button type="button" id="btnClearReceivingIssues">Clear</button>
@@ -958,10 +967,6 @@
                                     </div>
                                 </div>
                             </details>
-
-                            <div id="receivingClassificationFilters" class="pfrClassificationFilters pfrGroupOnlyFilters" aria-label="Group filter">
-                                <details data-class-filter="groups" class="pfnMultiSelector"><summary>ALL GROUPS</summary><div class="pfrFilterMenu"></div></details>
-                            </div>
 
 
 
