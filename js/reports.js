@@ -1269,7 +1269,8 @@ function buildMultiOrderReceivingReport(options={}){
         const allRows=getPerOrderReceivingRows(orderNumber);
 
         const rows=allRows.filter(row=>{
-            if(!row.issueKey || !selectedKeys.has(row.issueKey)){
+            const received=Number(row?.["Received Qty"]||0);
+            if(!(selectedKeys.has(row.issueKey) || (selectedKeys.has("received_any") && received>0))){
                 return false;
             }
 
@@ -1686,6 +1687,7 @@ function refreshReceivingVerificationSummary(){
         rsDisplayedItems:visible.totalDiscrepancies,
         rsTotalItems:all.totalDiscrepancies,
         rsShort:all.shortageItems,
+        rsReceived:(all.rows||[]).filter(row=>Number(row?.["Received Qty"]||0)>0).length,
         rsOver:all.overItems,
         rsManual:all.manualExtraItems
     };

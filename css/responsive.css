@@ -152,7 +152,8 @@ body.zebraDevice #pfrChangeOrders{display:none!important}
     display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;
     min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important
   }
-  body:not(.zebraDevice) #page-dashboard .pfnLegacyOrderId{display:none!important}\n  body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{
+  body:not(.zebraDevice) #page-dashboard .pfnLegacyOrderId{display:none!important}
+  body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{
     margin:0 0 0 2px!important;font-size:10px!important;font-weight:800!important;letter-spacing:.08em!important;
     line-height:1!important;color:#64748b!important;text-transform:uppercase!important
   }
@@ -279,14 +280,13 @@ body.zebraDevice #pfrChangeOrders{display:none!important}
   }
 }
 
-/* B11.6 — shared bounded multi-select for Receiving, Order Items and
-   Receiving Report. It blocks inherited horizontal scrolling. */
+/* Shared bounded multi-select for Receiving, Order Items and Receiving Report. */
 @media (min-width:769px){
   body:not(.zebraDevice) #page-receiving .pfnUnifiedMultiSelect,body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect{position:relative!important;width:260px!important;min-width:260px!important;max-width:260px!important}
   body:not(.zebraDevice) #page-receiving .pfnUnifiedMultiSelectMenu,body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu{position:absolute!important;z-index:10060!important;top:calc(100% + 6px)!important;left:0!important;box-sizing:border-box!important;width:260px!important;min-width:260px!important;max-width:calc(100vw - 32px)!important;max-height:min(286px,calc(100vh - 112px))!important;overflow:hidden!important;display:flex!important;flex-direction:column!important;padding:0!important;background:#fff!important;border:1px solid #d8dee8!important;border-radius:11px!important;box-shadow:0 12px 30px rgba(15,23,42,.16)!important}
   body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterOptions,body:not(.zebraDevice) .pfnUnifiedMultiSelectOptions{overflow-y:auto!important;overflow-x:hidden!important;min-width:0!important;padding:6px!important;flex:1 1 auto!important}
-  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;min-height:30px!important;margin:0!important;padding:4px 6px!important;border-radius:7px!important;font-size:13px!important;font-weight:600!important;line-height:1.2!important}
-  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label span{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label{box-sizing:border-box!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;min-width:0!important;width:100%!important;min-height:30px!important;margin:0!important;padding:4px 6px!important;border-radius:7px!important;color:#334155!important;font-size:13px!important;font-weight:600!important;line-height:1.2!important}
+  body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu label span{display:block!important;flex:1 1 auto!important;min-width:0!important;color:#334155!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
   body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu input{flex:0 0 auto!important;margin:0!important}
   body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterActions,body:not(.zebraDevice) .pfnUnifiedMultiSelectActions{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:5px!important;padding:6px!important;border-top:1px solid #e5e9ef!important;background:#fff!important;flex:0 0 auto!important}
   body:not(.zebraDevice) .pfnUnifiedMultiSelectMenu .pfrFilterActions button,body:not(.zebraDevice) .pfnUnifiedMultiSelectActions button{min-width:0!important;min-height:32px!important;padding:4px 5px!important;border:1px solid #d8dee8!important;border-radius:7px!important;background:#fff!important;font-size:11px!important;font-weight:800!important}
@@ -295,9 +295,27 @@ body.zebraDevice #pfrChangeOrders{display:none!important}
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary::after{content:"⌄"!important;position:absolute!important;right:13px!important;top:50%!important;transform:translateY(-50%)!important;font-size:13px!important;color:#64748b!important}
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary span{display:block!important;margin:0 0 2px!important;font-size:10px!important;font-weight:800!important;line-height:1.1!important;letter-spacing:.06em!important;text-transform:uppercase!important;color:#64748b!important}
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelect>summary strong{display:block!important;margin:0!important;font-size:14px!important;font-weight:800!important;line-height:1.25!important;color:#334155!important}
-  /* This selector deliberately outranks the old Order-Items-only rules.
-     Options are compact; only the list scrolls, not the menu body. */
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu .pfrFilterOptions{overflow-y:auto!important;overflow-x:hidden!important;min-height:0!important;max-height:188px!important;padding:5px 6px!important}
-  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu .pfrFilterOptions label{box-sizing:border-box!important;display:flex!important;align-items:center!important;gap:8px!important;height:30px!important;min-height:30px!important;margin:0!important;padding:3px 6px!important;line-height:1.15!important}
+  body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu .pfrFilterOptions label{box-sizing:border-box!important;display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;height:30px!important;min-height:30px!important;margin:0!important;padding:3px 6px!important;color:#334155!important;line-height:1.15!important}
   body:not(.zebraDevice) .pfnOrderBrowserControls .pfnUnifiedMultiSelectMenu .pfrFilterActions{display:grid!important;grid-template-columns:1fr 1fr 1fr!important;gap:5px!important;padding:6px!important;min-height:44px!important;flex:0 0 auto!important}
+
+  /* Receiving report: direct filters, one compact action menu, table-first layout. */
+  body:not(.zebraDevice) #page-receiving .receivingSummaryHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:14px!important;padding-bottom:10px!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportTitleLine{display:flex!important;align-items:center!important;gap:9px!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportBack{width:34px!important;min-width:34px!important;height:34px!important;padding:0!important;border-radius:8px!important}
+  body:not(.zebraDevice) #page-receiving .receivingSummaryActions{display:flex!important;align-items:center!important;gap:8px!important;flex-wrap:nowrap!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportActionMenu{position:relative!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportActionMenu>summary{min-height:38px!important;padding:10px 14px!important;border:1px solid #c9d9e8!important;border-radius:9px!important;background:#fff!important;cursor:pointer!important;font-size:13px!important;font-weight:800!important;list-style:none!important;color:#23496f!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportActionMenu>summary::after{content:"⌄"!important;margin-left:8px!important;color:#60758b!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportActionMenu>div{position:absolute!important;right:0!important;top:calc(100% + 5px)!important;z-index:10060!important;display:grid!important;gap:4px!important;min-width:154px!important;padding:6px!important;border:1px solid #d8e2ec!important;border-radius:10px!important;background:#fff!important;box-shadow:0 12px 28px rgba(15,23,42,.16)!important}
+  body:not(.zebraDevice) #page-receiving .pfnReportActionMenu>div button{min-height:34px!important;border:0!important;border-radius:7px!important;background:#f4f8fc!important;color:#214b73!important;font-size:12px!important;font-weight:800!important;text-align:left!important;padding:0 10px!important}
+  body:not(.zebraDevice) #page-receiving .discrepancyGrid{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr)) auto!important;gap:8px!important;margin:0!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;min-height:68px!important;padding:10px 12px!important;border:1px solid #dbe5ef!important;border-radius:10px!important;background:#fff!important;color:#526b84!important;text-align:left!important;cursor:pointer!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard span{font-size:10px!important;font-weight:800!important;text-transform:uppercase!important;letter-spacing:.04em!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard strong{margin-top:4px!important;color:#1c3d60!important;font-size:21px!important;line-height:1!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard.active{border-color:#5ba3dd!important;background:#edf7ff!important;box-shadow:inset 0 0 0 1px rgba(67,142,205,.15)!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard[data-issue-card="shortage"].active{border-color:#e0a5a5!important;background:#fff3f2!important}
+  body:not(.zebraDevice) #page-receiving .pfnIssueCard[data-issue-card="over"].active{border-color:#e6c281!important;background:#fff9eb!important}
+  body:not(.zebraDevice) #page-receiving .pfnDisplayedItems{display:flex!important;flex-direction:column!important;justify-content:center!important;min-width:84px!important;padding:8px!important;color:#667d92!important;font-size:10px!important;font-weight:800!important;text-align:center!important}
+  body:not(.zebraDevice) #page-receiving .pfnDisplayedItems strong{margin-top:3px!important;color:#23496f!important;font-size:19px!important}
 }

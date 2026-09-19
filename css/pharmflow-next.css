@@ -2555,7 +2555,7 @@ body:not(.zebraDevice) .quickKpiHeader h3{font-size:23px!important;color:#123d69
 body:not(.zebraDevice) .phase263Panel [data-body]{display:flex;flex-direction:column;min-height:0;overflow:hidden!important}
 body:not(.zebraDevice) .pfnBrowserControls{display:flex;flex-direction:column;gap:10px;margin-bottom:12px;overflow:visible!important}
 body:not(.zebraDevice) .pfnBrowserControlRow{display:flex;align-items:end;gap:12px;overflow:visible!important}
-body:not(.zebraDevice) .pfnBrowserControlRow label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:850;color:#49657f;min-width:220px;overflow:visible!important}
+body:not(.zebraDevice) .pfnBrowserControlRow>label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:850;color:#49657f;min-width:220px;overflow:visible!important}
 body:not(.zebraDevice) .pfnBrowserControlRow select{height:44px;border:1px solid #9fbad5;border-radius:9px;background:#fff;color:#173f67;font-size:14px;font-weight:800;padding:0 12px;position:relative;z-index:4}
 body:not(.zebraDevice) .pfnHighPriorityFilter{height:44px;padding:0 22px;border:1px solid #9fbad5;border-radius:9px;background:#fff;color:#173f67;font-size:14px;font-weight:850;cursor:pointer}
 body:not(.zebraDevice) .pfnHighPriorityFilter.active{background:#fff5d9;border-color:#e2b546;color:#8a5a00}
@@ -2663,7 +2663,7 @@ body:not(.zebraDevice) .pfnPrioritySegment{display:inline-flex;gap:5px;padding:3
 body:not(.zebraDevice) .pfnPriorityMark{height:32px!important;min-width:58px!important;font-size:13px!important;border-radius:6px!important}
 body:not(.zebraDevice) .pfnCategoryCell{font-weight:750;color:#355a7c}
 body:not(.zebraDevice) .pfnBrowserControlRow{display:grid!important;grid-template-columns:minmax(150px,1fr) minmax(160px,1fr) 150px minmax(190px,1.2fr)!important;gap:9px!important;align-items:end!important}
-body:not(.zebraDevice) .pfnBrowserControlRow label,body:not(.zebraDevice) .pfnBrowserControlRow select,body:not(.zebraDevice) .pfnHighPriorityFilter{font-size:14px!important}
+body:not(.zebraDevice) .pfnBrowserControlRow>label,body:not(.zebraDevice) .pfnBrowserControlRow select,body:not(.zebraDevice) .pfnHighPriorityFilter{font-size:14px!important}
 
 /* 4/6/7. One readable table standard across operational views. */
 body:not(.zebraDevice).pfNextMode .dataTable th,body:not(.zebraDevice).pfNextMode .reportTable th,body:not(.zebraDevice).pfNextMode .phase263Table th{font-size:13px!important;font-weight:900!important;letter-spacing:.01em}

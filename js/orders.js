@@ -665,35 +665,25 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     const groups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const totalRows=groups.reduce(
-        (sum,group)=>sum+group.rows.length,
-        0
-    );
-
-    const sections=groups.map((group,index)=>{
+    const sections=groups.map(group=>{
         const rows=group.rows;
+        const title=`فرق توريد - ${group.orderNumber||"-"} - ${group.orderDate||"-"}`;
 
         return `
-        <div style="margin:24px 0 0;border:1px solid #cfe0f3;border-radius:14px;overflow:hidden;background:#ffffff">
-          <div style="padding:16px;background:#eef6ff;border-bottom:1px solid #cfe0f3;text-align:center">
-            <div style="font-size:16px;letter-spacing:.04em;color:#1769aa;font-weight:600">ORDER ${index+1}</div>
-            <div style="font-size:18px;color:#123a63;font-weight:600;margin-top:3px">${esc(group.orderNumber||"-")}</div>
-            <div style="font-size:16px;color:#55718f;margin-top:3px">
-              Order Date: ${esc(group.orderDate||"-")}
-              &nbsp;&nbsp;•&nbsp;&nbsp;
-              Displayed Items: ${rows.length}
-            </div>
+        <section style="margin:18px 0 0">
+          <div dir="rtl" style="padding:0 0 8px;color:#173d63;font-size:18px;font-weight:700;text-align:right">
+            ${esc(title)}
           </div>
 
-          <table style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:16px;text-align:center" cellpadding="0" cellspacing="0">
+          <table style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;text-align:center;border:1px solid #d7e2ee" cellpadding="0" cellspacing="0">
             <thead>
-              <tr style="background:#1769aa;color:#ffffff">
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Item Code</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Item Name</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Ordered</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Received</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Difference</th>
-                <th style="padding:10px 8px;text-align:center;font-weight:600">Status</th>
+              <tr style="background:#eef5fb;color:#173d63">
+                <th style="padding:8px 6px;text-align:center;font-weight:700">Item Code</th>
+                <th style="padding:8px 6px;text-align:left;font-weight:700">Item Name</th>
+                <th style="padding:8px 6px;text-align:center;font-weight:700">Ordered</th>
+                <th style="padding:8px 6px;text-align:center;font-weight:700">Received</th>
+                <th style="padding:8px 6px;text-align:center;font-weight:700">Difference</th>
+                <th style="padding:8px 6px;text-align:center;font-weight:700">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -707,40 +697,22 @@ function buildFinalizedDiscrepancyEmailHTML(report){
 
                   return `
                   <tr>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Item Number"]||"")}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Item Name"]||"")}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center">${esc(row["Received Qty"]??0)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:400;color:${diff<0?"#c23a46":(diff>0?"#b56b08":"#198754")}">${diff>0?"+":""}${esc(diff)}</td>
-                    <td style="padding:9px 8px;border-bottom:1px solid #e2edf8;text-align:center;font-weight:400">${esc(status)}</td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Item Number"]||"")}</td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:left">${esc(row["Item Name"]||"")}</td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Received Qty"]??0)}</td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center"><strong style="font-weight:800;color:${diff<0?"#bd2637":(diff>0?"#9a5a08":"#3f627f")}">${diff>0?"+":""}${esc(diff)}</strong></td>
+                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(status)}</td>
                   </tr>`;
               }).join("")}
             </tbody>
           </table>
-        </div>`;
+        </section>`;
     }).join("");
 
     return `
-    <div style="max-width:980px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#123a63;background:#ffffff;text-align:center;font-size:15px;line-height:1.7">
-      <div dir="rtl" style="text-align:center;padding:18px 14px 8px">
-        <div style="font-size:28px;line-height:1.45;font-weight:600;color:#123f6d;text-align:center">الإخوة الكرام بالمستودع</div>
-        <div style="font-size:28px;line-height:1.7;font-weight:400;color:#2a6798;margin-top:6px;text-align:center">تحية طيبة وبعد،</div>
-        <div style="font-size:28px;line-height:1.9;font-weight:400;color:#234a6f;margin:12px auto 0;max-width:800px;text-align:center">
-          يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.
-        </div>
-      </div>
-
-      <div style="display:block;margin:12px 0;padding:12px 14px;border-radius:12px;background:#f4f9ff;border:1px solid #d8e8f6;text-align:center">
-        <span style="font-size:16px;color:#4f6f8d">Orders with displayed results: ${groups.length}</span>
-        <span style="font-size:16px;color:#4f6f8d">&nbsp;&nbsp;•&nbsp;&nbsp;Total displayed items: ${totalRows}</span>
-      </div>
-
+    <div style="max-width:920px;margin:0 auto;font-family:Arial,Tahoma,sans-serif;color:#173d63;background:#ffffff;font-size:13px;line-height:1.45">
       ${sections}
-
-      <div dir="rtl" style="text-align:center;margin-top:28px;font-size:28px;line-height:1.9;color:#234a6f;font-weight:400">
-        <div>للإفادة والمراجعة والتشييك.</div>
-        <div style="margin-top:8px;font-size:28px;font-weight:400;color:#123f6d">خالص الشكر والتقدير.</div>
-      </div>
     </div>`;
 }
 
@@ -776,18 +748,11 @@ function buildFinalizedDiscrepancyEmailText(report){
     const groups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const lines=[
-        "الإخوة الكرام بالمستودع",
-        "تحية طيبة وبعد،",
-        "",
-        "يوجد فرق توريد في الطلبية الموضحة أدناه، نأمل التكرم بالمراجعة والتشييك.",
-        ""
-    ];
+    const lines=[];
 
-    groups.forEach((group,index)=>{
+    groups.forEach(group=>{
         lines.push(
-            "ORDER "+(index+1)+": "+(group.orderNumber||"-"),
-            "Order Date: "+(group.orderDate||"-"),
+            "فرق توريد - "+(group.orderNumber||"-")+" - "+(group.orderDate||"-"),
             "",
             "Item Code | Item Name | Ordered | Received | Difference | Status"
         );
@@ -806,13 +771,6 @@ function buildFinalizedDiscrepancyEmailText(report){
 
         lines.push("");
     });
-
-    lines.push(
-        "للإفادة والمراجعة والتشييك.",
-        "",
-        "خالص الشكر والتقدير."
-    );
-
     return lines.join("\r\n");
 }
 
@@ -886,10 +844,7 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
     const reportGroups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const subject=
-        reportGroups.length>1
-            ? `Supply Discrepancy Report | ${reportGroups.length} Orders | ${new Date().toISOString().slice(0,10)}`
-            : "Supply Discrepancy | Order "+orderLabel+(orderDate?" | "+orderDate:"");
+    const subject=`فرق توريد - ${orderLabel||"-"} - ${orderDate||"-"}`;
     const rows=Array.isArray(report?.rows)?report.rows:[];
 
     const overlay=document.createElement("div");
@@ -903,29 +858,16 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
         <header class="finalizedEmailHeader">
           <div>
             <span class="finalizedEmailKicker">${options.fromArchive?"SAVED REPORT":(options.liveReport?"LIVE RECEIVING REPORT":"ORDER FINALIZED")}</span>
-            <h2>Supply Discrepancy Report</h2>
-            <p>${rows.length} discrepancy item${rows.length===1?"":"s"} · Review before opening Gmail</p>
+            <h2>${esc(subject)}</h2>
           </div>
 
           <button type="button" class="finalizedEmailClose" data-close aria-label="Close">✕</button>
         </header>
 
-        <section class="finalizedEmailSummary">
-          <div><span>ORDER NUMBER</span><strong>${esc(orderLabel||"-")}</strong></div>
-          <div><span>ORDER DATE</span><strong>${esc(orderDate||"-")}</strong></div>
-          <div><span>DISCREPANCIES</span><strong>${rows.length}</strong></div>
-          <div><span>STATUS</span><strong>${options.fromArchive?"Finalized":(options.liveReport?"In Progress":"Finalized")}</strong></div>
-        </section>
-
         <section class="finalizedEmailCompose">
           <label>
             <span>To</span>
             <input id="finalizedEmailTo" type="email" placeholder="warehouse@example.com" autocomplete="email">
-          </label>
-
-          <label>
-            <span>Subject</span>
-            <input id="finalizedEmailSubject" type="text" value="${esc(subject)}">
           </label>
         </section>
 
@@ -936,14 +878,6 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
         </article>
 
         <footer class="finalizedEmailFooter">
-          <div class="finalizedEmailSavedNote">
-            <span>✓</span>
-            <div>
-              <strong>${options.fromArchive?"Saved in PharmFlow Archive":(options.liveReport?"Live report — Finalize not required":"Saved in PharmFlow Archive")}</strong>
-              <small>${options.liveReport?"Email includes every current status except Completed.":"You can close this window and reopen the report at any time."}</small>
-            </div>
-          </div>
-
           <div class="finalizedEmailActions">
             <button type="button" class="secondaryButton" id="btnCopyFinalizedEmail">Copy Email</button>
             <button type="button" class="primaryButton" id="btnOpenFinalizedGmail">Open in Gmail</button>
@@ -976,10 +910,6 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
             document.getElementById("finalizedEmailTo")?.value||""
         ).trim();
 
-        const subjectValue=String(
-            document.getElementById("finalizedEmailSubject")?.value||subject
-        ).trim();
-
         try{
             await copyFormattedReceivingEmail(report);
         }catch(_){}
@@ -989,7 +919,7 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
            One paste keeps the professional HTML design intact. */
         const opened=openGmailComposeSafely({
             to,
-            subject:subjectValue,
+            subject,
             body:""
         });
 

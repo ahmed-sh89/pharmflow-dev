@@ -39,12 +39,12 @@
 
     <link
         rel="stylesheet"
-        href="css/dashboard.css?v=B10CLEAN15_16"
+        href="css/dashboard.css?v=B12RECEIVING1"
     >
 
     <link
         rel="stylesheet"
-        href="css/responsive.css?v=B11RECEIVING4"
+        href="css/responsive.css?v=B12RECEIVING1"
     >
 
     <link
@@ -52,7 +52,7 @@
         href="css/auth.css?v=B10CLEAN15_15"
     >
 
-<link rel="stylesheet" href="css/pharmflow-next.css?v=B10CLEAN15_15">
+<link rel="stylesheet" href="css/pharmflow-next.css?v=B12RECEIVING1">
 
     <!-- B10 Clean15.15 — bootstrap UI gate.
          While the persisted auth session/workspace is being resolved, keep
@@ -62,6 +62,9 @@
         body.authBooting #authFormsPanel,
         body.authBooting #authAccessPanel {
             display: none !important;
+        }
+        body.authBooting .mainApplication {
+            visibility: hidden !important;
         }
     </style>
 </head>
@@ -599,15 +602,9 @@
 
                             <h2>
 
-                                Scan / Search
+                                Scan item
 
                             </h2>
-
-                            <p>
-
-                                Scan barcode, Item Number or Item Name.
-
-                            </p>
 
                         </div>
 
@@ -647,7 +644,8 @@
                             autocomplete="off"
                             autocapitalize="off"
                             spellcheck="false"
-                            placeholder="SCAN BARCODE / ITEM NUMBER / ITEM NAME"
+                            placeholder=""
+                            aria-label="Scan item"
                         >
 
 
@@ -947,29 +945,6 @@
                                 </details>
                             </div>
 
-                            <details id="receivingIssueFilter" class="issueMultiFilter operationalMultiFilter">
-                                <summary>
-                                    <span>Discrepancy Types</span>
-                                    <strong id="receivingIssueFilterLabel">All discrepancies</strong>
-                                </summary>
-                                <div class="issueMultiFilterMenu pfnUnifiedMultiSelectMenu" role="group" aria-label="Discrepancy types">
-                                    <div class="issueMultiFilterOptions pfnUnifiedMultiSelectOptions">
-                                        <label><input type="checkbox" data-receiving-issue value="not_received" checked> Not Received</label>
-                                        <label><input type="checkbox" data-receiving-issue value="partial" checked> Partial Shortage</label>
-                                        <label><input type="checkbox" data-receiving-issue value="received_any" checked> Received Any Quantity</label>
-                                        <label><input type="checkbox" data-receiving-issue value="over" checked> Over Received</label>
-                                        <label><input type="checkbox" data-receiving-issue value="manual" checked> Manual / Unordered Extra</label>
-                                    </div>
-                                    <div class="issueMultiFilterActions pfnUnifiedMultiSelectActions">
-                                        <button type="button" id="btnSelectAllReceivingIssues">Select all</button>
-                                        <button type="button" id="btnClearReceivingIssues">Clear</button>
-                                        <button type="button" id="btnOkReceivingIssues" class="issueFilterOkButton">OK</button>
-                                    </div>
-                                </div>
-                            </details>
-
-
-
                         </div>
 
 
@@ -980,21 +955,27 @@
                         <div class="receivingSummaryHeader">
                             <div class="pfnReportTitleBlock">
                                 <span class="sectionEyebrow">RECEIVING RECONCILIATION</span>
-                                <div class="pfnReportTitleLine"><h3>Discrepancy Report Preview</h3><button id="btnBackToReceivingDashboard" class="pfnReportBack" type="button">← Back to Receiving</button></div>
+                                <div class="pfnReportTitleLine"><button id="btnBackToReceivingDashboard" class="pfnReportBack" type="button" aria-label="Back to Receiving">←</button><h3>Discrepancy Report</h3></div>
                             </div>
                             <div class="receivingSummaryActions">
-                                <button id="btnExportReceivingSummaryExcel" class="secondaryButton" type="button">Export Discrepancies · Excel</button>
-                                <button id="btnExportReceivingSummaryPDF" class="secondaryButton" type="button">Export Discrepancies · PDF</button>
-                                <button id="btnEmailReceivingDifferences" class="secondaryButton" type="button">✉ Email Differences</button>
+                                <details class="pfnReportActionMenu">
+                                    <summary>Export / Share</summary>
+                                    <div>
+                                        <button id="btnExportReceivingSummaryExcel" type="button">Excel</button>
+                                        <button id="btnExportReceivingSummaryPDF" type="button">PDF</button>
+                                        <button id="btnEmailReceivingDifferences" type="button">Copy Email</button>
+                                    </div>
+                                </details>
                                 <button id="btnFinalizeReceiving" class="primaryButton finalizeReceivingButton" type="button">✓ Complete Receiving</button>
                             </div>
                         </div>
                         <div class="receivingSummaryGrid discrepancyGrid">
-                            <div class="displayedMetric"><span>Displayed Items</span><strong id="rsDisplayedItems">0</strong></div>
-                            <div><span>All Discrepancies</span><strong id="rsTotalItems">0</strong></div>
-                            <div><span>Shortage Items</span><strong id="rsShort">0</strong></div>
-                            <div><span>Over Received</span><strong id="rsOver">0</strong></div>
-                            <div><span>Manual Extras</span><strong id="rsManual">0</strong></div>
+                            <button type="button" class="displayedMetric pfnIssueCard active" data-issue-card="all"><span>All Discrepancies</span><strong id="rsTotalItems">0</strong></button>
+                            <button type="button" class="pfnIssueCard active" data-issue-card="shortage"><span>Shortage Items</span><strong id="rsShort">0</strong></button>
+                            <button type="button" class="pfnIssueCard active" data-issue-card="received"><span>Received Any Quantity</span><strong id="rsReceived">0</strong></button>
+                            <button type="button" class="pfnIssueCard active" data-issue-card="over"><span>Over Received</span><strong id="rsOver">0</strong></button>
+                            <button type="button" class="pfnIssueCard active" data-issue-card="manual"><span>Manual Extras</span><strong id="rsManual">0</strong></button>
+                            <span class="pfnDisplayedItems">Displayed <strong id="rsDisplayedItems">0</strong></span>
                         </div>
                     </section>
 
@@ -2762,7 +2743,7 @@
 
 <script src="js/router.js?v=B10CLEAN15_15"></script>
 
-<script src="ui.js?v=B11RECEIVING4"></script>
+<script src="ui.js?v=B12RECEIVING1"></script>
 
 <script src="js/excel.js?v=B10CLEAN15_15"></script>
 
@@ -2774,11 +2755,11 @@
 
 <script src="js/session.js?v=B10CLEAN15_15"></script>
 
-<script src="js/reports.js?v=B11RECEIVING4"></script>
+<script src="js/reports.js?v=B12RECEIVING1"></script>
 
 <script src="js/supabase.js?v=B10CLEAN15_15"></script>
 
-<script src="js/orders.js?v=B11RECEIVING4"></script>
+<script src="js/orders.js?v=B12RECEIVING1"></script>
 
 <script src="js/auth.js?v=B10CLEAN22"></script>
 
@@ -2797,7 +2778,7 @@
 <script src="js/app.js?v=B10CLEAN19"></script>
 
 <script src="js/handheld-runtime.js?v=B11RECEIVING4"></script>
-<script src="js/receiving-release.js?v=B11RECEIVING4"></script>
+<script src="js/receiving-release.js?v=B12RECEIVING1"></script>
 
 
 </body>

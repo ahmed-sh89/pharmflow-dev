@@ -1309,48 +1309,16 @@ function bindUIEvents(){
 
 
 
-    document.querySelectorAll("[data-receiving-issue]").forEach(input=>{
-        input.addEventListener("change",function(){
-            const selected=new Set(
-                Array.from(document.querySelectorAll("[data-receiving-issue]:checked"))
-                    .map(el=>el.value)
-            );
-            UI.receivingFilters.issues=selected;
-            refreshReceivingIssueFilterLabel();
-            refreshReceivingTable();
+    document.querySelectorAll("[data-issue-card]").forEach(card=>{
+        card.addEventListener("click",()=>{
+            toggleReceivingIssueCard(card.dataset.issueCard||"");
         });
-    });
-
-    document.getElementById("btnSelectAllReceivingIssues")?.addEventListener("click",function(event){
-        event.preventDefault();
-        document.querySelectorAll("[data-receiving-issue]").forEach(el=>{el.checked=true;});
-        UI.receivingFilters.issues=new Set(["not_received","partial","received_any","over","manual"]);
-        refreshReceivingIssueFilterLabel();
-        refreshReceivingTable();
-    });
-
-    document.getElementById("btnClearReceivingIssues")?.addEventListener("click",function(event){
-        event.preventDefault();
-        document.querySelectorAll("[data-receiving-issue]").forEach(el=>{el.checked=false;});
-        UI.receivingFilters.issues=new Set();
-        refreshReceivingIssueFilterLabel();
-        refreshReceivingTable();
-    });
-
-    document.getElementById("btnOkReceivingIssues")?.addEventListener("click",function(event){
-        event.preventDefault();
-        const details=document.getElementById("receivingIssueFilter");
-        if(details){
-            details.open=false;
-        }
     });
 
     /* Operational selectors are mutually exclusive: opening one closes its sibling. */
     {
-        const issueFilter=document.getElementById("receivingIssueFilter");
         const groupFilter=document.querySelector("#receivingClassificationFilters [data-class-filter=\"groups\"]");
-        issueFilter?.addEventListener("toggle",()=>{ if(issueFilter.open && groupFilter?.open) groupFilter.open=false; });
-        groupFilter?.addEventListener("toggle",()=>{ if(groupFilter.open && issueFilter?.open) issueFilter.open=false; });
+        groupFilter?.addEventListener("toggle",()=>{ if(groupFilter.open) document.querySelectorAll(".pfnReportActionMenu[open]").forEach(menu=>menu.open=false); });
     }
 
     UI.elements.receivingCategoryFilter
@@ -2235,6 +2203,47 @@ function refreshReceivingIssueFilterLabel(){
     label.textContent=set.size+" selected";
 }
 
+const RECEIVING_ISSUE_CARD_KEYS={
+    all:["not_received","partial","received_any","over","manual"],
+    shortage:["not_received","partial"],
+    received:["received_any"],
+    over:["over"],
+    manual:["manual"]
+};
+
+function refreshReceivingIssueCards(){
+    const selected=UI.receivingFilters.issues instanceof Set
+        ? UI.receivingFilters.issues
+        : new Set();
+    Object.entries(RECEIVING_ISSUE_CARD_KEYS).forEach(([card,keys])=>{
+        const button=document.querySelector(`[data-issue-card="${card}"]`);
+        if(!button) return;
+        const active=card==="all"
+            ? keys.every(key=>selected.has(key))
+            : keys.every(key=>selected.has(key));
+        button.classList.toggle("active",active);
+        button.setAttribute("aria-pressed",active?"true":"false");
+    });
+}
+
+function toggleReceivingIssueCard(card){
+    const keys=RECEIVING_ISSUE_CARD_KEYS[card];
+    if(!keys) return;
+    const current=UI.receivingFilters.issues instanceof Set
+        ? new Set(UI.receivingFilters.issues)
+        : new Set();
+    const isActive=keys.every(key=>current.has(key));
+    if(card==="all"){
+        UI.receivingFilters.issues=isActive ? new Set() : new Set(keys);
+    }else{
+        keys.forEach(key=>isActive ? current.delete(key) : current.add(key));
+        UI.receivingFilters.issues=current;
+    }
+    refreshReceivingIssueFilterLabel();
+    refreshReceivingIssueCards();
+    refreshReceivingTable();
+}
+
 function getVisibleReceivingItemsForExport(){
     return Array.isArray(UI.receivingVisibleItems) ? UI.receivingVisibleItems.slice() : [];
 }
@@ -2265,7 +2274,7 @@ function refreshReceivingTable(){
     }
     if(window.PharmFlowClassificationFilters) rows=window.PharmFlowClassificationFilters.filter(rows,UI.receivingFilters.classification||{});
     if(searchFilter) rows=rows.filter(item=>toSafeString(item.itemName||"").toLowerCase().includes(searchFilter)||toSafeString(item.itemCode||"").toLowerCase().includes(searchFilter));
-    UI.receivingVisibleItems=rows.slice();const d=document.getElementById("rsDisplayedItems");if(d)d.textContent=rows.length;if(typeof refreshReceivingVerificationSummary==="function")refreshReceivingVerificationSummary();
+    UI.receivingVisibleItems=rows.slice();const d=document.getElementById("rsDisplayedItems");if(d)d.textContent=rows.length;refreshReceivingIssueCards();if(typeof refreshReceivingVerificationSummary==="function")refreshReceivingVerificationSummary();
     const inline=document.getElementById("receivingInlineResult");
     if(!(AppState.workspace.orderData||[]).length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML='<tr><td colspan="10" class="tableEmptyState">No order items loaded.</td></tr>';return;}
     if(!rows.length){if(inline){inline.hidden=true;inline.innerHTML="";}tbody.innerHTML='<tr><td colspan="10" class="tableEmptyState">No items match the selected filters.</td></tr>';return;}
@@ -7638,12 +7647,34 @@ function ensureHandheldReceivingTools(){
     }
 
     recent.onclick=openHandheldScansPanel;
+
+    let monitoring=document.getElementById("btnHandheldMonitoring");
+    if(!monitoring){
+        monitoring=document.createElement("button");
+        monitoring.id="btnHandheldMonitoring";
+        monitoring.className="handheldTotalScansButton handheldRecentButton";
+        monitoring.type="button";
+        monitoring.setAttribute("aria-label","Open receiving monitoring");
+        monitoring.innerHTML="<span>MONITOR</span>";
+        header.appendChild(monitoring);
+    }
+    monitoring.onclick=()=>openHandheldScansPanel("MONITOR");
     refreshHandheldReceivingTools();
 }
 
 function refreshHandheldReceivingTools(){
     const value = document.getElementById("handheldTotalScansValue");
     if(value) value.textContent = String(getHandheldTotalScans());
+}
+
+function openHandheldReviewPhoto(url,title){
+    document.getElementById("handheldReviewPhotoOverlay")?.remove();
+    const overlay=document.createElement("div");
+    overlay.id="handheldReviewPhotoOverlay";
+    overlay.className="handheldReviewPhotoOverlay";
+    overlay.innerHTML=`<button type="button" data-close aria-label="Close photo"></button><section role="dialog" aria-modal="true" aria-label="Needs Review photo"><header><strong>${typeof escapeHtml==="function"?escapeHtml(title):title}</strong><button type="button" data-close>✕</button></header><img src="${url}" alt="Needs Review evidence photo"></section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close]").forEach(button=>button.onclick=()=>overlay.remove());
 }
 
 function openHandheldScansPanel(initialTab="SCANS"){
@@ -7668,7 +7699,7 @@ function openHandheldScansPanel(initialTab="SCANS"){
 
     const scanRows=()=>getHandheldDeviceScannerRows().slice()
         .sort((a,b)=>String(b?.dateTime||"").localeCompare(String(a?.dateTime||"")))
-        .slice(0,20);
+        .slice(0,3);
 
     let reviewRows=[];
     let reviewLoading=true;
@@ -7677,12 +7708,33 @@ function openHandheldScansPanel(initialTab="SCANS"){
     const overlay=document.createElement("div");
     overlay.id="handheldScansOverlay";
     overlay.className="handheldScansOverlay handheldRecentOverlay";
-    overlay.dataset.tab=initialTab==="REVIEW"?"REVIEW":"SCANS";
+    overlay.dataset.tab=["REVIEW","MONITOR"].includes(initialTab)?initialTab:"SCANS";
 
     const render=()=>{
         const tab=overlay.dataset.tab||"SCANS";
         const recent=scanRows();
         const showingReview=tab==="REVIEW";
+        const showingMonitor=tab==="MONITOR";
+        const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"
+            ? getSelectedReceivingOrderNumbers()
+            : [];
+        const items=(AppState?.workspace?.orderData||[]).filter(item=>
+            !selectedOrders.length || selectedOrders.some(order=>
+                typeof itemBelongsToOrderScope!=="function" || itemBelongsToOrderScope(item,order)
+            )
+        );
+        const received=items.filter(item=>Number(item?.receivedQty||0)>0).length;
+        const remaining=items.filter(item=>Math.max(0,Number(item?.orderedQty||0)-Number(item?.receivedQty||0))>0).length;
+        const over=items.filter(item=>Number(item?.receivedQty||0)>Number(item?.orderedQty||0)).length;
+        const monitorMarkup=`
+          <div class="handheldMonitorGrid">
+            <div><span>RECEIVED</span><strong>${received}</strong></div>
+            <div><span>REMAINING</span><strong>${remaining}</strong></div>
+            <div><span>OVER RECEIVED</span><strong>${over}</strong></div>
+            <div><span>NEEDS REVIEW</span><strong>${reviewRows.length}</strong></div>
+            <div><span>RECENT SCANS</span><strong>${recent.length}</strong></div>
+          </div>
+          <p class="handheldMonitorNote">Remaining is live. Shortage is confirmed only after the order is completed.</p>`;
 
         const scanMarkup=recent.length ? recent.map((row,index)=>{
             const qty=Math.max(1,Number(row?.quantity||1)||1);
@@ -7694,7 +7746,9 @@ function openHandheldScansPanel(initialTab="SCANS"){
                   <span>${esc(row?.itemCode||"")} · ${esc(formatTime(row?.dateTime))}</span>
                 </div>
                 <div class="handheldRecentQty">+${qty}</div>
-                <span class="handheldRecentViewOnly">Saved</span>
+                ${index===0
+                    ? `<button type="button" class="handheldRemoveLastScan" data-remove-last="${esc(row?.transactionId||"")}">REMOVE</button>`
+                    : `<span class="handheldRecentViewOnly">Saved</span>`}
               </article>`;
         }).join("") : `<div class="handheldScansEmpty">No recent scans on this Handheld.</div>`;
 
@@ -7703,7 +7757,7 @@ function openHandheldScansPanel(initialTab="SCANS"){
             : reviewError
                 ? `<div class="handheldScansEmpty">${esc(reviewError)}</div>`
                 : reviewRows.length
-                    ? reviewRows.map((row,index)=>{
+                    ? reviewRows.slice(0,3).map((row,index)=>{
                         const qty=Math.max(1,Number(row?.pending_quantity||1)||1);
                         const title=row?.master_item_name_hint || row?.item_name || "Item not recognised";
                         return `
@@ -7718,7 +7772,10 @@ function openHandheldScansPanel(initialTab="SCANS"){
                               <strong>${qty}</strong>
                               <button type="button" data-review-step="1">+</button>
                             </div>
-                            <button type="button" class="handheldReviewDelete" data-review-delete>DELETE</button>
+                            <div class="handheldReviewActions">
+                              ${row?.photo_path?`<button type="button" class="handheldReviewPhoto" data-review-photo>PHOTO</button>`:""}
+                              <button type="button" class="handheldReviewDelete" data-review-delete>DELETE</button>
+                            </div>
                           </article>`;
                     }).join("")
                     : `<div class="handheldScansEmpty">No pending Needs Review items from this Handheld.</div>`;
@@ -7728,8 +7785,8 @@ function openHandheldScansPanel(initialTab="SCANS"){
             <header>
               <div>
                 <span>RECEIVING HISTORY</span>
-                <strong>Recent Scans</strong>
-                <small>${showingReview?"Pending items saved by this Handheld":`Last ${Math.min(recent.length,20)} scan transactions`}</small>
+                <strong>${showingMonitor?"Receiving Monitor":"Recent Scans"}</strong>
+                <small>${showingMonitor?"Live view for the orders assigned to this Handheld":(showingReview?"Pending items saved by this Handheld":`Last ${recent.length} scan transactions`)}</small>
               </div>
               <button type="button" data-close aria-label="Close">✕</button>
             </header>
@@ -7737,18 +7794,21 @@ function openHandheldScansPanel(initialTab="SCANS"){
             <div class="handheldRecentTabs">
               <button type="button" data-tab="SCANS" class="${tab==="SCANS"?"active":""}">SCANS</button>
               <button type="button" data-tab="REVIEW" class="${tab==="REVIEW"?"active":""}">NEEDS REVIEW ${reviewRows.length?`(${reviewRows.length})`:""}</button>
+              <button type="button" data-tab="MONITOR" class="${tab==="MONITOR"?"active":""}">MONITOR</button>
             </div>
 
             <div id="handheldRecentFeedback" class="handheldRecentFeedback" aria-live="polite"></div>
 
             <div class="handheldRecentList">
-              ${showingReview?reviewMarkup:scanMarkup}
+              ${showingMonitor?monitorMarkup:(showingReview?reviewMarkup:scanMarkup)}
             </div>
 
             <div class="handheldRecentFooter">
-              <span>${showingReview
+              <span>${showingMonitor
+                ?"Use this view to check work without leaving the scan screen."
+                :(showingReview
                 ?"Quantity can be corrected here. Delete removes only the selected pending review item."
-                :"Scan history is view-only and shows work completed on this Handheld."}</span>
+                :"Only the latest scan can be removed. The correction is saved to the shared receiving record.")}</span>
               <button type="button" class="handheldPanelDone" data-close>DONE</button>
             </div>
           </section>`;
@@ -7761,6 +7821,21 @@ function openHandheldScansPanel(initialTab="SCANS"){
         overlay.querySelectorAll("[data-tab]").forEach(btn=>btn.onclick=()=>{
             overlay.dataset.tab=btn.dataset.tab;
             render();
+        });
+
+        overlay.querySelector("[data-remove-last]")?.addEventListener("click",()=>{
+            const transactionId=overlay.querySelector("[data-remove-last]")?.dataset.removeLast||"";
+            const latest=scanRows()[0];
+            if(!latest || String(latest?.transactionId||"")!==String(transactionId)) return;
+            if(!window.confirm(`Remove last scan: ${latest.itemName||"Item"} +${Math.max(1,Number(latest.quantity||1))}?`)) return;
+            const removed=typeof undoRecentScannerTransaction==="function"
+                ? undoRecentScannerTransaction(transactionId)
+                : false;
+            if(removed){
+                setTimeout(()=>{
+                    if(document.body.contains(overlay)) render();
+                },0);
+            }
         });
 
         overlay.querySelectorAll("[data-review-step]").forEach(btn=>btn.onclick=async()=>{
@@ -7795,6 +7870,20 @@ function openHandheldScansPanel(initialTab="SCANS"){
             }catch(error){
                 showToast?.(error?.message||"Unable to delete review item","error");
                 render();
+            }
+        });
+
+        overlay.querySelectorAll("[data-review-photo]").forEach(btn=>btn.onclick=async()=>{
+            const article=btn.closest("[data-review-row]");
+            const reviewId=article?.dataset.reviewRow;
+            const row=reviewRows.find(item=>String(item?.review_id||"")===String(reviewId||""));
+            if(!row?.photo_path) return;
+            try{
+                const url=await nrV2PhotoObjectUrl(row.photo_path);
+                if(!url) throw new Error("Photo is unavailable");
+                openHandheldReviewPhoto(url,row?.master_item_name_hint||row?.item_name||"Needs Review photo");
+            }catch(error){
+                showToast?.(error?.message||"Unable to open review photo","warning");
             }
         });
     };
