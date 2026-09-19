@@ -78,9 +78,48 @@
 
 window.PharmFlowDeviceWorkScope={
     key(){return "PHARMFLOW_WORK_SCOPE_V1::"+String(AuthState?.context?.pharmacy_id||"")+"::"+(typeof ensureDeviceId==="function"?ensureDeviceId():"");},
-    get(active){try{const saved=JSON.parse(localStorage.getItem(this.key())||"[]");return saved.filter(x=>active.includes(x));}catch(_){return[];}},
-    set(orders){localStorage.setItem(this.key(),JSON.stringify([...new Set(orders||[])]));},
-    prune(active){const next=this.get(active);this.set(next);return next;}
+    read(){
+        const raw=localStorage.getItem(this.key());
+        if(raw===null) return null;
+        try{
+            const saved=JSON.parse(raw);
+            /* Migrate the B11 array format. In that format [] was the
+               persisted ALL sentinel; a missing key was first use. */
+            if(Array.isArray(saved)){
+                return saved.length
+                    ? {version:2,mode:"selected",orders:[...new Set(saved.map(String))]}
+                    : {version:2,mode:"all",orders:[]};
+            }
+            if(saved?.version===2 && saved?.mode==="all") return {version:2,mode:"all",orders:[]};
+            if(saved?.version===2 && saved?.mode==="selected" && Array.isArray(saved.orders)){
+                return {version:2,mode:"selected",orders:[...new Set(saved.orders.map(String))]};
+            }
+        }catch(_){}
+        return null;
+    },
+    write(preference){localStorage.setItem(this.key(),JSON.stringify(preference));},
+    setAll(){this.write({version:2,mode:"all",orders:[]});},
+    setSelected(orders){this.write({version:2,mode:"selected",orders:[...new Set((orders||[]).map(String))]});},
+    set(orders){(orders||[]).length?this.setSelected(orders):this.setAll();},
+    resolve(active,options={}){
+        const available=[...new Set((active||[]).map(String))];
+        const preference=this.read();
+        if(!preference) return {mode:"unset",orders:available};
+        if(preference.mode==="all") return {mode:"all",orders:available};
+        const orders=preference.orders.filter(order=>available.includes(order));
+        if(options.authoritative!==false && orders.length!==preference.orders.length){
+            /* Only invalid manifest members are removed. If none remain,
+               return to an explicit ALL preference so receiving cannot be
+               left with an unusable zero-order scope. */
+            if(orders.length) this.setSelected(orders); else this.setAll();
+        }
+        if(options.authoritative===false && !orders.length){
+            return {mode:"selected",orders:[]};
+        }
+        return {mode:orders.length?"selected":"all",orders:orders.length?orders:available};
+    },
+    get(active){return this.resolve(active).orders;},
+    prune(active){return this.resolve(active).orders;}
 };
 
 window.PharmFlowClassificationFilters={
