@@ -1345,6 +1345,14 @@ function bindUIEvents(){
         }
     });
 
+    /* Operational selectors are mutually exclusive: opening one closes its sibling. */
+    {
+        const issueFilter=document.getElementById("receivingIssueFilter");
+        const groupFilter=document.querySelector("#receivingClassificationFilters [data-class-filter=\"groups\"]");
+        issueFilter?.addEventListener("toggle",()=>{ if(issueFilter.open && groupFilter?.open) groupFilter.open=false; });
+        groupFilter?.addEventListener("toggle",()=>{ if(groupFilter.open && issueFilter?.open) issueFilter.open=false; });
+    }
+
     UI.elements.receivingCategoryFilter
         ?.addEventListener("change",function(event){
             UI.receivingFilters.category = event.target.value || "all";
@@ -8182,7 +8190,7 @@ function renderItemBrowser(body, rows, options={}){
     const orderNumbers=Array.from(new Set(rows.flatMap(item=>Array.isArray(item?.orderNumbers)?item.orderNumbers:[]).map(normalizeOrderNumber).filter(Boolean)));
     body.innerHTML=`
       <div class="pfnBrowserControls ${orderMode?'pfnOrderBrowserControls':''}">
-        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><div class="pfrClassificationFilters pfrGroupOnlyFilters"><details data-group-filter><summary>ALL GROUPS</summary><div class="pfrFilterMenu"></div></details></div><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
+        ${orderMode?`<div class="pfnBrowserControlRow"><label>Order<select data-order-filter><option value="ALL">All Orders</option>${orderNumbers.map(o=>`<option value="${esc(o)}">${esc(o)}</option>`).join('')}</select></label><div class="pfrClassificationFilters pfrGroupOnlyFilters"><details data-group-filter class="pfnMultiSelector"><summary>ALL GROUPS</summary><div class="pfrFilterMenu"></div></details></div><button type="button" class="pfnHighPriorityFilter" data-priority-filter>High Priority</button><button type="button" class="pfnHighPriorityFilter" data-print-priority hidden>Print</button><button type="button" class="pfnHighPriorityFilter" data-clear-priority hidden>Clear High Priority</button><label>Quantity<select data-qty-sort><option value="desc" selected>Highest → Lowest</option><option value="asc">Lowest → Highest</option><option value="default">Default / Order Sequence</option></select></label></div>`:''}
         <input class="phase263Search pfnWideSearch" type="search" placeholder="Search by Item Name or Item Number" aria-label="Search items">
       </div>
       ${receivedMode?`<div class="phase263Summary"><b>Received Items: ${rows.length}</b></div>`:''}
@@ -8264,6 +8272,7 @@ function renderItemBrowser(body, rows, options={}){
     input?.addEventListener('input',draw);orderFilter?.addEventListener('change',draw);
     groupFilter?.addEventListener('click',event=>{const action=event.target.closest('[data-group-action]')?.dataset.groupAction;if(!action)return;event.preventDefault();const boxes=[...groupFilter.querySelectorAll('input[type="checkbox"]')];if(action==='all')boxes.forEach(box=>box.checked=true);if(action==='clear')boxes.forEach(box=>box.checked=false);if(action==='ok')groupFilter.open=false;selectedGroups=boxes.filter(box=>box.checked).map(box=>box.value);rebuildClassification();draw();});
     groupFilter?.addEventListener('change',event=>{if(!event.target.matches('input[type="checkbox"]'))return;selectedGroups=[...groupFilter.querySelectorAll('input:checked')].map(box=>box.value);rebuildClassification();draw();});
+    groupFilter?.addEventListener('toggle',()=>{if(groupFilter.open){orderFilter?.blur();qtySort?.blur();}});
     qtySort?.addEventListener('change',draw);
     priorityFilter?.addEventListener('click',()=>{priorityOnly=!priorityOnly;priorityFilter.classList.toggle('active',priorityOnly);if(printPriority)printPriority.hidden=!priorityOnly;if(clearPriority)clearPriority.hidden=!priorityOnly;draw();});
     clearPriority?.addEventListener('click',async()=>{
