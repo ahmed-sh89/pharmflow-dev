@@ -1122,6 +1122,23 @@ function buildReceivedQuantityByOrder(){
     return totals;
 }
 
+function getOperationalGroupForReceivingRow(row){
+    const direct=toSafeString(row?.group_name||row?.groupName||row?.Group||"").trim();
+    if(direct) return direct;
+
+    const code=normalizeItemCode(row?.itemCode||row?.["Item Number"]||"");
+    if(!code) return "";
+
+    const workspaceItem=(AppState?.workspace?.orderData||[])
+        .find(item=>normalizeItemCode(item?.itemCode||"")===code);
+    return toSafeString(
+        workspaceItem?.group_name||
+        workspaceItem?.groupName||
+        workspaceItem?.Group||
+        ""
+    ).trim();
+}
+
 function getPerOrderReceivingRows(orderNumber){
     const normalized=normalizeOrderNumber(orderNumber);
     const source=getWorkspaceOrderSourceRows(normalized);
@@ -1162,7 +1179,7 @@ function getPerOrderReceivingRows(orderNumber){
             "Difference":difference,
             "Issue Type":issueType,
             issueKey,
-            "Group":row.group_name||row.groupName||row.Group||row.category||"",
+            "Group":getOperationalGroupForReceivingRow(row),
             "Category":row.category||"",
             "Sub Category":row.sub_category||row.subCategory||""
         };
@@ -1195,7 +1212,7 @@ function getPerOrderReceivingRows(orderNumber){
                 "Difference":received,
                 "Issue Type":"Manual / Unordered Extra",
                 issueKey:"manual",
-                "Group":item.group_name||item.groupName||item.category||"",
+                "Group":getOperationalGroupForReceivingRow(item),
                 "Category":item.category||"",
                 "Sub Category":item.sub_category||item.subCategory||""
             });
