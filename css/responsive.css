@@ -136,7 +136,7 @@ body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-w
 body.zebraDevice #page-dashboard [data-action="minus"],
 body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
 
-/* B11.4 Final Receiving UI cleanup — replaces B11.3 selector overrides */
+/* B11.5 Consolidated Receiving controls — clean owner, no stacked selector patch */
 @media (min-width:769px){
   /* Work Orders and Manage Orders: one clear, compact control group. */
   body:not(.zebraDevice) #page-dashboard .pfnOrderControlGroup{
@@ -150,7 +150,7 @@ body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;col
     display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:4px!important;
     min-height:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important
   }
-  body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{
+  body:not(.zebraDevice) #page-dashboard .pfnLegacyOrderId{display:none!important}\n  body:not(.zebraDevice) #page-dashboard .pfnOrderSelector>span{
     margin:0 0 0 2px!important;font-size:10px!important;font-weight:800!important;letter-spacing:.08em!important;
     line-height:1!important;color:#64748b!important;text-transform:uppercase!important
   }
