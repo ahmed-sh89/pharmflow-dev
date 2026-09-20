@@ -119,9 +119,13 @@
     document.body.appendChild(overlay);modalStack.open(overlay);
     const body=overlay.querySelector('.pfnModalBody');
     const active=typeof getActiveReceivingOrderNumbers==='function'?getActiveReceivingOrderNumbers():[];
-    const assigned=Array.isArray(AppState?.workspace?.handheldOrderNumbers)?AppState.workspace.handheldOrderNumbers:active;
+    const assigned=Array.isArray(AppState?.workspace?.handheldOrderNumbers)
+      ? AppState.workspace.handheldOrderNumbers
+        .map(order=>String(order||'').trim().toUpperCase())
+        .filter(order=>active.includes(order))
+      : [];
     const assignment=document.createElement('section');assignment.className='pfnHandheldAssignment';
-    assignment.innerHTML=`<div class="pfnHandheldAssignmentHeading"><div><span>HANDHELD ASSIGNMENT</span><h3>Assign orders to Handheld</h3><p>Only these active orders can be received by the worker.</p></div><button type="button" data-assign-all>Select all</button></div><div class="pfnHandheldOrderGrid">${active.map(order=>`<label><input type="checkbox" value="${esc(order)}" ${assigned.includes(order)?'checked':''}><span>${esc(order)}</span></label>`).join('')||'<p>No active orders available.</p>'}</div><div class="pfnHandheldAssignmentActions"><span data-assignment-status>${active.length?`${assigned.length} orders assigned`:'No active orders'}</span><button type="button" class="primary" data-save-assignment>Assign to Handheld</button></div>`;
+    assignment.innerHTML=`<div class="pfnHandheldAssignmentHeading"><div><span>HANDHELD ASSIGNMENT</span><h3>Assign orders to Handheld</h3><p>Active Orders are managed here; only checked orders appear on the Handheld.</p></div><button type="button" data-assign-all>Select all</button></div><div class="pfnHandheldOrderGrid">${active.map(order=>`<label><input type="checkbox" value="${esc(order)}" ${assigned.includes(order)?'checked':''}><span>${esc(order)}</span></label>`).join('')||'<p>No active orders available.</p>'}</div><div class="pfnHandheldAssignmentActions"><span data-assignment-status>${active.length?`${assigned.length} orders assigned`:'No active orders'}</span><button type="button" class="primary" data-save-assignment>Assign to Handheld</button></div>`;
     body.appendChild(assignment);body.appendChild(page);page.classList.add('active','pfnEmbeddedPage');page.hidden=false;
     assignment.querySelector('[data-assign-all]')?.addEventListener('click',()=>assignment.querySelectorAll('input').forEach(input=>input.checked=true));
     assignment.querySelector('[data-save-assignment]')?.addEventListener('click',async event=>{

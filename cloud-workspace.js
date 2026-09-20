@@ -813,6 +813,14 @@ function serializeActiveOrderManifest(){
         selectedOrderNumbers:Array.isArray(workspace.selectedOrderNumbers)
             ? deepClone(workspace.selectedOrderNumbers)
             : [],
+        /* Handheld assignment is shared access scope, not a desktop-only
+           view preference. It must travel with the Active Order Manifest so
+           refreshes and Handheld devices restore the exact same assignment. */
+        handheldOrderNumbers:Array.isArray(workspace.handheldOrderNumbers)
+            ? deepClone(workspace.handheldOrderNumbers)
+            : [],
+        handheldScopeConfigured:
+            workspace.handheldScopeConfigured===true,
         orderFiles:deepClone(workspace.orderFiles||[]),
         mappingFiles:deepClone(workspace.mappingFiles||[]),
         orderData,
