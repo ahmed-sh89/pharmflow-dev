@@ -73,6 +73,10 @@ body.zebraDevice [data-handheld-worker-hidden="1"]{display:none!important}
   body:not(.zebraDevice) #page-receiving #receivingInlineSearch{box-sizing:border-box!important;width:100%!important;height:42px!important;padding:0 14px 0 42px!important;border:2px solid #8eb8db!important;border-radius:9px!important;background:#fafdff!important;color:#163e65!important;font-size:14px!important;font-weight:700!important;outline:none!important;box-shadow:0 1px 2px rgba(23,61,99,.06)!important}
   body:not(.zebraDevice) #page-receiving #receivingInlineSearch::placeholder{color:#557a9c!important;opacity:1!important}
   body:not(.zebraDevice) #page-receiving #receivingInlineSearch:focus{border-color:#147bc1!important;box-shadow:0 0 0 3px rgba(20,123,193,.14)!important}
+  body:not(.zebraDevice) #page-receiving .pfnDifferenceValue{display:inline-flex!important;align-items:center!important;justify-content:center!important;min-width:34px!important;padding:4px 7px!important;border-radius:6px!important;font-weight:900!important;line-height:1!important}
+  body:not(.zebraDevice) #page-receiving .pfnDifferenceValue.isShort{background:#fff0ef!important;color:#b42318!important}
+  body:not(.zebraDevice) #page-receiving .pfnDifferenceValue.isOver{background:#fff5dc!important;color:#9a6200!important}
+  body:not(.zebraDevice) #page-receiving .pfnDifferenceValue.isEven{background:#e9f3fb!important;color:#315b7e!important}
 }
 /* Compact workspace header — status only; no redundant Receive Order label. */
 body.zebraDevice.zebraReceivingActive #zebraQuickHeader{flex:0 0 auto!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;gap:4px!important;margin:0!important;padding:4px 6px!important;border:1px solid #cfe0ee!important;border-radius:9px!important;background:#eaf4fb!important;box-shadow:none!important}
