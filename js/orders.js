@@ -665,62 +665,70 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     const groups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
+    const summaryRows=groups.map(group=>`
+      <tr>
+        <td style="padding:9px 8px;border-bottom:1px solid #dce8f3;font-weight:700;color:#133d65">${esc(group.orderNumber||"-")}</td>
+        <td style="padding:9px 8px;border-bottom:1px solid #dce8f3">${esc(group.orderDate||"-")}</td>
+        <td style="padding:9px 8px;border-bottom:1px solid #dce8f3;font-weight:800;color:#b42318">${esc(group.summary?.discrepancyItems??group.rows.length)}</td>
+      </tr>`).join("");
+
     const sections=groups.map(group=>{
         const rows=group.rows;
-        const title=`فرق توريد | ${group.orderNumber||"-"} | ${group.orderDate||"-"}`;
-
+        const orderHeading=`الطلبية ${group.orderNumber||"-"}  |  التاريخ ${group.orderDate||"-"}`;
         return `
-        <section dir="rtl" style="margin:20px 0 0;border:1px solid #d9e5f0;border-radius:12px;overflow:hidden;background:#ffffff">
-          <div style="padding:13px 16px 11px;background:#edf5fb;color:#173d63;font-size:18px;font-weight:800;text-align:right">
-            ${esc(title)}
+        <section dir="rtl" style="margin:22px 0 0;border:1px solid #c8dceb;border-radius:10px;overflow:hidden;background:#ffffff">
+          <div style="padding:12px 16px;background:#0b5f9f;color:#ffffff;font-family:Arial,Tahoma,sans-serif;font-size:16px;font-weight:700;text-align:center">${esc(orderHeading)}</div>
+          <div style="padding:12px">
+            <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Arial,Tahoma,sans-serif;font-size:12px;color:#1d3954;border:1px solid #cbddea" cellpadding="0" cellspacing="0">
+              <thead>
+                <tr style="background:#dceefb;color:#103d66">
+                  <th style="width:13%;padding:9px 6px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Code</th>
+                  <th style="width:43%;padding:9px 8px;border-bottom:1px solid #b7d3e8;text-align:left;font-weight:800">Item Name</th>
+                  <th style="width:10%;padding:9px 5px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Ordered</th>
+                  <th style="width:10%;padding:9px 5px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Received</th>
+                  <th style="width:10%;padding:9px 5px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Diff</th>
+                  <th style="width:14%;padding:9px 5px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map((row,index)=>{
+                    const diff=Number(row["Difference"]||0);
+                    const status=String(row["Issue Type"]||row["Status"]||"");
+                    const diffStyle=diff<0
+                        ? "color:#b42318;background:#fff0ef"
+                        : diff>0
+                            ? "color:#9a6200;background:#fff5da"
+                            : "color:#315b7e;background:#edf4fa";
+                    return `
+                    <tr style="background:${index%2?"#f8fbfe":"#ffffff"}">
+                      <td style="padding:9px 6px;border-bottom:1px solid #e1ebf3;text-align:center;white-space:nowrap">${esc(row["Item Number"]||"")}</td>
+                      <td style="padding:9px 8px;border-bottom:1px solid #e1ebf3;text-align:left;overflow-wrap:anywhere">${esc(row["Item Name"]||"")}</td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center">${esc(row["Received Qty"]??0)}</td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center"><strong style="display:inline-block;min-width:28px;padding:3px 5px;border-radius:5px;font-weight:800;${diffStyle}">${diff>0?"+":""}${esc(diff)}</strong></td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center;font-weight:700">${esc(status)}</td>
+                    </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
           </div>
-          <div style="padding:0 14px 14px">
-          <table dir="ltr" style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;text-align:center;border:1px solid #d7e2ee" cellpadding="0" cellspacing="0">
-            <thead>
-              <tr style="background:#eef5fb;color:#173d63">
-                <th style="padding:8px 6px;text-align:center;font-weight:700">Item Code</th>
-                <th style="padding:8px 6px;text-align:left;font-weight:700">Item Name</th>
-                <th style="padding:8px 6px;text-align:center;font-weight:700">Ordered</th>
-                <th style="padding:8px 6px;text-align:center;font-weight:700">Received</th>
-                <th style="padding:8px 6px;text-align:center;font-weight:700">Difference</th>
-                <th style="padding:8px 6px;text-align:center;font-weight:700">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(row=>{
-                  const diff=Number(row["Difference"]||0);
-                  const status=String(
-                      row["Issue Type"] ||
-                      row["Status"] ||
-                      ""
-                  );
-
-                  const diffStyle=diff<0
-                      ? "color:#b42318;background:#fff1f0"
-                      : diff>0
-                          ? "color:#9a6700;background:#fff7df"
-                          : "color:#3f627f;background:#f4f7fa";
-                  return `
-                  <tr style="background:${rows.indexOf(row)%2?"#fbfdff":"#ffffff"}">
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Item Number"]||"")}</td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:left">${esc(row["Item Name"]||"")}</td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(row["Received Qty"]??0)}</td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center"><strong style="display:inline-block;min-width:36px;padding:3px 7px;border-radius:999px;font-weight:800;${diffStyle}">${diff>0?"+":""}${esc(diff)}</strong></td>
-                    <td style="padding:7px 6px;border-bottom:1px solid #e7eef5;text-align:center">${esc(status)}</td>
-                  </tr>`;
-              }).join("")}
-            </tbody>
-          </table></div>
         </section>`;
     }).join("");
 
     return `
-    <div dir="rtl" style="max-width:920px;margin:0 auto;padding:26px 30px;font-family:Arial,Tahoma,sans-serif;color:#173d63;background:#f4f8fc;font-size:14px;line-height:1.7;text-align:right">
-      <div style="max-width:820px;margin:0 auto;padding:26px;background:#ffffff;border:1px solid #dce7f0;border-radius:16px;box-shadow:0 4px 14px rgba(23,61,99,.08)">
-      <p style="margin:0 0 18px;font-size:16px;font-weight:700;color:#173d63">الإخوة الكرام بالمستودع،<br>تحية طيبة وبعد،<br>يوجد فرق توريد بالطلبية أدناه، برجاء المراجعة والتشييك.</p>
+    <div dir="rtl" style="max-width:920px;margin:0 auto;padding:24px;background:#f2f7fb;font-family:Arial,Tahoma,sans-serif;color:#173d63;text-align:center">
+      <div style="max-width:840px;margin:0 auto;padding:28px;background:#ffffff;border:1px solid #c8ddeb;border-radius:14px;box-shadow:0 5px 18px rgba(23,61,99,.10)">
+      <h1 style="margin:0 0 22px;padding:0 0 14px;border-bottom:3px solid #0b6faf;font-family:Arial,Tahoma,sans-serif;font-size:28px;line-height:1.2;font-weight:800;color:#0b4f84">فرق توريد</h1>
+      <p style="margin:0;font-family:Arial,Tahoma,sans-serif;font-size:18px;line-height:2;font-weight:700;color:#173d63">الإخوة الكرام بالمستودع<br>تحية طيبة وبعد<br>يوجد فرق توريد موضح أدناه<br>نأمل التكرم بالمراجعة والتشييك</p>
+      <section style="margin:24px 0 0;border:1px solid #c8dceb;border-radius:10px;overflow:hidden">
+        <div style="padding:11px 14px;background:#e5f2fc;color:#103d66;font-family:Arial,Tahoma,sans-serif;font-size:15px;font-weight:800">ملخص الطلبيات التي بها فروقات</div>
+        <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;color:#1d3954" cellpadding="0" cellspacing="0">
+          <thead><tr style="background:#f1f8fe;color:#103d66"><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Order Number</th><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Order Date</th><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Discrepant Items</th></tr></thead>
+          <tbody>${summaryRows}</tbody>
+        </table>
+      </section>
       ${sections}
-      <p style="margin:24px 0 0;font-size:15px;font-weight:700;color:#173d63">خالص الشكر والتقدير.</p>
+      <p style="margin:26px 0 0;font-family:Arial,Tahoma,sans-serif;font-size:18px;line-height:1.8;font-weight:700;color:#173d63">خالص الشكر والتقدير</p>
       </div>
     </div>`;
 }
@@ -760,13 +768,22 @@ function buildFinalizedDiscrepancyEmailText(report){
     const lines=[
         "الإخوة الكرام بالمستودع،",
         "تحية طيبة وبعد،",
-        "يوجد فرق توريد بالطلبية أدناه، برجاء المراجعة والتشييك.",
+        "يوجد فرق توريد موضح أدناه.",
+        "نأمل التكرم بالمراجعة والتشييك.",
         ""
     ];
 
+    lines.push("ملخص الطلبيات التي بها فروقات", "Order Number | Order Date | Discrepant Items");
+    groups.forEach(group=>lines.push([
+        group.orderNumber||"-",
+        group.orderDate||"-",
+        group.summary?.discrepancyItems??group.rows.length
+    ].join(" | ")));
+    lines.push("");
+
     groups.forEach(group=>{
         lines.push(
-            "فرق توريد | "+(group.orderNumber||"-")+" | "+(group.orderDate||"-"),
+            "الطلبية "+(group.orderNumber||"-")+" | التاريخ "+(group.orderDate||"-"),
             "",
             "Item Code | Item Name | Ordered | Received | Difference | Status"
         );

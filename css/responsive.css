@@ -131,8 +131,8 @@
 /* One owner for the first authenticated render: operational content never
    appears with bootstrap counters before the workspace is hydrated. */
 .workspaceBootOverlay{display:none}
-body.workspaceBooting .mainApplication{visibility:hidden!important}
-body.workspaceBooting .workspaceBootOverlay{position:fixed;inset:0;z-index:20000;display:grid;place-items:center;padding:20px;background:#f4f8fc}
+body.authBooting .mainApplication,body.workspaceBooting .mainApplication{visibility:hidden!important}
+body.authBooting .workspaceBootOverlay,body.workspaceBooting .workspaceBootOverlay{position:fixed;inset:0;z-index:20000;display:grid;place-items:center;padding:20px;background:#f4f8fc}
 .workspaceBootCard{display:grid;justify-items:center;gap:7px;min-width:280px;padding:30px;border:1px solid #d8e5f0;border-radius:18px;background:#fff;color:#173d63;box-shadow:0 14px 36px rgba(23,61,99,.12)}
 .workspaceBootCard span{font-size:10px;font-weight:900;letter-spacing:.1em;color:#5d7692}.workspaceBootCard strong{font-size:23px}.workspaceBootCard small{font-size:13px;color:#60758b}
 body.zebraDevice #page-dashboard{overflow:hidden!important}

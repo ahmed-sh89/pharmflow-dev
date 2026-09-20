@@ -1460,21 +1460,56 @@ function buildLiveReceivingReport(options={}){
 
 function buildReceivingEmailDifferencesReport(liveReport=null){
     const live=liveReport || buildLiveReceivingReport();
-    const rows=(live?.rows||[])
-        .filter(row=>String(row?.Status||"").toUpperCase()!=="COMPLETED")
-        .map(row=>({
-            "Item Number":row["Item Number"],
-            "Item Name":row["Item Name"],
-            "Ordered Qty":row["Ordered Qty"],
-            "Received Qty":row["Received Qty"],
-            "Difference":row["Difference"],
-            "Issue Type":row["Status"],
-            "Category":row["Category"]||""
-        }));
+    const toEmailRow=row=>({
+        "Item Number":row["Item Number"],
+        "Item Name":row["Item Name"],
+        "Ordered Qty":row["Ordered Qty"],
+        "Received Qty":row["Received Qty"],
+        "Difference":row["Difference"],
+        "Issue Type":row["Issue Type"]||row["Status"],
+        "Category":row["Category"]||""
+    });
+
+    /* The email must retain per-order boundaries. A live receiving snapshot
+       is flat, so derive the canonical grouped report while its workspace is
+       still active instead of merging multiple orders into one item table. */
+    const grouped=Array.isArray(live?.orderGroups)
+        ? live
+        : (typeof buildMultiOrderReceivingReport==="function"
+            ? buildMultiOrderReceivingReport({visibleOnly:false})
+            : null);
+
+    const orderGroups=Array.isArray(grouped?.orderGroups)
+        ? grouped.orderGroups
+            .map(group=>{
+                const rows=(group.rows||[]).map(toEmailRow);
+                return {
+                    ...group,
+                    summary:{
+                        ...(group.summary||{}),
+                        discrepancyItems:rows.length
+                    },
+                    rows
+                };
+            })
+            .filter(group=>group.rows.length)
+        : [];
+
+    const rows=orderGroups.length
+        ? orderGroups.flatMap(group=>group.rows)
+        : (live?.rows||[])
+            .filter(row=>String(row?.Status||"").toUpperCase()!=="COMPLETED")
+            .map(toEmailRow);
 
     return {
         orderId:live?.orderId||"",
-        orders:Array.isArray(live?.orders)?live.orders:[],
+        orders:orderGroups.length
+            ? orderGroups.map(group=>({
+                orderNumber:group.orderNumber,
+                orderDate:group.orderDate||""
+            }))
+            : (Array.isArray(live?.orders)?live.orders:[]),
+        orderGroups,
         totalDiscrepancies:rows.length,
         shortageItems:rows.filter(r=>["SHORTAGE","NOT RECEIVED"].includes(r["Issue Type"])).length,
         partialShortageItems:rows.filter(r=>r["Issue Type"]==="SHORTAGE").length,
