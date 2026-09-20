@@ -145,7 +145,7 @@ body.zebraDevice #page-dashboard .quantityButton,
 body.zebraDevice #page-dashboard .tableQtyButton{font-size:24px!important;font-weight:800!important;line-height:1!important;display:inline-flex!important;align-items:center!important;justify-content:center!important}
 body.zebraDevice #page-dashboard [data-action="minus"],
 body.zebraDevice #page-dashboard #btnSmartQtyMinus{background:#fff!important;color:#111!important;border:2px solid #111!important}
-body.zebraDevice #handheldWorkspaceStatus.handheldWorkScopeButton{appearance:none!important;border:0!important;cursor:pointer!important;font:inherit!important;text-align:left!important}
+body.zebraDevice #handheldWorkspaceStatus{cursor:default!important}
 body.zebraDevice #pfrChangeOrders{display:none!important}
 
 /* B11.5 Consolidated Receiving controls — clean owner, no stacked selector patch */

@@ -631,6 +631,13 @@ function serializeActiveOrderManifest(){
         selectedOrderNumbers:Array.isArray(workspace.selectedOrderNumbers)
             ? deepClone(workspace.selectedOrderNumbers)
             : [],
+        /* Admin-owned Handheld assignment. Kept in the manifest so it is
+           durable and shared between the PC and Handheld without a second
+           client-local preference path. */
+        handheldOrderNumbers:Array.isArray(workspace.handheldOrderNumbers)
+            ? deepClone(workspace.handheldOrderNumbers)
+            : [],
+        handheldScopeConfigured:workspace.handheldScopeConfigured===true,
         orderFiles:deepClone(workspace.orderFiles||[]),
         mappingFiles:deepClone(workspace.mappingFiles||[]),
         orderData,

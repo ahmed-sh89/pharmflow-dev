@@ -7396,8 +7396,14 @@ async function refreshUnifiedHandheldWorkspace(options={}){
     if(typeof AuthState==="undefined" || !AuthState?.context?.pharmacy_id) return false;
     if(typeof pullActiveOrderManifest!=="function") return false;
 
-    document.body.dataset.hhWorkspaceLoading="1";
-    window.hhRefreshReadyState?.();
+    /* Background reconciliation must never replace the worker surface. The
+       shared cloud scheduler already owns normal syncing; this indicator is
+       reserved for the initial route entry before the scan panel is shown. */
+    const blocking=options?.blocking===true;
+    if(blocking){
+        document.body.dataset.hhWorkspaceLoading="1";
+        window.hhRefreshReadyState?.();
+    }
     try{
         await pullActiveOrderManifest({clearIfMissing:true});
         if(typeof pullCloudWorkspaceTransactions==="function"){
@@ -7425,7 +7431,7 @@ async function refreshUnifiedHandheldWorkspace(options={}){
         }
         return false;
     }finally{
-        delete document.body.dataset.hhWorkspaceLoading;
+        if(blocking) delete document.body.dataset.hhWorkspaceLoading;
         window.hhRefreshReadyState?.();
         refreshHandheldWorkspaceStatus?.();
     }
@@ -7439,7 +7445,7 @@ async function openUnifiedHandheldReceiving(){
     try{ window.scrollTo(0,0); }catch(_){ }
 
     window.hhRefreshReadyState?.();
-    const ready=await refreshUnifiedHandheldWorkspace({silent:true});
+    const ready=await refreshUnifiedHandheldWorkspace({silent:true,blocking:true});
 
     setZebraReceivingMode();
 
@@ -7637,7 +7643,7 @@ function ensureHandheldReceivingTools(){
         header.innerHTML=`
             <div class="zebraFinalHeader">
                 <div class="zebraFinalTitle">
-                    <button id="handheldWorkspaceStatus" class="zebraConnectedDot handheldWorkScopeButton" type="button" aria-haspopup="dialog" title="Change Work Orders">SYNCING…</button>
+                    <div id="handheldWorkspaceStatus" class="zebraConnectedDot" aria-live="polite">SYNCING…</div>
                 </div>
                 <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>
             </div>
@@ -7665,15 +7671,40 @@ function ensureHandheldReceivingTools(){
 
     recent.onclick=openHandheldScansPanel;
 
-    /* Monitoring remains a tab inside History. One top-level control leaves
-       more space for the actual receiving work. */
+    /* History is the only work control; progress is always visible below. */
     document.getElementById("btnHandheldMonitoring")?.remove();
+    ensureHandheldReceivingProgress();
     refreshHandheldReceivingTools();
 }
 
 function refreshHandheldReceivingTools(){
     const value = document.getElementById("handheldTotalScansValue");
     if(value) value.textContent = String(getHandheldTotalScans());
+    refreshHandheldReceivingProgress();
+}
+
+function ensureHandheldReceivingProgress(){
+    const card=document.getElementById("lastScanCard");
+    if(!card || document.getElementById("handheldReceivingProgress")) return;
+    const progress=document.createElement("section");
+    progress.id="handheldReceivingProgress";
+    progress.setAttribute("aria-label","Receiving progress");
+    progress.innerHTML=`<div><span>ASSIGNED</span><strong data-assigned>0</strong></div><div><span>COMPLETED</span><strong data-completed>0</strong></div><div><span>REMAINING</span><strong data-remaining>0</strong></div><div><span>OVER</span><strong data-over>0</strong></div>`;
+    card.appendChild(progress);
+}
+
+function refreshHandheldReceivingProgress(){
+    const progress=document.getElementById("handheldReceivingProgress");
+    if(!progress) return;
+    const selected=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():[];
+    const items=(AppState?.workspace?.orderData||[]).filter(item=>!selected.length||selected.some(order=>itemBelongsToOrderScope(item,order)));
+    const completed=items.filter(item=>Number(item?.orderedQty||0)>0&&Number(item?.receivedQty||0)>=Number(item?.orderedQty||0)).length;
+    const remaining=items.filter(item=>Math.max(0,Number(item?.orderedQty||0)-Number(item?.receivedQty||0))>0).length;
+    const over=items.filter(item=>Number(item?.receivedQty||0)>Number(item?.orderedQty||0)).length;
+    progress.querySelector("[data-assigned]").textContent=String(selected.length);
+    progress.querySelector("[data-completed]").textContent=String(completed);
+    progress.querySelector("[data-remaining]").textContent=String(remaining);
+    progress.querySelector("[data-over]").textContent=String(over);
 }
 
 function openHandheldReviewPhoto(url,title){
@@ -7717,33 +7748,12 @@ function openHandheldScansPanel(initialTab="SCANS"){
     const overlay=document.createElement("div");
     overlay.id="handheldScansOverlay";
     overlay.className="handheldScansOverlay handheldRecentOverlay";
-    overlay.dataset.tab=["REVIEW","MONITOR"].includes(initialTab)?initialTab:"SCANS";
+    overlay.dataset.tab=initialTab==="REVIEW"?"REVIEW":"SCANS";
 
     const render=()=>{
         const tab=overlay.dataset.tab||"SCANS";
         const recent=scanRows();
         const showingReview=tab==="REVIEW";
-        const showingMonitor=tab==="MONITOR";
-        const selectedOrders=typeof getSelectedReceivingOrderNumbers==="function"
-            ? getSelectedReceivingOrderNumbers()
-            : [];
-        const items=(AppState?.workspace?.orderData||[]).filter(item=>
-            !selectedOrders.length || selectedOrders.some(order=>
-                typeof itemBelongsToOrderScope!=="function" || itemBelongsToOrderScope(item,order)
-            )
-        );
-        const received=items.filter(item=>Number(item?.receivedQty||0)>0).length;
-        const remaining=items.filter(item=>Math.max(0,Number(item?.orderedQty||0)-Number(item?.receivedQty||0))>0).length;
-        const over=items.filter(item=>Number(item?.receivedQty||0)>Number(item?.orderedQty||0)).length;
-        const monitorMarkup=`
-          <div class="handheldMonitorGrid">
-            <div><span>RECEIVED</span><strong>${received}</strong></div>
-            <div><span>REMAINING</span><strong>${remaining}</strong></div>
-            <div><span>OVER RECEIVED</span><strong>${over}</strong></div>
-            <div><span>NEEDS REVIEW</span><strong>${reviewRows.length}</strong></div>
-            <div><span>RECENT SCANS</span><strong>${recent.length}</strong></div>
-          </div>
-          <p class="handheldMonitorNote">Remaining is live. Shortage is confirmed only after the order is completed.</p>`;
 
         const scanMarkup=recent.length ? recent.map((row,index)=>{
             const qty=Math.max(1,Number(row?.quantity||1)||1);
@@ -7794,8 +7804,8 @@ function openHandheldScansPanel(initialTab="SCANS"){
             <header>
               <div>
                 <span>RECEIVING HISTORY</span>
-                <strong>${showingMonitor?"Receiving Monitor":"Recent Scans"}</strong>
-                <small>${showingMonitor?"Live view for the orders assigned to this Handheld":(showingReview?"Pending items saved by this Handheld":`Last ${recent.length} scan transactions`)}</small>
+                <strong>Recent Scans</strong>
+                <small>${showingReview?"Pending items saved by this Handheld":`Last ${recent.length} scan transactions`}</small>
               </div>
               <button type="button" data-close aria-label="Close">✕</button>
             </header>
@@ -7803,21 +7813,18 @@ function openHandheldScansPanel(initialTab="SCANS"){
             <div class="handheldRecentTabs">
               <button type="button" data-tab="SCANS" class="${tab==="SCANS"?"active":""}">SCANS</button>
               <button type="button" data-tab="REVIEW" class="${tab==="REVIEW"?"active":""}">NEEDS REVIEW ${reviewRows.length?`(${reviewRows.length})`:""}</button>
-              <button type="button" data-tab="MONITOR" class="${tab==="MONITOR"?"active":""}">MONITOR</button>
             </div>
 
             <div id="handheldRecentFeedback" class="handheldRecentFeedback" aria-live="polite"></div>
 
             <div class="handheldRecentList">
-              ${showingMonitor?monitorMarkup:(showingReview?reviewMarkup:scanMarkup)}
+              ${showingReview?reviewMarkup:scanMarkup}
             </div>
 
             <div class="handheldRecentFooter">
-              <span>${showingMonitor
-                ?"Use this view to check work without leaving the scan screen."
-                :(showingReview
+              <span>${showingReview
                 ?"Quantity can be corrected here. Delete removes only the selected pending review item."
-                :"Only the latest scan can be removed. The correction is saved to the shared receiving record.")}</span>
+                :"Only the latest scan can be removed. The correction is saved to the shared receiving record."}</span>
               <button type="button" class="handheldPanelDone" data-close>DONE</button>
             </div>
           </section>`;

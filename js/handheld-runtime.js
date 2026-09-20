@@ -341,16 +341,6 @@ function hhStartFocusWatch(){
     },900);
 }
 
-function hhStartWorkspaceWatch(){
-    clearInterval(HandheldRuntime.terminationTimer);
-    /* The old 2.2s cloud refresh competed with barcode resolution and made
-       the Handheld feel slow. Normal shared-workspace reconciliation already
-       exists; this is only a low-frequency safety refresh while visible. */
-    HandheldRuntime.terminationTimer=setInterval(()=>{
-        if(document.visibilityState!=="hidden") hhRefreshWorkspaceAuthority();
-    },2200);
-}
-
 function hhInstall(){
     if(HandheldRuntime.installed || !hhIsDevice()) return;
     HandheldRuntime.installed=true;
@@ -395,7 +385,6 @@ function hhInstall(){
         });
     }
 
-    hhStartWorkspaceWatch();
     hhStartFocusWatch();
 
     setTimeout(()=>{

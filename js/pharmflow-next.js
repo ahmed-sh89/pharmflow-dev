@@ -116,7 +116,22 @@
     PF.ordersAnchor=document.createComment('pfn-orders-anchor');page.parentNode.insertBefore(PF.ordersAnchor,page);
     const overlay=document.createElement('div');overlay.id='pfnOrdersOverlay';overlay.className='pfnCenterOverlay';
     overlay.innerHTML='<section class="pfnCenterModal pfnOrdersModal" role="dialog" aria-modal="true"><header class="pfnModalHeader"><div><span>ORDER MANAGEMENT</span><h2>Manage Orders</h2></div><button type="button" data-close>✕</button></header><div class="pfnModalBody"></div></section>';
-    document.body.appendChild(overlay);modalStack.open(overlay);overlay.querySelector('.pfnModalBody').appendChild(page);page.classList.add('active','pfnEmbeddedPage');page.hidden=false;
+    document.body.appendChild(overlay);modalStack.open(overlay);
+    const body=overlay.querySelector('.pfnModalBody');
+    const active=typeof getActiveReceivingOrderNumbers==='function'?getActiveReceivingOrderNumbers():[];
+    const assigned=Array.isArray(AppState?.workspace?.handheldOrderNumbers)?AppState.workspace.handheldOrderNumbers:active;
+    const assignment=document.createElement('section');assignment.className='pfnHandheldAssignment';
+    assignment.innerHTML=`<div class="pfnHandheldAssignmentHeading"><div><span>HANDHELD ASSIGNMENT</span><h3>Assign orders to Handheld</h3><p>Only these active orders can be received by the worker.</p></div><button type="button" data-assign-all>Select all</button></div><div class="pfnHandheldOrderGrid">${active.map(order=>`<label><input type="checkbox" value="${esc(order)}" ${assigned.includes(order)?'checked':''}><span>${esc(order)}</span></label>`).join('')||'<p>No active orders available.</p>'}</div><div class="pfnHandheldAssignmentActions"><span data-assignment-status>${active.length?`${assigned.length} orders assigned`:'No active orders'}</span><button type="button" class="primary" data-save-assignment>Assign to Handheld</button></div>`;
+    body.appendChild(assignment);body.appendChild(page);page.classList.add('active','pfnEmbeddedPage');page.hidden=false;
+    assignment.querySelector('[data-assign-all]')?.addEventListener('click',()=>assignment.querySelectorAll('input').forEach(input=>input.checked=true));
+    assignment.querySelector('[data-save-assignment]')?.addEventListener('click',async event=>{
+      const chosen=[...assignment.querySelectorAll('input:checked')].map(input=>input.value);
+      if(!chosen.length){showToast?.('Select at least one active order','warning');return;}
+      event.currentTarget.disabled=true;
+      const saved=await window.setHandheldAssignedOrderNumbers?.(chosen);
+      event.currentTarget.disabled=false;
+      if(saved) assignment.querySelector('[data-assignment-status]').textContent=`${chosen.length} orders assigned`;
+    });
     overlay.querySelector('[data-close]').onclick=closeOrders;overlay.addEventListener('click',e=>{if(e.target===overlay)closeOrders();});
   }
 

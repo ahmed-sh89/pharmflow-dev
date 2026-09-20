@@ -911,6 +911,17 @@ function getActiveReceivingOrderNumbers(){
 
 function getSelectedReceivingOrderNumbers(){
     const active=getActiveReceivingOrderNumbers();
+    /* The Handheld is a worker surface. Its work scope is assigned by an
+       authorized PC user and saved in the Active Order manifest; it must not
+       read a device-local order preference. Existing workspaces keep their
+       all-active behaviour until an administrator makes the first assignment. */
+    if(typeof isLikelyZebraDevice==="function" && isLikelyZebraDevice()){
+        const configured=AppState?.workspace?.handheldScopeConfigured===true;
+        const assigned=Array.isArray(AppState?.workspace?.handheldOrderNumbers)
+            ? AppState.workspace.handheldOrderNumbers.map(normalizeOrderNumber).filter(order=>active.includes(order))
+            : [];
+        return configured ? [...new Set(assigned)] : active.slice();
+    }
     /* Receiving Release: order selection is a device-local work scope, never
        shared business state.  An empty saved scope means ALL ACTIVE ORDERS. */
     if(window.PharmFlowDeviceWorkScope){
@@ -934,6 +945,24 @@ function getSelectedReceivingOrderNumbers(){
     const normalized=normalizeOrderNumber(legacy);
     return normalized&&active.includes(normalized)?[normalized]:active.slice();
 }
+
+async function setHandheldAssignedOrderNumbers(orderNumbers){
+    const active=getActiveReceivingOrderNumbers();
+    const selected=[...new Set((Array.isArray(orderNumbers)?orderNumbers:[])
+        .map(normalizeOrderNumber)
+        .filter(order=>active.includes(order)))];
+    if(!selected.length) return false;
+    AppState.workspace.handheldOrderNumbers=selected;
+    AppState.workspace.handheldScopeConfigured=true;
+    saveWorkspaceSnapshot?.();
+    AppEvents?.emit?.("receiving:updated",{source:"handheld-assignment"});
+    const saved=typeof saveActiveOrderManifest==="function"
+        ? await saveActiveOrderManifest({silent:false})
+        : false;
+    if(saved) showToast?.("Handheld orders assigned","success");
+    return saved;
+}
+window.setHandheldAssignedOrderNumbers=setHandheldAssignedOrderNumbers;
 
 function isAllReceivingOrdersSelected(){
     const active=getActiveReceivingOrderNumbers();

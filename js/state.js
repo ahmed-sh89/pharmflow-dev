@@ -27,6 +27,10 @@ const AppState = {
 
         selectedOrderNumber:"",
 
+        handheldOrderNumbers:[],
+
+        handheldScopeConfigured:false,
+
         orderFiles:[],
 
         mappingFiles:[],
@@ -187,6 +191,10 @@ function createEmptyWorkspace(){
         active:false,
 
         selectedOrderNumber:"",
+
+        handheldOrderNumbers:[],
+
+        handheldScopeConfigured:false,
 
         orderFiles:[],
 

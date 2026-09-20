@@ -665,16 +665,21 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     const groups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
+    const formatOrderDate=value=>{
+        const match=String(value||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if(!match) return String(value||"-");
+        return `${match[3]} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][Number(match[2])-1]} ${match[1]}`;
+    };
     const summaryRows=groups.map(group=>`
       <tr>
         <td style="padding:9px 8px;border-bottom:1px solid #dce8f3;font-weight:700;color:#133d65">${esc(group.orderNumber||"-")}</td>
-        <td style="padding:9px 8px;border-bottom:1px solid #dce8f3">${esc(group.orderDate||"-")}</td>
+        <td style="padding:9px 8px;border-bottom:1px solid #dce8f3">${esc(formatOrderDate(group.orderDate))}</td>
         <td style="padding:9px 8px;border-bottom:1px solid #dce8f3;font-weight:800;color:#b42318">${esc(group.summary?.discrepancyItems??group.rows.length)}</td>
       </tr>`).join("");
 
     const sections=groups.map(group=>{
         const rows=group.rows;
-        const orderHeading=`الطلبية ${group.orderNumber||"-"}  |  التاريخ ${group.orderDate||"-"}`;
+        const orderHeading=`الطلبية ${group.orderNumber||"-"}`;
         return `
         <section dir="rtl" style="margin:22px 0 0;border:1px solid #b8d4e9;border-radius:10px;overflow:hidden;background:#edf6fc">
           <div style="padding:12px 16px;background:#0b5f9f;color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-align:center">${esc(orderHeading)}</div>
@@ -729,7 +734,7 @@ function buildFinalizedDiscrepancyEmailHTML(report){
         </table>
       </section>
       ${sections}
-      <p style="margin:26px 0 0;font-family:Arial,sans-serif;font-size:18px;line-height:1.8;font-weight:700;color:#173d63">خالص الشكر والتقدير</p>
+      <div style="margin:26px 0 0;padding:14px 18px;border:1px solid #97c3e3;border-radius:10px;background:#d5eaf8;font-family:Arial,sans-serif;font-size:18px;line-height:1.8;font-weight:700;color:#173d63">خالص الشكر والتقدير</div>
       </div>
     </div>`;
 }
@@ -873,11 +878,10 @@ function openFinalizedDiscrepancyEmailPreview(report,options={}){
 
     const orders=Array.isArray(report?.orders)?report.orders:[];
     const orderLabel=orders.map(x=>x.orderNumber).filter(Boolean).join(" + ") || report?.orderId || "";
-    const orderDate=orders.map(x=>x.orderDate).filter(Boolean)[0] || "";
     const reportGroups=getEmailReportOrderGroups(report)
         .filter(group=>Array.isArray(group.rows) && group.rows.length);
 
-    const subject=`فرق توريد | ${orderLabel||"-"} | ${orderDate||"-"}`;
+    const subject=`فرق توريد — ${orderLabel||"-"}`;
     const rows=Array.isArray(report?.rows)?report.rows:[];
 
     const overlay=document.createElement("div");

@@ -93,6 +93,11 @@ body.zebraDevice .handheldRecentButton span{font-size:7px!important} body.zebraD
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanel{flex:0 0 auto!important;margin:0!important;padding:5px!important;border:1px solid #c8dced!important;border-radius:10px!important;background:#eaf5fc!important;overflow:hidden!important;box-shadow:none!important}
 body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #page-dashboard .scanPanel,body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #lastScanCard{visibility:hidden!important}
 body.zebraDevice.zebraReceivingActive[data-hh-workspace-loading="1"] #page-dashboard:after{content:"Loading receiving workspace…";display:grid;place-items:center;flex:1;min-height:0;border:1px solid #cfe0ee;border-radius:10px;background:#f8fbfe;color:#315f9e;font-size:12px;font-weight:800}
+
+body.zebraDevice.zebraReceivingActive #handheldReceivingProgress{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important;margin-top:auto!important;padding-top:8px!important}
+body.zebraDevice.zebraReceivingActive #handheldReceivingProgress>div{display:grid!important;place-items:center!important;min-height:39px!important;padding:3px 1px!important;border:1px solid #cbddec!important;border-radius:8px!important;background:#f0f6fc!important}
+body.zebraDevice.zebraReceivingActive #handheldReceivingProgress span{font-size:6px!important;font-weight:950!important;color:#5a7189!important;line-height:1!important}
+body.zebraDevice.zebraReceivingActive #handheldReceivingProgress strong{margin-top:2px!important;font-size:15px!important;line-height:1!important;color:#174d81!important}
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:5px!important;margin:0 0 4px!important;padding:0!important;min-height:20px!important}
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader .sectionEyebrow,
 body.zebraDevice.zebraReceivingActive #page-dashboard .scanPanelHeader p{display:none!important}
