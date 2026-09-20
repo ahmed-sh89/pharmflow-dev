@@ -118,9 +118,9 @@ body.zebraDevice.zebraReceivingActive #lastScanCard .cardHeader .sectionEyebrow{
 body.zebraDevice.zebraReceivingActive #lastScanCard .cardHeader h3{margin:0!important;color:#15395e!important;font-size:15px!important;line-height:1!important;font-weight:950!important;text-transform:uppercase!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard #lastScanTime{display:none!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .legacyLastScanGrid{display:none!important}
-body.zebraDevice.zebraReceivingActive #lastScanCard .professionalLastScanLayout{display:grid!important;grid-template-rows:minmax(64px,1.25fr) minmax(56px,1fr)!important;align-content:stretch!important;gap:7px!important;margin:0!important;min-height:0!important;flex:1!important}
+body.zebraDevice.zebraReceivingActive #lastScanCard #professionalLastScanLayout{display:grid!important;grid-template-rows:minmax(82px,1.35fr) auto minmax(88px,1fr)!important;align-content:stretch!important;gap:7px!important;margin:0!important;min-height:0!important;flex:1 1 auto!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanHero{display:flex!important;flex-direction:column!important;justify-content:center!important;min-height:0!important;padding:8px 9px!important;border:1px solid #ecd9a9!important;border-radius:8px!important;background:#fffdf6!important}
-body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanHeroName{margin:0!important;color:#132f50!important;font-size:18px!important;line-height:1.08!important;font-weight:950!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanHeroName{display:-webkit-box!important;margin:0!important;color:#132f50!important;font-size:19px!important;line-height:1.12!important;font-weight:950!important;white-space:normal!important;overflow:hidden!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:2!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaRow{display:flex!important;align-items:center!important;gap:7px!important;margin-top:3px!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaItem{padding:0!important;background:transparent!important;border:0!important;min-width:0!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaItem span{font-size:0!important}
@@ -128,7 +128,7 @@ body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaItem:first-chil
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaItem strong{font-size:9px!important;color:#425a73!important;font-weight:900!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaGTIN,
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetaTime{display:none!important}
-body.zebraDevice.zebraReceivingActive #lastScanQuantityControls{display:grid!important;gap:4px!important;margin:0!important}
+body.zebraDevice.zebraReceivingActive #lastScanQuantityControls{display:grid!important;gap:4px!important;margin:0!important;min-height:0!important}
 body.zebraDevice.zebraReceivingActive .lastScanQtyTitle,
 body.zebraDevice.zebraReceivingActive .handheldScanContext,
 body.zebraDevice.zebraReceivingActive .lastScanQtyHint{display:none!important}
@@ -141,7 +141,7 @@ body.zebraDevice.zebraReceivingActive .handheldScanSavedAck{display:flex!importa
 body.zebraDevice.zebraReceivingActive .handheldClearLastScan{position:absolute!important;top:5px!important;right:6px!important;z-index:3!important;width:auto!important;min-height:24px!important;margin:0!important;padding:2px 8px!important;border:1px solid #9ebbd8!important;border-radius:7px!important;background:#eef5fb!important;color:#1c5a94!important;font-size:0!important;font-weight:950!important;box-shadow:none!important}
 body.zebraDevice.zebraReceivingActive .handheldClearLastScan:after{content:"CLEAR";font-size:7px!important;letter-spacing:.03em!important}
 body.zebraDevice.zebraReceivingActive .handheldClearLastScan:active{background:#dcecf8!important}
-body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetrics{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;height:100%!important;margin-top:0!important}
+body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetrics{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:5px!important;height:100%!important;min-height:88px!important;margin-top:0!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetric{display:grid!important;place-items:center!important;min-height:0!important;padding:5px 2px!important;border:1px solid transparent!important;border-radius:8px!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetric:nth-child(1){background:#eaf3fd!important;border-color:#c2d8ef!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricReceived{display:grid!important;background:#e8f6ec!important;border-color:#bcdcc5!important}
@@ -150,7 +150,7 @@ body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricStatus{displa
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetric span{color:#53667a!important;font-size:7px!important;font-weight:950!important;line-height:1!important;text-align:center!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricReceived span{font-size:0!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricReceived span:after{content:"RECEIVED";font-size:7px!important}
-body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetric strong{margin-top:3px!important;color:#123c72!important;font-size:22px!important;font-weight:950!important;line-height:1!important}
+body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetric strong{margin-top:4px!important;color:#123c72!important;font-size:28px!important;font-weight:950!important;line-height:1!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricReceived strong{color:#15703a!important}
 body.zebraDevice.zebraReceivingActive #lastScanCard .lastScanMetricRemaining strong{color:#5a3ca0!important}
 body.zebraDevice .handheldAssignedOrdersPanel{max-height:72dvh!important}

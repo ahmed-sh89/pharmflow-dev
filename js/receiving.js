@@ -191,6 +191,10 @@ async function receiveParsedBarcode(parsed,queueOptions={}){
     }
 
     if(current?.item){
+        if(isKnownItemOutsideHandheldScope(current.item)){
+            return showKnownItemOutsideHandheldScope(current.item);
+        }
+
         return receiveOrderItem({
             item:current.item,
             quantity:getValidReceivingQuantity(parsed.quantity),
@@ -224,6 +228,14 @@ async function receiveParsedBarcode(parsed,queueOptions={}){
 
     if(!masterRecord?.itemCode){
         return await quickResolveUnrecognizedGTIN(parsed,null);
+    }
+
+    const workspaceItem=(AppState?.workspace?.orderData||[]).find(row=>
+        normalizeItemCode(row?.itemCode||"")===normalizeItemCode(masterRecord.itemCode||"")
+    )||null;
+
+    if(isKnownItemOutsideHandheldScope(workspaceItem)){
+        return showKnownItemOutsideHandheldScope(workspaceItem);
     }
 
     const item=getReceivingItemByItemCode(masterRecord.itemCode);
@@ -297,6 +309,34 @@ function getReceivingItemByItemCode(itemCode){
             .filter(Boolean);
         return memberships.some(order=>selected.includes(order));
     })||null;
+}
+
+/* A Handheld can identify an item from the shared Active Orders workspace
+   while that item belongs only to an order assigned elsewhere. Keep this
+   separate from an unknown GTIN and from an unordered extra: it must never
+   alter quantities or invite the worker to add the item. */
+function isKnownItemOutsideHandheldScope(item){
+    const isHandheld=
+        typeof isLikelyZebraDevice==="function" &&
+        isLikelyZebraDevice();
+
+    return Boolean(isHandheld && item && getReceivingEligibleOrders(item).length===0);
+}
+
+function showKnownItemOutsideHandheldScope(item){
+    const memberships=[...new Set((item?.orderNumbers||[item?.orderNumber])
+        .map(normalizeOrderNumber)
+        .filter(Boolean))];
+    const orderLabel=memberships.length ? memberships.join(", ") : "another active order";
+
+    setScanBoxState?.("action");
+    Logger.warn("Known item scanned outside Handheld assignment",item?.itemCode,memberships);
+    showToast?.(
+        `ITEM IN ANOTHER ACTIVE ORDER (${orderLabel}) — NOT ASSIGNED TO THIS HANDHELD`,
+        "warning"
+    );
+    focusScannerInput?.();
+    return false;
 }
 
 function getReceivingEligibleOrders(item){

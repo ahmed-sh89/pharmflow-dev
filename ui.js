@@ -5504,9 +5504,33 @@ function createLastScanQuantityControls(){
 
   `;
 
-  card.appendChild(
-      controls
-  );
+  const isHandheld=
+      typeof isLikelyZebraDevice === "function" &&
+      isLikelyZebraDevice();
+
+  const professionalLayout=
+      document.getElementById(
+          "professionalLastScanLayout"
+      );
+
+  const metrics=
+      professionalLayout?.querySelector(
+          ".lastScanMetrics"
+      );
+
+  /* Keep the Handheld identity, batch quantity and operational totals in one
+     expanding Last Scan surface. Desktop retains its established placement. */
+  if(isHandheld && professionalLayout && metrics){
+      professionalLayout.insertBefore(
+          controls,
+          metrics
+      );
+  }
+  else{
+      card.appendChild(
+          controls
+      );
+  }
 
 
   document
