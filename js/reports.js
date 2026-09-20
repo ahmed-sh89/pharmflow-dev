@@ -947,6 +947,16 @@ function getSelectedReceivingOrderNumbers(){
 }
 
 async function setHandheldAssignedOrderNumbers(orderNumbers){
+    /* Assignment must start from fresh manifest + generation authority.
+       This avoids a visible failed first click after refresh. */
+    const prepared=typeof window.prepareActiveOrderManifestWrite==="function"
+        ? await window.prepareActiveOrderManifestWrite()
+        : true;
+    if(!prepared){
+        showToast?.("Unable to refresh Active Orders for assignment","error");
+        return false;
+    }
+
     const active=getActiveReceivingOrderNumbers();
     const selected=[...new Set((Array.isArray(orderNumbers)?orderNumbers:[])
         .map(normalizeOrderNumber)
@@ -961,14 +971,38 @@ async function setHandheldAssignedOrderNumbers(orderNumbers){
     AppState.workspace.handheldScopeConfigured=true;
     saveWorkspaceSnapshot?.();
     AppEvents?.emit?.("receiving:updated",{source:"handheld-assignment"});
-    const saved=typeof saveActiveOrderManifest==="function"
-        ? await saveActiveOrderManifest({silent:false})
+    const save=()=>typeof saveActiveOrderManifest==="function"
+        ? saveActiveOrderManifest({silent:true})
         : false;
+    let saved=await save();
+
+    /* A reset can occur in the tiny interval after the pre-write refresh.
+       Recover once from that specific generation fence and retry silently.
+       Revision conflicts remain explicit so another administrator's manifest
+       change is never overwritten without a fresh user choice. */
+    const staleGeneration=()=>String(
+        window.PharmFlowCloudWorkspace?.lastManifestSaveError||""
+    ).includes("STALE_WORKSPACE_GENERATION");
+    if(!saved && staleGeneration()){
+        const refreshed=typeof window.prepareActiveOrderManifestWrite==="function"
+            ? await window.prepareActiveOrderManifestWrite()
+            : false;
+        const retryActive=getActiveReceivingOrderNumbers();
+        const retrySelected=selected.filter(order=>retryActive.includes(order));
+        if(refreshed && retrySelected.length){
+            AppState.workspace.handheldOrderNumbers=retrySelected;
+            AppState.workspace.handheldScopeConfigured=true;
+            saveWorkspaceSnapshot?.();
+            AppEvents?.emit?.("receiving:updated",{source:"handheld-assignment-retry"});
+            saved=await save();
+        }
+    }
     if(!saved){
         AppState.workspace.handheldOrderNumbers=previousOrders;
         AppState.workspace.handheldScopeConfigured=previousConfigured;
         saveWorkspaceSnapshot?.();
         AppEvents?.emit?.("receiving:updated",{source:"handheld-assignment-reverted"});
+        showToast?.("Handheld assignment could not be saved. Please try again.","error");
         return false;
     }
     if(saved) showToast?.("Handheld orders assigned","success");

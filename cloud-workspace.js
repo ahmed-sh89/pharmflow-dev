@@ -1248,6 +1248,7 @@ async function pullActiveOrderManifest(options={}){
         );
 
         const mustApply=
+            options?.forceApply===true ||
             !localFiles.length ||
             !localData.length ||
             revision>
@@ -1318,6 +1319,23 @@ async function pullActiveOrderManifestAuthority(options={}){
     return false;
 }
 
+/* A Handheld assignment is a small authorization change, but it still uses
+   the manifest generation fence. Refresh that authority immediately before
+   the write so an operator never has to retry after a normal page refresh. */
+async function prepareActiveOrderManifestWrite(){
+    const generation=await getCloudWorkspaceGeneration({force:true});
+    if(generation===null) return false;
+
+    const pulled=await pullActiveOrderManifestAuthority({
+        forceApply:true,
+        clearIfMissing:true
+    });
+    if(!pulled) return false;
+
+    PharmFlowCloudWorkspace.generation=Number(generation);
+    return true;
+}
+
 async function clearActiveOrderManifest(){
     const pharmacyId=cloudWorkspacePharmacyId();
 
@@ -1345,6 +1363,7 @@ async function clearActiveOrderManifest(){
 
 window.saveActiveOrderManifest=saveActiveOrderManifest;
 window.pullActiveOrderManifest=pullActiveOrderManifest;
+window.prepareActiveOrderManifestWrite=prepareActiveOrderManifestWrite;
 window.clearActiveOrderManifest=clearActiveOrderManifest;
 
 /* B10 Clean 9 — structural Active Order authority.
