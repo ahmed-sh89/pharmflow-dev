@@ -7586,40 +7586,40 @@ function refreshHandheldWorkspaceStatus(){
     const loading=document.body.dataset.hhWorkspaceLoading==="1";
     const online=navigator.onLine!==false;
 
-    const setStatus=(connection,scope="")=>{
+    const assignedButton=document.getElementById("btnHandheldAssignedOrders");
+    const setStatus=connection=>{
         state.replaceChildren();
         const connectionEl=document.createElement("span");
         connectionEl.className="handheldConnectionState";
         connectionEl.textContent=connection;
         state.appendChild(connectionEl);
-        if(scope){
-            const scopeEl=document.createElement("span");
-            scopeEl.className="handheldConnectionScope";
-            scopeEl.textContent=scope;
-            state.appendChild(scopeEl);
-        }
+    };
+    const setAssignedOrders=()=>{
+        if(!assignedButton) return;
+        const count=selectedOrders.length;
+        assignedButton.disabled=count===0;
+        assignedButton.textContent=count===1 ? "1 ORDER" : `${count} ORDERS`;
+        assignedButton.title=count
+            ? "View orders assigned from the computer"
+            : "No orders assigned from the computer";
     };
     state.classList.remove("isSyncing","isOffline","isEmpty");
     if(loading){
         setStatus("SYNCING WORKSPACE…");
         state.classList.add("isSyncing");
     }else if(!online){
-        setStatus("OFFLINE","RECONNECTING");
+        setStatus("OFFLINE");
         state.classList.add("isOffline");
     }else if(!authenticated){
-        setStatus("WORKSPACE","NOT CONNECTED");
+        setStatus("NOT CONNECTED");
         state.classList.add("isOffline");
     }else if(activeOrders.length>0){
-        const scopeLabel=selectedOrders.length===activeOrders.length
-            ? "ALL ACTIVE ORDERS"
-            : selectedOrders.length===1
-                ? "ORDER "+selectedOrders[0]
-                : selectedOrders.length+" ORDERS";
-        setStatus("CONNECTED",scopeLabel);
+        setStatus("CONNECTED");
     }else{
-        setStatus("CONNECTED","NO ACTIVE ORDERS");
+        setStatus("CONNECTED");
         state.classList.add("isEmpty");
     }
+    setAssignedOrders();
 }
 window.refreshHandheldWorkspaceStatus=refreshHandheldWorkspaceStatus;
 
@@ -7644,8 +7644,12 @@ function ensureHandheldReceivingTools(){
             <div class="zebraFinalHeader">
                 <div class="zebraFinalTitle">
                     <div id="handheldWorkspaceStatus" class="zebraConnectedDot" aria-live="polite">SYNCING…</div>
+                    <button id="btnHandheldAssignedOrders" class="handheldAssignedOrdersButton" type="button" aria-label="View assigned orders">0 ORDERS</button>
                 </div>
-                <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>
+                <div class="zebraFinalActions">
+                    <button id="btnHandheldTotalScans" class="handheldTotalScansButton handheldRecentButton" type="button" aria-label="Open recent scans"><span>HISTORY</span><strong id="handheldTotalScansValue">0</strong></button>
+                    <button id="btnZebraModes" class="zebraModesButton" type="button">MODE</button>
+                </div>
             </div>
         `;
         finalHeader=header.querySelector(".zebraFinalHeader");
@@ -7653,58 +7657,50 @@ function ensureHandheldReceivingTools(){
         refreshHandheldWorkspaceStatus();
     }
 
-    document.getElementById("btnZebraModes")?.addEventListener("click", setZebraHomeMode);
+    document.getElementById("btnZebraModes").onclick=setZebraHomeMode;
+    document.getElementById("btnHandheldTotalScans").onclick=openHandheldScansPanel;
+    document.getElementById("btnHandheldAssignedOrders").onclick=openHandheldAssignedOrdersPanel;
 
-    let recent=document.getElementById("btnHandheldTotalScans");
-    if(!recent){
-        recent=document.createElement("button");
-        recent.id="btnHandheldTotalScans";
-        recent.className="handheldTotalScansButton handheldRecentButton";
-        recent.type="button";
-        recent.setAttribute("aria-label","Open recent scans");
-        recent.innerHTML=`
-            <span>HISTORY</span>
-            <strong id="handheldTotalScansValue">0</strong>
-        `;
-        header.appendChild(recent);
-    }
-
-    recent.onclick=openHandheldScansPanel;
-
-    /* History is the only work control; progress is always visible below. */
+    /* History is the only work control. Assignment is read-only here and is
+       managed on the computer, so staff cannot broaden their own scope. */
     document.getElementById("btnHandheldMonitoring")?.remove();
-    ensureHandheldReceivingProgress();
+    refreshHandheldWorkspaceStatus();
     refreshHandheldReceivingTools();
 }
 
 function refreshHandheldReceivingTools(){
     const value = document.getElementById("handheldTotalScansValue");
     if(value) value.textContent = String(getHandheldTotalScans());
-    refreshHandheldReceivingProgress();
 }
 
-function ensureHandheldReceivingProgress(){
-    const card=document.getElementById("lastScanCard");
-    if(!card || document.getElementById("handheldReceivingProgress")) return;
-    const progress=document.createElement("section");
-    progress.id="handheldReceivingProgress";
-    progress.setAttribute("aria-label","Receiving progress");
-    progress.innerHTML=`<div><span>ASSIGNED</span><strong data-assigned>0</strong></div><div><span>COMPLETED</span><strong data-completed>0</strong></div><div><span>REMAINING</span><strong data-remaining>0</strong></div><div><span>OVER</span><strong data-over>0</strong></div>`;
-    card.appendChild(progress);
-}
-
-function refreshHandheldReceivingProgress(){
-    const progress=document.getElementById("handheldReceivingProgress");
-    if(!progress) return;
-    const selected=typeof getSelectedReceivingOrderNumbers==="function"?getSelectedReceivingOrderNumbers():[];
-    const items=(AppState?.workspace?.orderData||[]).filter(item=>!selected.length||selected.some(order=>itemBelongsToOrderScope(item,order)));
-    const completed=items.filter(item=>Number(item?.orderedQty||0)>0&&Number(item?.receivedQty||0)>=Number(item?.orderedQty||0)).length;
-    const remaining=items.filter(item=>Math.max(0,Number(item?.orderedQty||0)-Number(item?.receivedQty||0))>0).length;
-    const over=items.filter(item=>Number(item?.receivedQty||0)>Number(item?.orderedQty||0)).length;
-    progress.querySelector("[data-assigned]").textContent=String(selected.length);
-    progress.querySelector("[data-completed]").textContent=String(completed);
-    progress.querySelector("[data-remaining]").textContent=String(remaining);
-    progress.querySelector("[data-over]").textContent=String(over);
+function openHandheldAssignedOrdersPanel(){
+    document.getElementById("handheldAssignedOrdersOverlay")?.remove();
+    const active=typeof getActiveReceivingOrderNumbers==="function"
+        ? getActiveReceivingOrderNumbers()
+        : [];
+    const assigned=typeof getSelectedReceivingOrderNumbers==="function"
+        ? getSelectedReceivingOrderNumbers()
+        : [];
+    const esc=value=>typeof escapeHtml==="function"
+        ? escapeHtml(String(value??""))
+        : String(value??"");
+    const rows=assigned.length
+        ? assigned.map((order,index)=>`<article class="handheldAssignedOrderRow"><span>${index+1}</span><strong>${esc(order)}</strong></article>`).join("")
+        : `<div class="handheldScansEmpty">No orders have been assigned from the computer.</div>`;
+    const overlay=document.createElement("div");
+    overlay.id="handheldAssignedOrdersOverlay";
+    overlay.className="handheldScansOverlay handheldRecentOverlay handheldAssignedOrdersOverlay";
+    overlay.innerHTML=`
+      <section class="handheldScansPanel handheldRecentPanel handheldAssignedOrdersPanel" role="dialog" aria-modal="true" aria-label="Assigned orders">
+        <header><div><span>COMPUTER ASSIGNMENT</span><strong>Assigned Orders</strong><small>${assigned.length} of ${active.length} active order${active.length===1?"":"s"} available on this Handheld</small></div><button type="button" data-close aria-label="Close">✕</button></header>
+        <div class="handheldRecentList handheldAssignedOrdersList">${rows}</div>
+        <div class="handheldRecentFooter"><span>Order access is controlled from Manage Orders on the computer.</span><button type="button" class="handheldPanelDone" data-close>DONE</button></div>
+      </section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelectorAll("[data-close]").forEach(button=>button.onclick=()=>{
+        overlay.remove();
+        setTimeout(()=>window.hhRefreshReadyState?.(),20);
+    });
 }
 
 function openHandheldReviewPhoto(url,title){

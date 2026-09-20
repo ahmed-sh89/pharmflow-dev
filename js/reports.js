@@ -952,6 +952,11 @@ async function setHandheldAssignedOrderNumbers(orderNumbers){
         .map(normalizeOrderNumber)
         .filter(order=>active.includes(order)))];
     if(!selected.length) return false;
+
+    const previousOrders=Array.isArray(AppState.workspace.handheldOrderNumbers)
+        ? AppState.workspace.handheldOrderNumbers.slice()
+        : [];
+    const previousConfigured=AppState.workspace.handheldScopeConfigured===true;
     AppState.workspace.handheldOrderNumbers=selected;
     AppState.workspace.handheldScopeConfigured=true;
     saveWorkspaceSnapshot?.();
@@ -959,6 +964,13 @@ async function setHandheldAssignedOrderNumbers(orderNumbers){
     const saved=typeof saveActiveOrderManifest==="function"
         ? await saveActiveOrderManifest({silent:false})
         : false;
+    if(!saved){
+        AppState.workspace.handheldOrderNumbers=previousOrders;
+        AppState.workspace.handheldScopeConfigured=previousConfigured;
+        saveWorkspaceSnapshot?.();
+        AppEvents?.emit?.("receiving:updated",{source:"handheld-assignment-reverted"});
+        return false;
+    }
     if(saved) showToast?.("Handheld orders assigned","success");
     return saved;
 }

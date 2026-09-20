@@ -965,6 +965,34 @@ async function saveActiveOrderManifest(options={}){
             );
         }
 
+        /* Assignment is part of the manifest authority.  Verify it as well
+           so the desktop never confirms an assignment that only existed in
+           local memory. */
+        const normalizeAssignedOrders=value=>[...new Set(
+            (Array.isArray(value)?value:[])
+                .map(order=>String(order||"").trim().toUpperCase())
+                .filter(Boolean)
+        )].sort();
+        const expectedAssignedOrders=normalizeAssignedOrders(
+            manifest.handheldOrderNumbers
+        );
+        const persistedAssignedOrders=normalizeAssignedOrders(
+            verify.manifest.handheldOrderNumbers
+        );
+        const assignmentMatches=
+            Boolean(manifest.handheldScopeConfigured)===
+                Boolean(verify.manifest.handheldScopeConfigured) &&
+            expectedAssignedOrders.length===persistedAssignedOrders.length &&
+            expectedAssignedOrders.every(
+                (order,index)=>order===persistedAssignedOrders[index]
+            );
+
+        if(!assignmentMatches){
+            throw new Error(
+                "Handheld assignment was not persisted on the server"
+            );
+        }
+
         PharmFlowCloudWorkspace.activeManifestRevision=
             Number(verify.revision||row.revision||0);
 
@@ -1798,6 +1826,11 @@ function restoreCompatibilityWorkspaceState(cloudState){
             selectedOrderNumbers:deepClone(
                 AppState?.workspace?.selectedOrderNumbers||[]
             ),
+            handheldOrderNumbers:deepClone(
+                AppState?.workspace?.handheldOrderNumbers||[]
+            ),
+            handheldScopeConfigured:
+                AppState?.workspace?.handheldScopeConfigured===true,
             orderFiles:deepClone(AppState?.workspace?.orderFiles||[]),
             mappingFiles:deepClone(AppState?.workspace?.mappingFiles||[]),
             orderData:deepClone(AppState?.workspace?.orderData||[]),
