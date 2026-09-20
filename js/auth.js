@@ -1999,13 +1999,18 @@ function openDashboardAfterAuthentication(){
 }
 
 function unlockApplicationAfterAuth(){
-    finishAuthBootState();
-
     if(AuthState.recoveryActive || window.__MEDRYVO_RECOVERY_ACTIVE){
+        finishAuthBootState();
         lockApplicationForAuth(true);
         showAuthPanel("recovery",{history:"replace"});
         return;
     }
+
+    /* The authenticated shell must remain covered until app.js completes
+       authoritative workspace hydration. This is render orchestration only:
+       session, account context, and sync behavior remain untouched. */
+    document.body.classList.add("workspaceBooting");
+    finishAuthBootState();
 
     // A sidebar drawer can remain open behind the auth screen after Sign Out.
     // If it survives the next Sign In, its backdrop covers the application and

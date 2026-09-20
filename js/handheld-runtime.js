@@ -348,7 +348,7 @@ function hhStartWorkspaceWatch(){
        exists; this is only a low-frequency safety refresh while visible. */
     HandheldRuntime.terminationTimer=setInterval(()=>{
         if(document.visibilityState!=="hidden") hhRefreshWorkspaceAuthority();
-    },15000);
+    },2200);
 }
 
 function hhInstall(){
