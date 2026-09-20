@@ -677,9 +677,9 @@ function buildFinalizedDiscrepancyEmailHTML(report){
         const orderHeading=`الطلبية ${group.orderNumber||"-"}  |  التاريخ ${group.orderDate||"-"}`;
         return `
         <section dir="rtl" style="margin:22px 0 0;border:1px solid #b8d4e9;border-radius:10px;overflow:hidden;background:#edf6fc">
-          <div style="padding:12px 16px;background:#0b5f9f;color:#ffffff;font-family:Arial,Tahoma,sans-serif;font-size:16px;font-weight:700;text-align:center">${esc(orderHeading)}</div>
+          <div style="padding:12px 16px;background:#0b5f9f;color:#ffffff;font-family:Arial,sans-serif;font-size:16px;font-weight:700;text-align:center">${esc(orderHeading)}</div>
           <div style="padding:12px">
-            <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Arial,Tahoma,sans-serif;font-size:12px;color:#1d3954;border:1px solid #cbddea" cellpadding="0" cellspacing="0">
+            <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;table-layout:fixed;font-family:Arial,sans-serif;font-size:12px;color:#1d3954;border:1px solid #cbddea" cellpadding="0" cellspacing="0">
               <thead>
                 <tr style="background:#dceefb;color:#103d66">
                   <th style="width:13%;padding:9px 6px;border-bottom:1px solid #b7d3e8;text-align:center;font-weight:800">Code</th>
@@ -703,8 +703,8 @@ function buildFinalizedDiscrepancyEmailHTML(report){
                     <tr style="background:${index%2?"#eaf4fb":"#f6fbff"}">
                       <td style="padding:9px 6px;border-bottom:1px solid #e1ebf3;text-align:center;white-space:nowrap">${esc(row["Item Number"]||"")}</td>
                       <td style="padding:9px 8px;border-bottom:1px solid #e1ebf3;text-align:left;overflow-wrap:anywhere">${esc(row["Item Name"]||"")}</td>
-                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center">${esc(row["Ordered Qty"]??0)}</td>
-                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center">${esc(row["Received Qty"]??0)}</td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center"><strong style="font-weight:800;color:#103d66">${esc(row["Ordered Qty"]??0)}</strong></td>
+                      <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center"><strong style="font-weight:800;color:#103d66">${esc(row["Received Qty"]??0)}</strong></td>
                       <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center"><strong style="display:inline-block;min-width:28px;padding:3px 5px;border-radius:5px;font-weight:800;${diffStyle}">${diff>0?"+":""}${esc(diff)}</strong></td>
                       <td style="padding:9px 5px;border-bottom:1px solid #e1ebf3;text-align:center;font-weight:700">${esc(status)}</td>
                     </tr>`;
@@ -716,18 +716,20 @@ function buildFinalizedDiscrepancyEmailHTML(report){
     }).join("");
 
     return `
-    <div dir="rtl" style="max-width:920px;margin:0 auto;padding:24px;background:#f2f7fb;font-family:Arial,Tahoma,sans-serif;color:#173d63;text-align:center">
+    <div dir="rtl" style="max-width:920px;margin:0 auto;padding:24px;background:#f2f7fb;font-family:Arial,sans-serif;color:#173d63;text-align:center">
       <div style="max-width:840px;margin:0 auto;padding:30px 28px;background:#eaf4fb;border:1px solid #b8d5e9;border-radius:14px;box-shadow:0 5px 18px rgba(23,61,99,.10)">
-      <p style="margin:0;font-family:Arial,Tahoma,sans-serif;font-size:20px;line-height:2.05;font-weight:800;color:#173d63">الإخوة الكرام بالمستودع<br>تحية طيبة وبعد<br>يوجد فرق توريد موضح أدناه<br>نأمل التكرم بالمراجعة والتشييك</p>
+      <div style="padding:20px 18px;border:1px solid #97c3e3;border-radius:10px;background:#d5eaf8">
+        <p style="margin:0;font-family:Arial,sans-serif;font-size:20px;line-height:2.05;font-weight:800;color:#173d63">الإخوة الكرام بالمستودع<br>تحية طيبة وبعد<br>يوجد فرق توريد موضح أدناه<br>نأمل التكرم بالمراجعة والتشييك</p>
+      </div>
       <section style="margin:26px 0 0;border:1px solid #b8d4e9;border-radius:10px;overflow:hidden;background:#f5faff">
-        <div style="padding:11px 14px;background:#e5f2fc;color:#103d66;font-family:Arial,Tahoma,sans-serif;font-size:15px;font-weight:800">ملخص الطلبيات التي بها فروقات</div>
-        <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;font-family:Arial,Tahoma,sans-serif;font-size:13px;color:#1d3954" cellpadding="0" cellspacing="0">
+        <div style="padding:12px 14px;background:#0b6faf;color:#ffffff;font-family:Arial,sans-serif;font-size:15px;font-weight:800">ملخص الطلبيات التي بها فروقات</div>
+        <table dir="ltr" role="presentation" style="width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px;color:#1d3954" cellpadding="0" cellspacing="0">
           <thead><tr style="background:#f1f8fe;color:#103d66"><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Order Number</th><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Order Date</th><th style="padding:9px 8px;border-bottom:1px solid #c7ddeb;font-weight:800">Discrepant Items</th></tr></thead>
           <tbody>${summaryRows}</tbody>
         </table>
       </section>
       ${sections}
-      <p style="margin:26px 0 0;font-family:Arial,Tahoma,sans-serif;font-size:18px;line-height:1.8;font-weight:700;color:#173d63">خالص الشكر والتقدير</p>
+      <p style="margin:26px 0 0;font-family:Arial,sans-serif;font-size:18px;line-height:1.8;font-weight:700;color:#173d63">خالص الشكر والتقدير</p>
       </div>
     </div>`;
 }
